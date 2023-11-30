@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "layout_strategy": {
+      "type": "string",
+      "enum": ["golden_ratio", "vertical", "horizontal"]
+    },
+    "filters": {
+      "type": "array",
+      "items": [
+        {
+          "type": "object",
+          "properties": {
+            "classname": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "exename": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "layout_strategy": "golden_ratio",
+  "filters": [
+    { "classname": "OperationStatusWindow" },
+    { "classname": "TscShellContainerClass" }
+  ]
+}
