@@ -1,3 +1,5 @@
+use std::{fs, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
 
 use super::filters::{
@@ -6,19 +8,19 @@ use super::filters::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-struct FilterJsonConfig {
+struct FilterExternalConfig {
     classname: Option<String>,
     exename: Option<String>,
     title: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct JsonConfig {
-    filters: Option<Vec<FilterJsonConfig>>,
+struct ExternalConfig {
+    filters: Option<Vec<FilterExternalConfig>>,
 }
 
-impl From<&FilterJsonConfig> for WinMatchAllFilters {
-    fn from(filters: &FilterJsonConfig) -> Self {
+impl From<&FilterExternalConfig> for WinMatchAllFilters {
+    fn from(filters: &FilterExternalConfig) -> Self {
         let mut window_filters: Vec<WindowFilterType> = Vec::new();
 
         if let Some(exename) = &filters.exename {
@@ -41,8 +43,8 @@ impl From<&FilterJsonConfig> for WinMatchAllFilters {
     }
 }
 
-impl From<Vec<FilterJsonConfig>> for WinMatchAnyFilters {
-    fn from(filters: Vec<FilterJsonConfig>) -> Self {
+impl From<Vec<FilterExternalConfig>> for WinMatchAnyFilters {
+    fn from(filters: Vec<FilterExternalConfig>) -> Self {
         WinMatchAnyFilters::new(
             filters
                 .iter()
@@ -62,14 +64,25 @@ impl AppConfigs {
         AppConfigs { filter: filters }
     }
 
-    pub fn from_file(path: &str) -> AppConfigs {
-        let file = std::fs::File::open(path).unwrap();
-        let configs: JsonConfig = serde_json::from_reader(file).unwrap();
+    pub fn from_file(path: &PathBuf) -> AppConfigs {
+        let file_content = std::fs::read_to_string(path).expect("Something went wrong reading the file");
+
+        let mut configs: ExternalConfig = toml::from_str(&file_content).unwrap();
+
+        // Needed to prevent the tray icon app from being filtered
+        let base_filter = FilterExternalConfig {
+            exename: Some("mondrian.exe".to_owned()),
+            classname: Some("tray_icon_app".to_owned()),
+            title: Some("".to_owned()),
+        };
+
+        configs.filters.as_mut().unwrap().push(base_filter);
 
         let filters: Option<WinMatchAnyFilters> = match configs.filters {
             Some(filters) => Some(WinMatchAnyFilters::from(filters)),
             None => None,
         };
+
         AppConfigs::new(filters)
     }
 }

@@ -2,29 +2,26 @@ use std::mem::MaybeUninit;
 
 use windows::Win32::{
     Foundation::HWND,
-    UI::WindowsAndMessaging::{DispatchMessageA, GetMessageA, TranslateMessage},
+    UI::WindowsAndMessaging::{DispatchMessageA, GetMessageA, TranslateMessage, MSG},
 };
 
 pub fn run_win_event_loop() {
     let mut msg = MaybeUninit::uninit();
     loop {
-        unsafe {
-            if GetMessageA(msg.as_mut_ptr(), HWND(0), 0, 0).0 > 0 {
-                let _ = TranslateMessage(msg.as_ptr());
-                let _ = DispatchMessageA(msg.as_ptr());
-            } else {
-                break;
-            }
-        }
+        next_win_event_loop_iteration(Some(&mut msg));
+    }
+}
 
-        /*
-        if let Ok(event) = TrayIconEvent::receiver().try_recv() {
-            //println!("tray event: {:?}", event);
-        }
+pub fn next_win_event_loop_iteration(msg: Option<&mut MaybeUninit<MSG>>) -> bool {
+    let mut msg = msg.map_or_else(|| MaybeUninit::uninit(), |m| *m);
 
-        if let Ok(event) = MenuEvent::receiver().try_recv() {
-            println!("menu event: {:?}", event);
+    unsafe {
+        if GetMessageA(msg.as_mut_ptr(), HWND(0), 0, 0).0 > 0 {
+            let _ = TranslateMessage(msg.as_ptr());
+            let _ = DispatchMessageA(msg.as_ptr());
+            true
+        } else {
+            false
         }
-        */
     }
 }

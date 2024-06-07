@@ -9,7 +9,6 @@ pub enum AppEvent {
     Right,
     ListAll,
     UpdateLayout,
-    Stop,
     WindowOpened(HWND),
     WindowClosed(HWND),
     WindowMinimized(HWND),

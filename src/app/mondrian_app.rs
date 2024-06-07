@@ -7,7 +7,6 @@ use crate::app::win_events_handlers::open_event_handler::OpenCloseEventHandler;
 use crate::app::win_events_handlers::position_event_handler::PositionEventHandler;
 use crate::win32utils::api::monitor::enum_display_monitors;
 use crate::win32utils::api::window::enum_user_manageable_windows;
-use crate::win32utils::win_event_loop::run_win_event_loop;
 use crate::win32utils::win_events_manager::WinEventManager;
 use crate::win32utils::window::window_ref::WindowRef;
 use log::info;
@@ -29,6 +28,7 @@ pub struct MondrianApp {
     win_events_thread: Option<thread::JoinHandle<()>>,
     tiles_manager_thread: Option<thread::JoinHandle<()>>,
     app_configs: AppConfigs,
+    is_running: bool,
 }
 
 impl MondrianApp {
@@ -39,12 +39,12 @@ impl MondrianApp {
             win_events_thread: None,
             tiles_manager_thread: None,
             app_configs,
+            is_running: false,
         }
     }
 
     pub fn run(&mut self, enable_input: bool) {
-        info!("App::run()");
-
+        info!("Start App::run()");
         let (event_sender, event_receiver) = channel();
 
         if enable_input {
@@ -53,16 +53,41 @@ impl MondrianApp {
 
         self.run_win_events_loop(event_sender.clone());
         self.run_tiles_manager(event_receiver);
+
+        self.is_running = true;
+        info!("App::run() done");
     }
 
     pub fn stop(&mut self) {
+        info!("Start App::stop()");
         self.win_events_loop_tx.as_ref().unwrap().send(0).unwrap();
         self.tiles_manager_loop_tx.as_ref().unwrap().send(0).unwrap();
 
         let _ = self.win_events_thread.take().unwrap().join();
         let _ = self.tiles_manager_thread.take().unwrap().join();
 
-        info!("App::stop()");
+        self.is_running = false;
+        info!("App::stop() done");
+    }
+
+    pub fn restart(&mut self, enable_input: bool, app_config: Option<AppConfigs>) {
+        if let Some(app_config) = app_config {
+            self.app_configs = app_config;
+        }
+
+        if (self.is_running) {
+            self.stop();
+        }
+
+        self.run(enable_input);
+    }
+
+    pub fn pause(&mut self, is_paused: bool, enable_input: bool) {
+        if is_paused {
+            self.stop();
+        } else {
+            self.run(enable_input);
+        }
     }
 
     fn run_win_events_loop(&mut self, event_sender: Sender<AppEvent>) {

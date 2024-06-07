@@ -1,3 +1,5 @@
+//#![windows_subsystem = "windows"]
+
 mod win32utils {
     pub mod api {
         pub mod cursor;
@@ -20,6 +22,7 @@ mod win32utils {
 
 mod app {
     pub mod app_event;
+    pub mod globals;
     pub mod input_binder;
     pub mod mondrian_app;
     pub mod tiles_manager;
@@ -55,62 +58,100 @@ mod app {
     }
 }
 
+use std::path::PathBuf;
+
 use crate::app::config::app_configs::AppConfigs;
 
 use app::{config::cli_args::CliArgs, mondrian_app::MondrianApp};
 use clap::Parser;
 use log::info;
-use win32utils::win_event_loop::run_win_event_loop;
+use tray_icon::{
+    menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem},
+    Icon, TrayIcon, TrayIconBuilder,
+};
+use win32utils::win_event_loop::next_win_event_loop_iteration;
 
 fn main() {
-    info!("Application started!");
+    let args = CliArgs::parse();
 
-    let app_config = get_app_configs();
+    let log_config_file = args.config_path.join("mondrian.log.yml");
+    let app_config_file = args.config_path.join("mondrian.toml");
+
+    create_configurations_file(&app_config_file, &log_config_file);
+
+    log4rs::init_file(log_config_file, Default::default()).unwrap();
+    let app_config = AppConfigs::from_file(&app_config_file);
+
+    let (_tray, pause_menu_item) = create_tray_icon();
+
     let mut app = MondrianApp::new(app_config);
-
     app.run(true);
 
-    run_win_event_loop();
+    info!("Application started!");
+
+    while next_win_event_loop_iteration(None) {
+        let event_id = MenuEvent::receiver()
+            .try_recv()
+            .map_or(None, |e| Some(e.id.0.to_owned()));
+
+        match event_id.as_ref().map(|id| id.as_str()) {
+            Some("PAUSE") => app.pause(pause_menu_item.is_checked(), true),
+            Some("RETILE") => app.restart(true, None),
+            Some("REFRESH_CONFIG") => app.restart(true, AppConfigs::from_file(&app_config_file).into()),
+            Some("OPEN_CONFIG") => {
+                let _ = open::that(app_config_file.clone());
+            }
+            Some("QUIT") => {
+                app.stop();
+                break;
+            }
+            Some(_) | None => {}
+        }
+    }
+
     //inputbot::handle_input_events();
     info!("Application stopped!");
 }
 
-fn get_app_configs() -> AppConfigs {
-    let args = CliArgs::parse();
+fn create_configurations_file(app_config_file: &PathBuf, log_config_file: &PathBuf) {
+    if !app_config_file.parent().unwrap().exists() {
+        std::fs::create_dir_all(app_config_file.parent().unwrap()).unwrap();
+    }
 
-    let config_path = args.config_path.map_or(
-        dirs::home_dir()
-            .expect("Failed to get home dir")
-            .join(".config")
-            .join("mondrian"),
-        |c| c,
-    );
-    let config_file = config_path.join("mondrian.json");
-    let config_log_file = config_path.join("mondrian.log.yml");
+    if !log_config_file.parent().unwrap().exists() {
+        std::fs::create_dir_all(log_config_file.parent().unwrap()).unwrap();
+    }
 
-    info!("Application started!");
+    if !app_config_file.exists() {
+        let bytes = include_bytes!("../assets/example_config/mondrian.toml");
+        std::fs::write(app_config_file, bytes).unwrap();
+    }
 
-    log4rs::init_file(config_log_file, Default::default()).unwrap();
-    let app_configs = AppConfigs::from_file(config_file.to_str().expect("Failed to get config path"));
-
-    app_configs
+    if !log_config_file.exists() {
+        let bytes = include_bytes!("../assets/example_config/mondrian.log.yml");
+        std::fs::write(log_config_file, bytes).unwrap();
+    }
 }
 
-//sleep(std::time::Duration::from_millis(2000));
-//
-//sleep(std::time::Duration::from_millis(10000));
-//app.stop();
+fn create_tray_icon() -> (TrayIcon, CheckMenuItem) {
+    let icon = Icon::from_resource_name("APP_ICON", Some((256, 256))).unwrap();
 
-//let mut tray_menu = Menu::new();
-//
-//let quit_i = MenuItem::new("Quit", true, None);
-//let _ = tray_menu.append_items(&[&PredefinedMenuItem::separator(), &quit_i]);
-//
-//let mut tray_icon = Some(
-//    TrayIconBuilder::new()
-//        .with_menu(Box::new(tray_menu))
-//        .with_tooltip("tao - awesome windowing lib")
-//        //.with_icon(icon)
-//        .build()
-//        .unwrap(),
-//);
+    let tray_menu = Menu::new();
+    let retile = MenuItem::with_id("RETILE", "Retile", true, None);
+    let open_config = MenuItem::with_id("OPEN_CONFIG", "Open config file", true, None);
+    let refresh_config = MenuItem::with_id("REFRESH_CONFIG", "Refresh config", true, None);
+    let pause = tray_icon::menu::CheckMenuItem::with_id("PAUSE", "Pause", true, false, None);
+    let separator = PredefinedMenuItem::separator();
+    let quit = MenuItem::with_id("QUIT", "Quit", true, None);
+
+    let _ = tray_menu.append_items(&[&retile, &open_config, &refresh_config, &pause, &separator, &quit]);
+
+    let tray_icon = TrayIconBuilder::new()
+        .with_menu(Box::new(tray_menu))
+        .with_tooltip("Mondrian")
+        .with_icon(icon)
+        .build()
+        .unwrap();
+
+    (tray_icon, pause)
+}

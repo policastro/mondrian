@@ -11,6 +11,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_POPUP,
 };
 
+use crate::app::globals::EXPERIMENTAL_FEATURES;
 use crate::win32utils::window::window_ref::WindowRef;
 
 use super::callbacks::enum_windows::user_managed_windows;
@@ -44,7 +45,9 @@ pub fn get_executable_path(hwnd: HWND) -> Option<String> {
         let h_process = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, BOOL(0), pid) {
             Ok(h_process) => h_process,
             Err(err) => {
-                log::error!("OpenProcess failed: {}", err);
+                if !EXPERIMENTAL_FEATURES {
+                    log::error!("OpenProcess failed: {}", err);
+                }
                 return None;
             }
         };
@@ -110,8 +113,19 @@ pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic
             return false;
         }
 
-        if IsIconic(hwnd).into() && check_iconic {
+        if check_iconic && IsIconic(hwnd).into() {
             return false;
+        }
+
+        // TODO: Used to enable some windows applications (like microsoft store) to be managable by the user
+
+        if EXPERIMENTAL_FEATURES {
+            if get_executable_name(hwnd).is_some_and(|s| s == "ApplicationFrameHost.exe")
+                && get_window_title(hwnd).is_some_and(|s| s != "")
+                && get_window_rect(hwnd).is_some_and(|rect| rect != [0, 0, 0, 0])
+            {
+                return true;
+            }
         }
 
         if get_window_style(hwnd) & WS_POPUP.0 != 0 {
