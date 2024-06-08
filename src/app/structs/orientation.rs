@@ -5,7 +5,7 @@ pub enum Orientation {
 }
 
 impl Orientation {
-    pub fn opposite(self) -> Orientation {
+    pub fn opposite(&self) -> Orientation {
         match self {
             Orientation::Horizontal => Orientation::Vertical,
             Orientation::Vertical => Orientation::Horizontal,

@@ -1,88 +1,84 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use crate::{app::structs::area_tree::layout::layout_strategy::AreaTreeLayoutStrategyEnum, modules::overlay::lib::color::Color};
 
-use super::filters::{
-    window_filter_type::WindowFilterType,
-    window_match_filter::{WinMatchAllFilters, WinMatchAnyFilters},
+use super::{
+    ext_configs::{ExtConfig, ExtFilterConfig, ExtLayoutConfig},
+    filters::window_match_filter::WinMatchAnyFilters,
 };
-
-#[derive(Serialize, Deserialize, Debug)]
-struct FilterExternalConfig {
-    classname: Option<String>,
-    exename: Option<String>,
-    title: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ExternalConfig {
-    filters: Option<Vec<FilterExternalConfig>>,
-}
-
-impl From<&FilterExternalConfig> for WinMatchAllFilters {
-    fn from(filters: &FilterExternalConfig) -> Self {
-        let mut window_filters: Vec<WindowFilterType> = Vec::new();
-
-        if let Some(exename) = &filters.exename {
-            window_filters.push(WindowFilterType::Exename(exename.clone()));
-        }
-
-        if let Some(classname) = &filters.classname {
-            window_filters.push(WindowFilterType::Classname(classname.clone()));
-        }
-
-        if let Some(title) = &filters.title {
-            window_filters.push(WindowFilterType::Title(title.clone()));
-        }
-
-        if window_filters.is_empty() {
-            panic!("The filter must specify at least one field between 'exename', 'classname' and 'title'.")
-        }
-
-        WinMatchAllFilters::new(window_filters)
-    }
-}
-
-impl From<Vec<FilterExternalConfig>> for WinMatchAnyFilters {
-    fn from(filters: Vec<FilterExternalConfig>) -> Self {
-        WinMatchAnyFilters::new(
-            filters
-                .iter()
-                .map(|f| WinMatchAllFilters::from(f))
-                .collect::<Vec<WinMatchAllFilters>>(),
-        )
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct AppConfigs {
     pub filter: Option<WinMatchAnyFilters>,
+    pub layout_strategy: AreaTreeLayoutStrategyEnum,
+    pub tiles_padding: u8,
+    pub border_padding: u8,
+    pub refresh_time: u64,
+    pub overlay_enabled: bool,
+    pub overlay_thickness: u8,
+    pub overlay_color: Color,
+    pub overlay_padding: u8,
+    pub keybinds_enabled: bool,
 }
 
 impl AppConfigs {
-    pub fn new(filters: Option<WinMatchAnyFilters>) -> AppConfigs {
-        AppConfigs { filter: filters }
-    }
-
     pub fn from_file(path: &PathBuf) -> AppConfigs {
         let file_content = std::fs::read_to_string(path).expect("Something went wrong reading the file");
+        let configs: ExtConfig = toml::from_str(&file_content).unwrap();
 
-        let mut configs: ExternalConfig = toml::from_str(&file_content).unwrap();
+        let filter = Self::extract_filters(&configs);
+        let layout_strategy = Self::extract_tiling_layout(&configs.layout);
+        let refresh_time = configs.advanced.refresh_time;
+        let tiles_padding = configs.layout.tiles_padding;
+        let border_padding = configs.layout.border_padding;
+        let overlay_enabled = configs.modules.overlay;
+        let overlay_thickness = configs.overlay.thickness;
+        let overlay_color = Color::from(configs.overlay.color);
+        let overlay_padding = configs.overlay.padding;
+        let keybinds_enabled = configs.modules.keybindings;
 
-        // Needed to prevent the tray icon app from being filtered
-        let base_filter = FilterExternalConfig {
+        AppConfigs {
+            filter,
+            layout_strategy,
+            refresh_time,
+            tiles_padding,
+            border_padding,
+            overlay_enabled,
+            overlay_thickness,
+            overlay_color,
+            overlay_padding,
+            keybinds_enabled,
+        }
+    }
+
+    fn extract_filters(configs: &ExtConfig) -> Option<WinMatchAnyFilters> {
+        // Needed to prevent the tray icon and overlay from being filtered
+        let mut base_filters = vec![ExtFilterConfig {
             exename: Some("mondrian.exe".to_owned()),
-            classname: Some("tray_icon_app".to_owned()),
-            title: Some("".to_owned()),
+            classname: None,
+            title: None,
+        }];
+
+        let cfg_filters = configs
+            .rules
+            .as_ref()
+            .map(|r| r.filters.clone().unwrap_or_default())
+            .unwrap_or_default();
+
+        base_filters.extend(cfg_filters);
+
+        let app_filter: Option<WinMatchAnyFilters> = Some(WinMatchAnyFilters::from(&base_filters));
+
+        app_filter
+    }
+
+    fn extract_tiling_layout(configs: &ExtLayoutConfig) -> AreaTreeLayoutStrategyEnum {
+        let app_layout_strategy: AreaTreeLayoutStrategyEnum = match configs.tiling_strategy.as_str() {
+            "horizontal" => AreaTreeLayoutStrategyEnum::from(configs.horizontal.clone()),
+            "vertical" => AreaTreeLayoutStrategyEnum::from(configs.vertical.clone()),
+            _ => AreaTreeLayoutStrategyEnum::from(configs.golden_ratio.clone()),
         };
 
-        configs.filters.as_mut().unwrap().push(base_filter);
-
-        let filters: Option<WinMatchAnyFilters> = match configs.filters {
-            Some(filters) => Some(WinMatchAnyFilters::from(filters)),
-            None => None,
-        };
-
-        AppConfigs::new(filters)
+        app_layout_strategy
     }
 }

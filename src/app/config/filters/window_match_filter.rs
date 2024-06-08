@@ -1,4 +1,4 @@
-use crate::win32utils::window::window_obj::WindowObj;
+use crate::win32::window::window_obj::WindowObjInfo;
 
 use super::{window_filter::WindowFilter, window_filter_type::WindowFilterType};
 
@@ -14,7 +14,7 @@ impl WinMatchAllFilters {
 }
 
 impl WindowFilter for WinMatchAllFilters {
-    fn filter(&self, window: &impl WindowObj) -> bool {
+    fn filter(&self, window: &impl WindowObjInfo) -> bool {
         self.filters.iter().all(|filter| filter.filter(window))
     }
 }
@@ -31,7 +31,7 @@ impl WinMatchAnyFilters {
 }
 
 impl WindowFilter for WinMatchAnyFilters {
-    fn filter(&self, window: &impl WindowObj) -> bool {
+    fn filter(&self, window: &impl WindowObjInfo) -> bool {
         self.filters.iter().any(|filter| filter.filter(window))
     }
 }
@@ -56,7 +56,7 @@ mod tests {
         }
     }
 
-    impl WindowObj for DummyWindow {
+    impl WindowObjInfo for DummyWindow {
         fn get_title(&self) -> Option<String> {
             Some(self.title.clone())
         }
@@ -72,12 +72,20 @@ mod tests {
         fn get_window_box(&self) -> Option<Area> {
             todo!()
         }
-        
-        fn focus(&self) {
+
+        fn is_visible(&self) -> bool {
             todo!()
         }
 
-        fn resize_and_move(&self, _coordinates: (u32, u32), _size: (u32, u32)) {
+        fn is_iconic(&self) -> bool {
+            todo!()
+        }
+
+        fn get_window_style(&self) -> u32 {
+            todo!()
+        }
+        
+        fn is_cloaked(&self) -> bool {
             todo!()
         }
     }

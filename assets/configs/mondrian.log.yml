@@ -1,0 +1,32 @@
+appenders:
+  console:
+    kind: console
+    encoder:
+      pattern: "{h({d(%Y-%m-%d %H:%M:%S)} {({l}):5.5} {f}:{L})}: {m}{n}"
+
+  file:
+    kind: file
+    path: "log/log.log"
+    encoder:
+      pattern: "{d(%Y-%m-%d %H:%M:%S)} {({l}):5.5} {f}:{L}: {m}{n}"
+  
+  inspector:
+    kind: file
+    path: "log/inspector.log"
+    encoder:
+      pattern: "{d(%Y-%m-%d %H:%M:%S)} {({l}):5.5} {m}{n}"
+
+root:
+  level: info
+  appenders:
+    - console
+    - file
+
+loggers:
+  # Route log events sent to the "app::requests" logger to the "requests" appender,
+  # and *not* the normal appenders installed at the root
+  app::inspector:
+    level: info
+    appenders:
+      - inspector
+    additive: false

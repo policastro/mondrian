@@ -1,4 +1,4 @@
-use crate::win32utils::window::window_obj::WindowObj;
+use crate::win32::window::window_obj::WindowObjInfo;
 
 use super::window_filter::WindowFilter;
 
@@ -11,7 +11,7 @@ pub enum WindowFilterType {
 
 impl WindowFilterType {
     fn match_value(&self, query: &str, value: Option<String>) -> bool {
-        match query.starts_with("/") && query.ends_with("/") {
+        match query.starts_with('/') && query.ends_with('/') {
             true => {
                 let re = regex::Regex::new(&query[1..query.len() - 1]).unwrap();
                 value.map_or(false, |v| re.is_match(&v))
@@ -22,7 +22,7 @@ impl WindowFilterType {
 }
 
 impl WindowFilter for WindowFilterType {
-    fn filter(&self, window: &impl WindowObj) -> bool {
+    fn filter(&self, window: &impl WindowObjInfo) -> bool {
         match self {
             WindowFilterType::Exename(query) => self.match_value(query, window.get_exe_name()),
             WindowFilterType::Title(query) => self.match_value(query, window.get_title()),
@@ -51,7 +51,7 @@ mod tests {
         }
     }
 
-    impl WindowObj for DummyWindow {
+    impl WindowObjInfo for DummyWindow {
         fn get_title(&self) -> Option<String> {
             Some(self.title.clone())
         }
@@ -68,11 +68,19 @@ mod tests {
             todo!()
         }
 
-        fn focus(&self) {
+        fn is_visible(&self) -> bool {
             todo!()
         }
 
-        fn resize_and_move(&self, _coordinates: (u32, u32), _size: (u32, u32)) {
+        fn is_iconic(&self) -> bool {
+            todo!()
+        }
+
+        fn get_window_style(&self) -> u32 {
+            todo!()
+        }
+
+        fn is_cloaked(&self) -> bool {
             todo!()
         }
     }

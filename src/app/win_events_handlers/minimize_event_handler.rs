@@ -1,37 +1,33 @@
 use std::sync::mpsc::Sender;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZEEND;
 
-use windows::Win32::
-    UI::
-        WindowsAndMessaging::
-            EVENT_SYSTEM_MINIMIZESTART
-        
-    
-;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZESTART;
 
-use crate::app::app_event::AppEvent;
-use crate::win32utils::api::window::is_user_managable_window;
-use crate::win32utils::win_events_manager::{WinEvent, WinEventHandler};
+use crate::app::win32_event::Win32Event;
+use crate::win32::api::window::is_user_managable_window;
+use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
 
 pub struct MinimizeEventHandler {
-    sender: Sender<AppEvent>,
+    sender: Sender<Win32Event>,
 }
 
 impl MinimizeEventHandler {
-    pub fn new(sender: Sender<AppEvent>) -> MinimizeEventHandler {
+    pub fn new(sender: Sender<Win32Event>) -> MinimizeEventHandler {
         MinimizeEventHandler { sender }
     }
 }
 
 impl WinEventHandler for MinimizeEventHandler {
+    fn init(&mut self) {}
+
     fn handle(&mut self, event: &WinEvent) {
         if !is_user_managable_window(event.hwnd, false, false) {
             return;
         }
 
         let app_event = match event.event {
-            EVENT_SYSTEM_MINIMIZESTART => AppEvent::WindowMinimized(event.hwnd),
-            EVENT_SYSTEM_MINIMIZEEND => AppEvent::WindowRestored(event.hwnd),
+            EVENT_SYSTEM_MINIMIZESTART => Win32Event::WindowMinimized(event.hwnd),
+            EVENT_SYSTEM_MINIMIZEEND => Win32Event::WindowRestored(event.hwnd),
             _ => return,
         };
 
@@ -39,5 +35,9 @@ impl WinEventHandler for MinimizeEventHandler {
             Ok(_) => (),
             Err(err) => log::error!("Failed to send event min/max: {}", err),
         }
+    }
+
+    fn get_managed_events(&self) -> Option<Vec<u32>> {
+        vec![EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND].into()
     }
 }

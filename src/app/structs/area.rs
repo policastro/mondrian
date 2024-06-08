@@ -2,70 +2,65 @@ use super::orientation::Orientation;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Area {
-    pub x: u32,
-    pub y: u32,
-    pub width: u32,
-    pub height: u32,
+    pub x: i32,
+    pub y: i32,
+    pub width: u16,
+    pub height: u16,
 }
 
 impl Area {
-    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Area {
+    pub fn new(x: i32, y: i32, width: u16, height: u16) -> Area {
         Area { x, y, width, height }
     }
 
-    pub fn from_array(area: [u32; 4]) -> Area {
-        Area::new(area[0], area[1], area[2], area[3])
+    pub fn get_center(&self) -> (i32, i32) {
+        (self.x + i32::from(self.width / 2), self.y + i32::from(self.height / 2))
     }
 
-    pub fn empty() -> Area {
-        Area::new(0, 0, 0, 0)
+    pub fn contains(&self, point: (i32, i32)) -> bool {
+        point.0 >= self.x
+            && point.0 <= self.x + i32::from(self.width)
+            && point.1 >= self.y
+            && point.1 <= self.y + i32::from(self.height)
     }
 
-    pub fn get_center(&self) -> (u32, u32) {
-        (self.x + self.width / 2, self.y + self.height / 2)
-    }
-
-    pub fn contains(&self, point: (u32, u32)) -> bool {
-        point.0 >= self.x && point.0 <= self.x + self.width && point.1 >= self.y && point.1 <= self.y + self.height
-    }
-
-    pub fn get_origin(&self) -> (u32, u32) {
+    pub fn get_origin(&self) -> (i32, i32) {
         (self.x, self.y)
     }
 
-    pub fn get_size(&self) -> (u32, u32) {
+    pub fn get_size(&self) -> (u16, u16) {
         (self.width, self.height)
     }
 
     pub fn get_shift(&self, other: &Area) -> (i32, i32, i32, i32) {
         (
-            self.x as i32 - other.x as i32,
-            self.y as i32 - other.y as i32,
+            self.x - other.x,
+            self.y - other.y,
             self.width as i32 - other.width as i32,
             self.height as i32 - other.height as i32,
         )
     }
 
-    pub fn get_bottom_center(&self) -> (u32, u32) {
-        (self.x + self.width / 2, self.y + self.height)
+    pub fn get_bottom_center(&self) -> (i32, i32) {
+        (self.x + i32::from(self.width / 2), self.y + i32::from(self.height))
     }
 
-    pub fn get_right_center(&self) -> (u32, u32) {
-        (self.x + self.width, self.y + self.height / 2)
+    pub fn get_right_center(&self) -> (i32, i32) {
+        (self.x + i32::from(self.width), self.y + i32::from(self.height / 2))
     }
 
-    pub fn get_left_center(&self) -> (u32, u32) {
-        (self.x, self.y + self.height / 2)
+    pub fn get_left_center(&self) -> (i32, i32) {
+        (self.x, self.y + i32::from(self.height / 2))
     }
 
-    pub fn get_top_center(&self) -> (u32, u32) {
-        (self.x + self.width / 2, self.y)
+    pub fn get_top_center(&self) -> (i32, i32) {
+        (self.x + i32::from(self.width / 2), self.y)
     }
 
     pub fn split(&self, ratio: u8, orientation: Orientation) -> (Area, Area) {
         let (new_width, new_height) = match orientation {
-            Orientation::Vertical => ((self.width * ratio as u32) / 100, self.height),
-            Orientation::Horizontal => (self.width, (self.height * ratio as u32) / 100),
+            Orientation::Vertical => (Area::get_percent(self.width, ratio), self.height),
+            Orientation::Horizontal => (self.width, Area::get_percent(self.height, ratio)),
         };
 
         let (delta_w, delta_h) = match orientation {
@@ -76,13 +71,41 @@ impl Area {
         (
             Area::new(self.x, self.y, new_width, new_height),
             Area::new(
-                self.x.saturating_add(delta_w),
-                self.y.saturating_add(delta_h),
+                self.x.saturating_add(i32::from(delta_w)),
+                self.y.saturating_add(i32::from(delta_h)),
                 self.width.saturating_sub(delta_w),
                 self.height.saturating_sub(delta_h),
             ),
         )
     }
+
+    pub fn pad(&self, padding_x: Option<(i8, i8)>, padding_y: Option<(i8, i8)>) -> Area {
+        let padding_x = padding_x.unwrap_or((0, 0));
+        let padding_y = padding_y.unwrap_or((0, 0));
+
+        let new_width = Self::add_to_dimension(self.width, padding_x.0 + padding_x.1);
+        let new_height = Self::add_to_dimension(self.height, padding_y.0 + padding_y.1);
+
+        Area::new(
+            self.x + i32::from(padding_x.0),
+            self.y + i32::from(padding_y.0),
+            new_width,
+            new_height,
+        )
+    }
+
+    fn get_percent(value: u16, percent: u8) -> u16 {
+        assert!(percent <= 100); // TODO It shouldn't fail, because percent should be at most 100
+        (f32::from(value) * (f32::from(percent) / 100.0)).round() as u16
+    }
+
+    fn add_to_dimension(value: u16, delta: i8) -> u16 {
+        match delta > 0 {
+            true => value.saturating_sub(delta.abs() as u16),
+            false => value.saturating_add(delta.abs() as u16),
+        }
+    }
+
 }
 
 #[cfg(test)]
@@ -133,4 +156,3 @@ mod tests {
         assert_eq!(area2.get_center(), (49, 49));
     }
 }
-

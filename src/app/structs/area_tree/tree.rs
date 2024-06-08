@@ -1,21 +1,25 @@
 use crate::app::structs::{area::Area, orientation::Orientation};
 
-use super::{layout::layout_strategy::AreaTreeLayoutStrategy, leaf::AreaLeaf, node::AreaNode};
+use super::{
+    layout::layout_strategy::{AreaTreeLayoutStrategy, AreaTreeLayoutStrategyEnum},
+    leaf::AreaLeaf,
+    node::AreaNode,
+};
 use std::fmt::Debug;
 
-pub struct AreaTree<T: Copy, L: AreaTreeLayoutStrategy + Copy> {
+pub struct AreaTree<T: Copy> {
     root: AreaNode<T>,
     area: Area,
-    layout_strategy: L,
+    layout_strategy: AreaTreeLayoutStrategyEnum,
 }
 
-impl<T: Copy, L: AreaTreeLayoutStrategy + Copy> AreaTree<T, L> {
-    pub fn new(area: Area, layout_strategy: L) -> AreaTree<T, L> {
+impl<T: Copy> AreaTree<T> {
+    pub fn new(area: Area, layout_strategy: AreaTreeLayoutStrategyEnum) -> AreaTree<T> {
         let (orientation, ratio) = layout_strategy.get_initial_params();
         AreaTree {
             root: AreaNode::new_internal(orientation, ratio),
             area,
-            layout_strategy: layout_strategy,
+            layout_strategy,
         }
     }
 
@@ -23,7 +27,7 @@ impl<T: Copy, L: AreaTreeLayoutStrategy + Copy> AreaTree<T, L> {
         self.root.insert(id, self.area, &mut self.layout_strategy);
     }
 
-    pub fn set_parent_orientation(&mut self, point: (u32, u32), orientation: Orientation) {
+    pub fn set_parent_orientation(&mut self, point: (i32, i32), orientation: Orientation) {
         let parent = self.root.find_parent_as_mut(point, self.area);
         if let Some(parent) = parent {
             parent.orientation = orientation;
@@ -34,15 +38,15 @@ impl<T: Copy, L: AreaTreeLayoutStrategy + Copy> AreaTree<T, L> {
         self.root.get_all_leaves(self.area)
     }
 
-    pub fn find_leaf(&self, point: (u32, u32)) -> Option<AreaLeaf<T>> {
+    pub fn find_leaf(&self, point: (i32, i32)) -> Option<AreaLeaf<T>> {
         self.root.find_leaf(point, self.area)
     }
 
-    pub fn remove(&mut self, point: (u32, u32)) {
+    pub fn remove(&mut self, point: (i32, i32)) {
         self.root.remove(point, self.area);
     }
 
-    pub(crate) fn resize_ancestor(&mut self, orig_point1: (u32, u32), orig_point2: (u32, u32), grow_ratio: i32) {
+    pub(crate) fn resize_ancestor(&mut self, orig_point1: (i32, i32), orig_point2: (i32, i32), grow_ratio: i32) {
         let ancestor = self
             .root
             .find_lowest_common_ancestor(orig_point1, orig_point2, self.area);
@@ -66,7 +70,7 @@ impl<T: Copy, L: AreaTreeLayoutStrategy + Copy> AreaTree<T, L> {
         }
     }
 
-    pub(crate) fn swap_ids(&mut self, point1: (u32, u32), point2: (u32, u32)) {
+    pub(crate) fn swap_ids(&mut self, point1: (i32, i32), point2: (i32, i32)) {
         let id1 = self.root.get_id(point1, self.area);
         if id1.is_none() {
             return;
@@ -80,12 +84,12 @@ impl<T: Copy, L: AreaTreeLayoutStrategy + Copy> AreaTree<T, L> {
         self.root.set_id(id2.unwrap(), point1, self.area);
     }
 
-    pub fn replace_id(&mut self, point: (u32, u32), id: T) -> Option<T> {
+    pub fn replace_id(&mut self, point: (i32, i32), id: T) -> Option<T> {
         self.root.set_id(id, point, self.area)
     }
 }
 
-impl<T: Debug + Copy, L: AreaTreeLayoutStrategy + Copy> Debug for AreaTree<T, L> {
+impl<T: Debug + Copy> Debug for AreaTree<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#?}", self.root)
     }
