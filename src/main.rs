@@ -23,7 +23,7 @@ mod win32 {
 
 mod app {
     pub mod globals;
-    pub mod mondrian_app_event;
+    pub mod mondrian_command;
     pub mod win32_event;
     pub mod win_events_handlers {
         pub mod minimize_event_handler;
@@ -86,6 +86,7 @@ mod modules {
         pub mod module;
     }
     pub mod keybindings {
+        pub mod configs;
         pub mod module;
     }
 }

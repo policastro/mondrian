@@ -4,7 +4,6 @@ version = "1.0.0"
 edition = "2021"
 
 [dependencies]
-inputbot = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 lazy_static = "1.4"
@@ -20,6 +19,8 @@ open = "5.1.4"
 enum_dispatch = "0.3.13"
 widestring = "1.1.0"
 tokio = { version = "1.26.0", features = ["full"] }
+log-panics = "2.1.0"
+inputbot = { git = "https://github.com/obv-mikhail/InputBot", rev = "018aed3" }
 
 [dependencies.windows]
 version = "0.57"

@@ -1,7 +1,7 @@
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_QUIT};
 
 use crate::{
-    modules::module::Module,
+    modules::module::{ConfigurableModule, Module},
     win32::{
         win_event_loop::{next_win_event_loop_no_block, start_mono_win_event_loop},
         win_events_manager::WinEventManagerBuilder,
@@ -55,6 +55,12 @@ impl Module for OverlayModule {
     }
 }
 
+impl ConfigurableModule<OverlayConfig> for OverlayModule {
+    fn configure(&mut self, config: OverlayConfig) {
+        self.configs = config;
+    }
+}
+
 impl OverlayModule {
     pub fn new() -> OverlayModule {
         OverlayModule {
@@ -63,10 +69,6 @@ impl OverlayModule {
             configs: OverlayConfig::default(),
             enabled: true,
         }
-    }
-
-    pub fn configure(&mut self, config: OverlayConfig) {
-        self.configs = config;
     }
 
     pub fn pause(&mut self, is_paused: bool) {

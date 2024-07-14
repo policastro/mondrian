@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
-use crate::{app::structs::area_tree::layout::layout_strategy::AreaTreeLayoutStrategyEnum, modules::overlay::lib::color::Color};
+use crate::{
+    app::structs::area_tree::layout::layout_strategy::AreaTreeLayoutStrategyEnum, modules::overlay::lib::color::Color,
+};
 
 use super::{
-    ext_configs::{ExtConfig, ExtFilterConfig, ExtLayoutConfig},
+    ext_configs::{ExtBindingConfig, ExtConfig, ExtFilterConfig, ExtLayoutConfig},
     filters::window_match_filter::WinMatchAnyFilters,
 };
 
@@ -19,25 +21,36 @@ pub struct AppConfigs {
     pub overlay_color: Color,
     pub overlay_padding: u8,
     pub keybinds_enabled: bool,
+    pub bindings: Vec<ExtBindingConfig>,
 }
 
 impl AppConfigs {
-    pub fn from_file(path: &PathBuf) -> AppConfigs {
+    pub fn from_file(path: &PathBuf) -> Result<AppConfigs, toml::de::Error> {
         let file_content = std::fs::read_to_string(path).expect("Something went wrong reading the file");
-        let configs: ExtConfig = toml::from_str(&file_content).unwrap();
 
-        let filter = Self::extract_filters(&configs);
-        let layout_strategy = Self::extract_tiling_layout(&configs.layout);
-        let refresh_time = configs.advanced.refresh_time;
-        let tiles_padding = configs.layout.tiles_padding;
-        let border_padding = configs.layout.border_padding;
-        let overlay_enabled = configs.modules.overlay;
-        let overlay_thickness = configs.overlay.thickness;
-        let overlay_color = Color::from(configs.overlay.color);
-        let overlay_padding = configs.overlay.padding;
-        let keybinds_enabled = configs.modules.keybindings;
-
-        AppConfigs {
+        let cfg: ExtConfig = toml::from_str(&file_content)?;
+        
+        let filter = Self::extract_filters(&cfg);
+        let layout_strategy = Self::extract_tiling_layout(&cfg.layout);
+        let refresh_time = cfg.advanced.refresh_time;
+        let tiles_padding = cfg.layout.tiles_padding;
+        let border_padding = cfg.layout.border_padding;
+        let overlay_enabled = cfg.modules.overlay;
+        let overlay_thickness = cfg.overlay.thickness;
+        let overlay_color = Color::from(cfg.overlay.color);
+        let overlay_padding = cfg.overlay.padding;
+        let keybinds_enabled = cfg.modules.keybindings;
+        let default_mod = cfg.keybindings.default_modifier;
+        let bindings = cfg
+            .keybindings
+            .bindings
+            .into_iter()
+            .map(|b| ExtBindingConfig {
+                modifier: b.modifier.or(Some(default_mod.clone())),
+                ..b
+            })
+            .collect();
+        Ok(AppConfigs {
             filter,
             layout_strategy,
             refresh_time,
@@ -48,7 +61,8 @@ impl AppConfigs {
             overlay_color,
             overlay_padding,
             keybinds_enabled,
-        }
+            bindings,
+        })
     }
 
     fn extract_filters(configs: &ExtConfig) -> Option<WinMatchAnyFilters> {

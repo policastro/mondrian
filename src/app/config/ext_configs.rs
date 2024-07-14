@@ -1,12 +1,15 @@
-use serde::Deserialize;
+use serde::{de::Error, Deserialize, Deserializer};
 
-use crate::app::structs::{
-    area_tree::layout::{
-        golden_ration_layout::GoldenRatioLayoutStrategy, layout_strategy::AreaTreeLayoutStrategyEnum,
-        mono_axis_layout::MonoAxisLayoutStrategy,
+use crate::app::{
+    mondrian_command::MondrianCommand,
+    structs::{
+        area_tree::layout::{
+            golden_ration_layout::GoldenRatioLayoutStrategy, layout_strategy::AreaTreeLayoutStrategyEnum,
+            mono_axis_layout::MonoAxisLayoutStrategy,
+        },
+        direction::Direction,
+        orientation::Orientation,
     },
-    direction::Direction,
-    orientation::Orientation,
 };
 
 use super::filters::{
@@ -22,14 +25,24 @@ pub struct ExtConfig {
     #[serde(default)]
     pub advanced: AdvancedConfig,
     #[serde(default)]
+    pub modules: ExtModulesConfig,
+    #[serde(default)]
     pub overlay: ExtOverlayConfig,
     #[serde(default)]
-    pub modules: ExtModulesConfig,
+    pub keybindings: ExtKeybindingsConfig,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct ExtRulesConfig {
     pub filters: Option<Vec<ExtFilterConfig>>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(default)]
+pub struct ExtKeybindingsConfig {
+    #[serde(deserialize_with = "deserialize_modifier")]
+    pub default_modifier: Vec<String>,
+    pub bindings: Vec<ExtBindingConfig>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -86,12 +99,22 @@ pub struct ExtModulesConfig {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct ExtBindingConfig {
+    #[serde(default, deserialize_with = "deserialize_modifier_opt")]
+    pub modifier: Option<Vec<String>>,
+
+    #[serde(deserialize_with = "deserialize_key")]
+    pub key: String,
+
+    pub action: MondrianCommand,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct ExtFilterConfig {
     pub classname: Option<String>,
     pub exename: Option<String>,
     pub title: Option<String>,
 }
-
 
 /// Defaults
 impl Default for AdvancedConfig {
@@ -115,6 +138,15 @@ impl Default for ExtOverlayConfig {
             thickness: 4,
             color: (0, 150, 148),
             padding: 0,
+        }
+    }
+}
+
+impl Default for ExtKeybindingsConfig {
+    fn default() -> Self {
+        ExtKeybindingsConfig {
+            default_modifier: vec!["ALT".to_string()],
+            bindings: vec![],
         }
     }
 }
@@ -224,5 +256,55 @@ impl From<&Vec<ExtFilterConfig>> for WinMatchAnyFilters {
                 .map(WinMatchAllFilters::from)
                 .collect::<Vec<WinMatchAllFilters>>(),
         )
+    }
+}
+
+/// Deserialization functions
+fn deserialize_modifier<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let valid_modifiers = ["ALT", "CTRL", "SHIFT", "WIN"];
+
+    let s: String = String::deserialize(deserializer)?;
+    let keys = s.trim().split("+").map(|key| key.trim().to_uppercase());
+    let is_valid = keys.clone().all(|key| valid_modifiers.contains(&key.as_str()));
+    match is_valid {
+        true => Ok(keys.collect::<Vec<String>>()),
+        false => Err(D::Error::custom(format!("Invalid modifier: {}", s))),
+    }
+}
+
+// TODO I can probably merge this with deserialize_modifier
+fn deserialize_modifier_opt<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let valid_modifiers = ["ALT", "CTRL", "SHIFT", "WIN"];
+
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    let s = match s {
+        Some(s) => s,
+        None => return Ok(None),
+    };
+    let keys = s.trim().split("+").map(|key| key.trim().to_uppercase());
+    let is_valid = keys.clone().all(|key| valid_modifiers.contains(&key.as_str()));
+    match is_valid {
+        true => Ok(Some(keys.collect::<Vec<String>>())),
+        false => Err(D::Error::custom(format!("Invalid modifier: {}", s))),
+    }
+}
+
+fn deserialize_key<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let is_char = regex::Regex::new(r"^[A-Za-z\d]$").unwrap();
+    let is_dir = regex::Regex::new(r"^\b(?i)left|right|up|down\b$").unwrap();
+    let s: String = String::deserialize(deserializer)?;
+    let is_valid = is_char.is_match(&s.to_uppercase()) || is_dir.is_match(&s.to_uppercase());
+    match is_valid {
+        true => Ok(s.to_uppercase()),
+        false => Err(D::Error::custom(format!("Invalid key: {}", s))),
     }
 }

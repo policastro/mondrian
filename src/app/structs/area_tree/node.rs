@@ -66,7 +66,7 @@ impl<T: Copy> AreaNode<T> {
         let mut curr_node = self;
         let mut curr_area = area;
         while !curr_node.is_leaf() {
-            let (min_area, max_area) = curr_node.get_split_area(area);
+            let (min_area, max_area) = curr_node.get_split_area(curr_area);
             let is_left = min_area.contains(point);
 
             if !is_left && !max_area.contains(point) {
@@ -78,7 +78,6 @@ impl<T: Copy> AreaNode<T> {
                 false => (curr_node.right.as_ref().unwrap(), max_area),
             };
         }
-
         curr_node.id.map(|id| AreaLeaf::new(id, curr_area))
     }
 

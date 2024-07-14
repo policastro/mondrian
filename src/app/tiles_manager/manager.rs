@@ -154,7 +154,6 @@ impl TilesManager {
         if area_shift.2 != 0 {
             let growth = (area_shift.2 as f32 / area.width as f32) * 100f32;
             let (x, growth) = match area_shift.0.abs() > 10 {
-                // TODO Probabilmente, questo correttivo non servirà quando le dimensioni delle finestre saranno precise
                 true => (area.get_left_center().0.saturating_sub(20), -growth),
                 false => (area.get_right_center().0.saturating_add(20), growth),
             };

@@ -3,7 +3,7 @@ use crate::app::tiles_manager::config::TilesManagerConfig;
 use crate::app::tiles_manager::manager::TilesManager;
 use crate::app::tiles_manager::monitor_layout::MonitorLayout;
 use crate::app::win32_event::Win32Event;
-use crate::modules::module::Module;
+use crate::modules::module::{ConfigurableModule, Module};
 use crate::win32::win_event_loop::next_win_event_loop_no_block;
 
 use crate::app::config::filters::window_filter::WindowFilter;
@@ -60,6 +60,12 @@ impl Module for CoreModule {
     }
 }
 
+impl ConfigurableModule<CoreConfigs> for CoreModule {
+    fn configure(&mut self, config: CoreConfigs) {
+        self.configs = config;
+    }
+}
+
 impl CoreModule {
     pub fn new() -> Self {
         CoreModule {
@@ -71,10 +77,6 @@ impl CoreModule {
             ready: Arc::new(AtomicU8::new(0)),
             enabled: true,
         }
-    }
-
-    pub fn configure(&mut self, configs: CoreConfigs) {
-        self.configs = configs;
     }
 
     pub fn pause(&mut self, is_paused: bool) {

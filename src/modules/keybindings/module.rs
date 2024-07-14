@@ -1,16 +1,24 @@
-use crate::modules::module::Module;
-use inputbot::KeybdKey::*;
+use crate::{
+    app::mondrian_command::MondrianCommand,
+    modules::module::{ConfigurableModule, Module},
+};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
+        mpsc::Sender,
         Arc,
     },
     thread,
 };
+
+use super::configs::KeybindingsConfig;
 pub struct KeybindingsModule {
+    bus: Sender<MondrianCommand>,
     input_thread: Option<thread::JoinHandle<()>>,
     enabled: bool,
     running: Arc<AtomicBool>,
+    configs: KeybindingsConfig,
+    binded_keys: Vec<inputbot::KeybdKey>,
 }
 
 impl Module for KeybindingsModule {
@@ -40,12 +48,21 @@ impl Module for KeybindingsModule {
     }
 }
 
+impl ConfigurableModule<KeybindingsConfig> for KeybindingsModule {
+    fn configure(&mut self, config: KeybindingsConfig) {
+        self.configs = config;
+    }
+}
+
 impl KeybindingsModule {
-    pub fn new() -> KeybindingsModule {
+    pub fn new(bus: Sender<MondrianCommand>) -> KeybindingsModule {
         KeybindingsModule {
             input_thread: None,
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
+            configs: KeybindingsConfig::default(),
+            binded_keys: vec![],
+            bus,
         }
     }
 
@@ -63,40 +80,22 @@ impl KeybindingsModule {
         }
         self.running.store(true, Ordering::SeqCst);
 
-        // define an inline function
+        let bus = self.bus.clone();
 
-        LeftKey.bind(|| {
-            let modifier = LAltKey.is_pressed() && LControlKey.is_pressed() && LSuper.is_pressed();
-            if modifier {
-                println!("LeftKey");
-            }
+        self.configs.bindings.iter().for_each(move |b| {
+            let modifiers = b.0.clone();
+            let command = b.2.clone();
+            let bus = bus.clone();
+            b.1.bind(move || {
+                if modifiers.iter().all(|m| m.is_pressed()) {
+                    bus.send(command).unwrap();
+                }
+            });
         });
 
-        RightKey.bind(|| {
-            let modifier = LAltKey.is_pressed() && LControlKey.is_pressed() && LSuper.is_pressed();
-            if modifier {
-                println!("RightKey");
-            }
-        });
+        self.binded_keys = self.configs.bindings.iter().map(|b| b.1).collect();
 
-        UpKey.bind(|| {
-            let modifier = LAltKey.is_pressed() && LControlKey.is_pressed() && LSuper.is_pressed();
-            if modifier {
-                println!("UpKey");
-            }
-        });
-
-        DownKey.bind(|| {
-            let modifier = LAltKey.is_pressed() && LControlKey.is_pressed() && LSuper.is_pressed();
-            if modifier {
-                println!("DownKey");
-            }
-        });
-
-        let input_thread = thread::spawn(move || {
-            inputbot::handle_input_events();
-        });
-
+        let input_thread = thread::spawn(move || inputbot::handle_input_events());
         self.input_thread = Some(input_thread);
     }
 
@@ -105,7 +104,11 @@ impl KeybindingsModule {
             return;
         }
         self.running.store(false, Ordering::SeqCst);
-        // TODO find a way to kill the thread (but honestly, I think that I should change the dependency)
+        self.binded_keys.iter().for_each(|k| k.unbind());
+        self.binded_keys.clear();
+        if self.input_thread.is_some() {
+            self.input_thread.take().unwrap().join().unwrap();
+        }
     }
 
     fn restart(&mut self) {

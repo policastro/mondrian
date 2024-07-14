@@ -15,14 +15,21 @@ toogle = false     # if toggled, the direction of the next split will be opposit
 start_down = true # direction of the first split
 toogle = false    # if toggled, the direction of the next split will be opposite
 
-[overlay]
-thickness = 4         # thickness of the border
-color = [0, 150, 148] # color of the border
-padding = 0           # padding between the border and the tiles
-
 [modules]
 keybindings = true # enable the keybindings module
 overlay = true     # enable the overlay module
+
+[keybindings] # if keybindings = true
+default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
+bindings = [
+    { key = "X", action = "quit" }, # e.g. when pressing <default_modifier>+X, the action will be "quit"
+    { modifier = "CTRL", key = "R", action = "refresh" }, # e.g. when pressing CTRL+R, the action will be "refresh"
+]
+
+[overlay] # if overlay = true
+thickness = 4         # thickness of the border
+color = [0, 150, 148] # color of the border
+padding = 0           # padding between the border and the tiles
 
 [advanced]
 refresh_time = 50 # in milliseconds, set the time between each refresh. Values below 30 are not recommended, and probably there is no benefit with such a low value
