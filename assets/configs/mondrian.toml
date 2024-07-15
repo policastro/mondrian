@@ -1,7 +1,7 @@
 [layout]
 tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal" or "vertical"
-tiles_padding = 4                # padding between tiles. WARNING: there is a bug when tiles_padding > 23, so be careful 
-border_padding = 4               # padding between border and tiles
+tiles_padding = 4                # padding between tiles, it must be between 0 and 60
+border_padding = 4               # padding between border and tiles, it must be between 0 and 60
 
 [layout.golden_ratio] # if tiling_strategy = "golden_ratio"
 clockwise = true # true = clockwise, false = counterclockwise
@@ -23,7 +23,7 @@ overlay = true     # enable the overlay module
 default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
 bindings = [
     { key = "X", action = "quit" }, # e.g. when pressing <default_modifier>+X, the action will be "quit"
-    { modifier = "CTRL", key = "R", action = "refresh" }, # e.g. when pressing CTRL+R, the action will be "refresh"
+    { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
 ]
 
 [overlay] # if overlay = true

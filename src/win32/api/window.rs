@@ -8,16 +8,21 @@ use crate::win32::window::window_ref::WindowRef;
 use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
-use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
+use windows::Win32::System::Threading::{
+    AttachThreadInput, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+};
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, GWL_STYLE, GW_OWNER,
-    MINMAXINFO, TITLEBARINFO, WM_GETMINMAXINFO, WS_POPUP,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
+    GWL_STYLE, GW_OWNER, MINMAXINFO, TITLEBARINFO, WM_GETMINMAXINFO, WS_POPUP,
 };
 
-pub fn get_foreground_window() -> HWND {
-    unsafe { GetForegroundWindow() }
+pub fn get_foreground_window() -> Option<HWND> {
+    match unsafe { GetForegroundWindow() } {
+        HWND(0) => None,
+        hwnd => Some(hwnd),
+    }
 }
 
 pub fn get_class_name(hwnd: HWND) -> String {
@@ -112,7 +117,8 @@ pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic
     }
 
     // TODO To exclude admin windows
-    if get_executable_name(hwnd).is_none() {
+    // TODO Can I manage "mondrian.exe" in another way? It isn't managed even without this check (filters), but I see it in the logs when WindowClosed is fired.
+    if get_executable_name(hwnd).is_none() || get_executable_name(hwnd).is_some_and(|s| s == "mondrian.exe") {
         return false;
     }
 
@@ -177,6 +183,15 @@ pub fn is_window_cloaked(hwnd: HWND) -> bool {
         Ok(_) => cloaked.0 != 0,
         Err(_) => false,
     }
+}
+
+pub fn focus(hwnd: HWND) {
+    unsafe {
+        let curr_thread = GetWindowThreadProcessId(GetForegroundWindow(), None);
+        let target_thread = GetWindowThreadProcessId(hwnd, None);
+        let _ = AttachThreadInput(curr_thread, target_thread, true);
+        let _ = SetForegroundWindow(hwnd);
+    };
 }
 
 pub fn get_window_minmax_size(hwnd: HWND) -> ((i32, i32), (i32, i32)) {

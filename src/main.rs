@@ -24,13 +24,13 @@ mod win32 {
 mod app {
     pub mod globals;
     pub mod mondrian_command;
-    pub mod win32_event;
     pub mod win_events_handlers {
         pub mod minimize_event_handler;
         pub mod open_event_handler;
         pub mod position_event_handler;
     }
     pub mod tiles_manager {
+        pub mod tm_command;
         pub mod config;
         pub(super) mod container;
         pub(super) mod containers_manager;

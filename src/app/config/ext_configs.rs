@@ -49,7 +49,10 @@ pub struct ExtKeybindingsConfig {
 #[serde(default)]
 pub struct ExtLayoutConfig {
     pub tiling_strategy: String,
+
+    #[serde(deserialize_with = "deserialize_u8_max::<60,_>")]
     pub tiles_padding: u8,
+    #[serde(deserialize_with = "deserialize_u8_max::<60,_>")]
     pub border_padding: u8,
     pub golden_ratio: ExtLayoutGoldenRatioConfig,
     pub horizontal: ExtLayoutHorizontalConfig,
@@ -260,6 +263,17 @@ impl From<&Vec<ExtFilterConfig>> for WinMatchAnyFilters {
 }
 
 /// Deserialization functions
+fn deserialize_u8_max<'de, const L: u8, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let v: u8 = u8::deserialize(deserializer)?;
+    match v <= L {
+        true => Ok(v),
+        false => Err(D::Error::custom(format!("Value must be less than {L}"))),
+    }
+}
+
 fn deserialize_modifier<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: Deserializer<'de>,

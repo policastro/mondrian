@@ -17,15 +17,15 @@ use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use crate::win32::window::window_snapshot::WindowSnapshot;
-use crate::{app::win32_event::Win32Event, win32::api::window::get_window_minmax_size};
+use crate::{app::tiles_manager::tm_command::TMCommand, win32::api::window::get_window_minmax_size};
 
 pub struct PositionEventHandler {
-    sender: Sender<Win32Event>,
+    sender: Sender<TMCommand>,
     windows: HashMap<isize, WindowSnapshot>,
 }
 
 impl PositionEventHandler {
-    pub fn new(sender: Sender<Win32Event>) -> PositionEventHandler {
+    pub fn new(sender: Sender<TMCommand>) -> PositionEventHandler {
         PositionEventHandler {
             sender,
             windows: HashMap::new(),
@@ -72,18 +72,18 @@ impl PositionEventHandler {
 
         let area_shift = area.get_shift(&curr_area);
 
-        let event: Win32Event = match area_shift.2 != 0 || area_shift.3 != 0 {
+        let event: TMCommand = match area_shift.2 != 0 || area_shift.3 != 0 {
             true => {
                 let ((min_width, min_height), _) = get_window_minmax_size(hwnd);
                 // TODO Used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
                 let is_minsize = (curr_area.width as i32 == min_width) || (curr_area.height as i32 == min_height);
                 if !curr_area.contains(dest_point) && is_minsize {
-                    Win32Event::WindowMoved(hwnd, dest_point, orientation)
+                    TMCommand::WindowMoved(hwnd, dest_point, orientation)
                 } else {
-                    Win32Event::WindowResized(hwnd)
+                    TMCommand::WindowResized(hwnd)
                 }
             }
-            false => Win32Event::WindowMoved(hwnd, dest_point, orientation),
+            false => TMCommand::WindowMoved(hwnd, dest_point, orientation),
         };
 
         if let Err(err) = self.sender.send(event) {
@@ -94,7 +94,7 @@ impl PositionEventHandler {
 
 impl WinEventHandler for PositionEventHandler {
     fn init(&mut self) {}
-    
+
     fn handle(&mut self, event: &WinEvent) {
         if !is_user_managable_window(event.hwnd, true, true) {
             return;

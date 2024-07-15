@@ -7,17 +7,18 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_SYSTEM_FOREGROUND,
 };
 
-use crate::app::win32_event::Win32Event;
+use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::win32::api::window::{enum_user_manageable_windows, is_user_managable_window, is_window_visible};
 use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
+use crate::win32::window::window_obj::WindowObjInfo;
 
 pub struct OpenCloseEventHandler {
-    sender: Sender<Win32Event>,
+    sender: Sender<TMCommand>,
     windows: HashSet<isize>,
 }
 
 impl OpenCloseEventHandler {
-    pub fn new(sender: Sender<Win32Event>) -> OpenCloseEventHandler {
+    pub fn new(sender: Sender<TMCommand>) -> OpenCloseEventHandler {
         OpenCloseEventHandler {
             sender,
             windows: HashSet::new(),
@@ -32,7 +33,7 @@ impl OpenCloseEventHandler {
 
         if is_managed && self.windows.insert(hwnd.0) {
             self.sender
-                .send(Win32Event::WindowOpened(hwnd))
+                .send(TMCommand::WindowOpened(hwnd))
                 .expect("Failed to send event open");
         }
     }
@@ -40,9 +41,13 @@ impl OpenCloseEventHandler {
 
 impl WinEventHandler for OpenCloseEventHandler {
     fn init(&mut self) {
-        enum_user_manageable_windows()
-            .iter()
-            .for_each(|w| self.send_open_event(w.hwnd));
+        // Bigger windows first
+        let mut wins: Vec<(u32, HWND)> = enum_user_manageable_windows()
+            .into_iter()
+            .map(|w| (w.get_window_box().unwrap_or_default().get_area(), w.hwnd))
+            .collect();
+        wins.sort_by(|a, b| a.0.cmp(&b.0).reverse());
+        wins.into_iter().for_each(|w| self.send_open_event(w.1));
     }
 
     fn handle(&mut self, event: &WinEvent) {
@@ -63,7 +68,7 @@ impl WinEventHandler for OpenCloseEventHandler {
         {
             self.windows.remove(&event.hwnd.0);
             self.sender
-                .send(Win32Event::WindowClosed(event.hwnd))
+                .send(TMCommand::WindowClosed(event.hwnd))
                 .expect("Failed to send event close");
         }
     }

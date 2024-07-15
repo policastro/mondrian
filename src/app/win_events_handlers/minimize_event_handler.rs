@@ -3,16 +3,16 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZEEND;
 
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZESTART;
 
-use crate::app::win32_event::Win32Event;
+use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::win32::api::window::is_user_managable_window;
 use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
 
 pub struct MinimizeEventHandler {
-    sender: Sender<Win32Event>,
+    sender: Sender<TMCommand>,
 }
 
 impl MinimizeEventHandler {
-    pub fn new(sender: Sender<Win32Event>) -> MinimizeEventHandler {
+    pub fn new(sender: Sender<TMCommand>) -> MinimizeEventHandler {
         MinimizeEventHandler { sender }
     }
 }
@@ -26,8 +26,8 @@ impl WinEventHandler for MinimizeEventHandler {
         }
 
         let app_event = match event.event {
-            EVENT_SYSTEM_MINIMIZESTART => Win32Event::WindowMinimized(event.hwnd),
-            EVENT_SYSTEM_MINIMIZEEND => Win32Event::WindowRestored(event.hwnd),
+            EVENT_SYSTEM_MINIMIZESTART => TMCommand::WindowMinimized(event.hwnd),
+            EVENT_SYSTEM_MINIMIZEEND => TMCommand::WindowRestored(event.hwnd),
             _ => return,
         };
 

@@ -1,21 +1,20 @@
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{
-        IsIconic, IsWindow, IsWindowVisible, SetForegroundWindow, SetWindowPos, HWND_TOP,
-        SWP_NOSENDCHANGING, SWP_SHOWWINDOW,
-    },
-};
-
-use crate::{
-    app::structs::area::Area,
-    win32::api::window::{
-        get_class_name, get_executable_name, get_window_box, get_window_style, get_window_title, is_window_cloaked,
+        IsIconic, IsWindow, IsWindowVisible, SetWindowPos, HWND_TOP, SWP_NOSENDCHANGING, SWP_SHOWWINDOW,
     },
 };
 
 use super::{
     window_obj::{WindowObjHandler, WindowObjInfo},
     window_snapshot::WindowSnapshot,
+};
+use crate::{
+    app::structs::area::Area,
+    win32::api::window::{
+        focus, get_class_name, get_executable_name, get_window_box, get_window_style, get_window_title,
+        is_window_cloaked,
+    },
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -99,9 +98,7 @@ impl WindowObjInfo for WindowRef {
 
 impl WindowObjHandler for WindowRef {
     fn focus(&self) {
-        unsafe {
-            let _ = SetForegroundWindow(self.hwnd);
-        };
+        focus(self.hwnd);
     }
 
     fn resize_and_move(&self, coordinates: (i32, i32), size: (u16, u16)) -> Result<(), ()> {

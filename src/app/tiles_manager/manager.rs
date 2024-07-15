@@ -25,9 +25,11 @@ pub struct TilesManager {
 impl TilesManager {
     /// Creates a new [`TilesManager`].
     pub fn new(monitors_layout: Vec<MonitorLayout>, config: Option<TilesManagerConfig>) -> Self {
+        let config = config.unwrap_or_default();
+
         let cointainers: Vec<Container> = monitors_layout
             .into_iter()
-            .map(|m| Container::new(m.monitor, m.layout))
+            .map(|m| Container::new(m.monitor, m.layout, config.get_border_pad()))
             .collect();
 
         let containers_manager = ContainersManager::new(cointainers);
@@ -35,7 +37,7 @@ impl TilesManager {
         TilesManager {
             managed_wins: HashMap::new(),
             containers: containers_manager,
-            config: config.unwrap_or_default(),
+            config,
         }
     }
 
@@ -73,48 +75,65 @@ impl TilesManager {
         true
     }
 
-    pub fn select_near(&mut self, direction: Direction) {
-        if self.current().is_none() || self.managed_wins.len() < 2 {
-            return;
+    pub fn find_at(&mut self, direction: Direction) -> Option<AreaLeaf<isize>> {
+        let current = get_foreground_window()?;
+        if !self.has_window(current) || self.managed_wins.len() < 2 {
+            return None;
         }
 
-        let area = self.get_stored_area(HWND(self.current().unwrap()));
-        if let Some(area) = area {
+        let padxy = self.config.get_tile_pad_xy();
+        let area = WindowRef::new(current).get_window_box()?.pad_xy((-padxy.0, -padxy.1));
+
+        let selection_point = match direction {
+            Direction::Right => area.get_ne_corner().with_offset(20, 5), // TODO Prefer up
+            Direction::Down => area.get_se_corner().with_offset(-5, 20), // TODO Prefer left
+            Direction::Left => area.get_sw_corner().with_offset(-20, -5), // TODO Prefer up
+            Direction::Up => area.get_nw_corner().with_offset(5, -20),   // TODO Prefer left
+        };
+
+        if let Some(tree) = self.containers.which_tree(selection_point) {
+            // If the point is in a tree
+            return tree.find_leaf(selection_point, self.config.get_border_pad());
+        } else if let Some(container) = self.containers.which_nearest_mut(area.get_center(), direction) {
+            // Otherwise, find the nearest container
+            let area = container.workarea;
             let selection_point = match direction {
-                Direction::Left => area.get_left_center().with_offset((-20, -20)),
-                Direction::Right => area.get_right_center().with_offset((20, -20)),
-                Direction::Up => area.get_top_center().with_offset((-20, 20)),
-                Direction::Down => area.get_bottom_center().with_offset((-20, 20)),
+                Direction::Right => area.get_nw_corner(),
+                Direction::Down => area.get_ne_corner(),
+                Direction::Left => area.get_se_corner(),
+                Direction::Up => area.get_sw_corner(),
             };
+            return container.tree.find_leaf(selection_point, self.config.get_border_pad());
+        }
 
-            let windows_tree = match self.containers.which_tree(area.get_center()) {
-                Some(tree) => tree,
-                None => return,
-            };
+        None
+    }
 
-            if let Some(leaf) = windows_tree.find_leaf(selection_point) {
-                self.focus_window(leaf.id);
-            }
+    pub fn focus_at(&mut self, direction: Direction) {
+        if let Some(leaf) = self.find_at(direction) {
+            self.focus_window(leaf.id);
         }
     }
 
-    pub fn select_next(&mut self) {
-        if self.current().is_none() || self.managed_wins.len() < 2 {
+    pub fn focus_next(&mut self) {
+        let current = match get_foreground_window() {
+            Some(hwnd) => hwnd,
+            None => return,
+        };
+
+        if !self.has_window(current) || self.managed_wins.len() < 2 {
             return;
         }
 
-        let prev_current = self.current().unwrap();
-        let mut directions = vec![Direction::Left, Direction::Right, Direction::Up, Direction::Down];
+        let mut directions = vec![Direction::Right, Direction::Down, Direction::Left, Direction::Up];
 
-        while prev_current == self.current().unwrap() && !directions.is_empty() {
-            self.select_near(directions.pop().unwrap());
+        let mut leaf = None;
+        while leaf.is_none() && !directions.is_empty() {
+            leaf = self.find_at(directions.pop().unwrap());
         }
-    }
 
-    fn current(&self) -> Option<isize> {
-        match get_foreground_window().0 {
-            0 => None,
-            id => Some(id),
+        if let Some(leaf) = leaf {
+            self.focus_window(leaf.id);
         }
     }
 
@@ -126,8 +145,8 @@ impl TilesManager {
 
             self.managed_wins.remove(&hwnd.0);
 
-            if self.current() == Some(hwnd.0) {
-                self.select_next();
+            if get_foreground_window().is_none() {
+                self.focus_next();
             }
 
             self.update();
@@ -225,10 +244,11 @@ impl TilesManager {
             .containers
             .get_containers()
             .iter()
-            .map(|c| (c.monitor.workarea, c.tree.get_all_leaves()))
+            .map(|c| (c.monitor.workarea, c.tree.get_all_leaves(self.config.get_border_pad())))
             .collect();
         leaves_vec.into_iter().for_each(|l| self.update_leaves(l.1, l.0));
     }
+
     pub fn update_leaves(&mut self, leaves: Vec<AreaLeaf<isize>>, workarea: Area) {
         let managed_wins = self.managed_wins.clone();
 
@@ -243,8 +263,7 @@ impl TilesManager {
         let mut errors = 0;
         leaves.clone().into_iter().for_each(|leaf| {
             let win_ref = WindowRef::from(leaf.id);
-            let padding = self.get_padding(leaf.viewbox, workarea);
-            let area = leaf.viewbox.pad(Some(padding.0), Some(padding.1));
+            let area = leaf.viewbox.pad_xy(self.config.get_tile_pad_xy());
             let res = win_ref.resize_and_move(area.get_origin(), area.get_size());
 
             if res.is_err() {
@@ -263,7 +282,7 @@ impl TilesManager {
     }
 
     pub fn focus_window(&mut self, id: isize) {
-        if self.current() != Some(id) {
+        if !get_foreground_window().is_some_and(|hwnd| hwnd.0 == id) {
             WindowRef::new(HWND(id)).focus()
         }
     }
@@ -281,42 +300,14 @@ impl TilesManager {
         win.leaf = leaf;
         self.managed_wins.insert(win.id.0, win);
     }
-
-    fn get_padding(&self, area: Area, workarea: Area) -> ((i8, i8), (i8, i8)) {
-        let ipad = self.config.tiles_padding - 4; // TODO Note: 4 is a magic number
-        let epad = self.config.border_padding - 4; // TODO Note: 4 is a magic number
-
-        let x = if area.x == workarea.x { epad } else { ipad };
-        let y = if area.y == workarea.y { epad } else { ipad };
-        let w = match area.x + i32::from(area.width) == i32::from(workarea.width) {
-            true => epad,
-            false => ipad,
-        };
-        let h = match area.y + i32::from(area.height) == i32::from(workarea.height) {
-            true => epad,
-            false => ipad,
-        };
-
-        ((x, w), (y, h))
-    }
 }
 
 trait Point {
-    fn with_offset(&self, offset: (i32, i32)) -> (i32, i32);
+    fn with_offset(&self, offset_x: i32, offset_y: i32) -> (i32, i32);
 }
 
 impl Point for (i32, i32) {
-    fn with_offset(&self, offset: (i32, i32)) -> (i32, i32) {
-        let x = match offset.0 < 0 {
-            true => self.0.saturating_sub(offset.0),
-            false => self.0.saturating_add(offset.0),
-        };
-
-        let y = match offset.1 < 0 {
-            true => self.1.saturating_sub(offset.1),
-            false => self.1.saturating_add(offset.1),
-        };
-
-        (x, y)
+    fn with_offset(&self, offset_x: i32, offset_y: i32) -> (i32, i32) {
+        (self.0.saturating_add(offset_x), self.1.saturating_add(offset_y))
     }
 }

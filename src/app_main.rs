@@ -7,6 +7,7 @@ use std::time::Duration;
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
 use crate::app::mondrian_command::MondrianCommand;
+use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::modules::core::module::CoreModule;
 use crate::modules::keybindings::module::KeybindingsModule;
 use crate::modules::module::{ConfigurableModule, Module};
@@ -83,6 +84,7 @@ fn start_app(cfg_file: &PathBuf) {
                 keybindings.restart();
             }
             MondrianCommand::OpenConfig => drop(open::that(cfg_file.clone())),
+            MondrianCommand::Focus(dir) => core.send_to_tiles_manager(TMCommand::Focus(dir)),
             MondrianCommand::Quit => break,
         }
     }

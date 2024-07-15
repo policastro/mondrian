@@ -94,8 +94,7 @@ impl KeybindingsModule {
         });
 
         self.binded_keys = self.configs.bindings.iter().map(|b| b.1).collect();
-
-        let input_thread = thread::spawn(move || inputbot::handle_input_events());
+        let input_thread = thread::spawn(|| inputbot::handle_input_events());
         self.input_thread = Some(input_thread);
     }
 
@@ -104,6 +103,7 @@ impl KeybindingsModule {
             return;
         }
         self.running.store(false, Ordering::SeqCst);
+
         self.binded_keys.iter().for_each(|k| k.unbind());
         self.binded_keys.clear();
         if self.input_thread.is_some() {

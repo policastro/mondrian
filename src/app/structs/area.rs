@@ -8,6 +8,12 @@ pub struct Area {
     pub height: u16,
 }
 
+impl Default for Area {
+    fn default() -> Self {
+        Area::new(0, 0, 0, 0)
+    }
+}
+
 impl Area {
     pub fn new(x: i32, y: i32, width: u16, height: u16) -> Area {
         Area { x, y, width, height }
@@ -39,6 +45,26 @@ impl Area {
             self.width as i32 - other.width as i32,
             self.height as i32 - other.height as i32,
         )
+    }
+
+    pub fn get_area(&self) -> u32 {
+        u32::from(self.width) * u32::from(self.height)
+    }
+
+    pub fn get_ne_corner(&self) -> (i32, i32) {
+        (self.x + i32::from(self.width), self.y)
+    }
+
+    pub fn get_nw_corner(&self) -> (i32, i32) {
+        (self.x, self.y)
+    }
+
+    pub fn get_sw_corner(&self) -> (i32, i32) {
+        (self.x, self.y + i32::from(self.height))
+    }
+
+    pub fn get_se_corner(&self) -> (i32, i32) {
+        (self.x + i32::from(self.width), self.y + i32::from(self.height))
     }
 
     pub fn get_bottom_center(&self) -> (i32, i32) {
@@ -94,6 +120,14 @@ impl Area {
         )
     }
 
+    pub fn pad_full(&self, padding: i8) -> Area {
+        self.pad(Some((padding, padding)), Some((padding, padding)))
+    }
+
+    pub fn pad_xy(&self, (px, py): (i8, i8)) -> Area {
+        self.pad(Some((px, px)), Some((py, py)))
+    }
+
     fn get_percent(value: u16, percent: u8) -> u16 {
         assert!(percent <= 100); // TODO It shouldn't fail, because percent should be at most 100
         (f32::from(value) * (f32::from(percent) / 100.0)).round() as u16
@@ -105,7 +139,6 @@ impl Area {
             false => value.saturating_add(delta.abs() as u16),
         }
     }
-
 }
 
 #[cfg(test)]

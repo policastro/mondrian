@@ -1,4 +1,4 @@
-use crate::app::structs::area_tree::tree::AreaTree;
+use crate::app::structs::{area::Area, area_tree::tree::AreaTree, direction::Direction};
 
 use super::container::Container;
 
@@ -33,7 +33,86 @@ impl ContainersManager {
         self.which_mut(point).map(|c| &mut c.tree)
     }
 
+    pub fn which_nearest_mut(&mut self, ref_point: (i32, i32), direction: Direction) -> Option<&mut Container> {
+        let ref_m = self
+            .containers
+            .iter()
+            .find(|c| c.contains(ref_point))
+            .map(|c| c.monitor)?;
+
+        let point = match direction {
+            Direction::Right => ref_m.workarea.get_ne_corner(),
+            Direction::Down => ref_m.workarea.get_se_corner(),
+            Direction::Left => ref_m.workarea.get_sw_corner(),
+            Direction::Up => ref_m.workarea.get_nw_corner(),
+        };
+
+        let nearest = self
+            .containers
+            .iter_mut()
+            .filter(|c| c.monitor.id != ref_m.id) // Filter out the same monitor
+            .filter(|c| {
+                // Filter out the ones that are not in the same direction
+                let area = c.monitor.workarea;
+                match direction {
+                    Direction::Right => area.x >= point.0,
+                    Direction::Down => area.y >= point.1,
+                    Direction::Left => area.x + i32::from(area.width) <= point.0,
+                    Direction::Up => area.y + i32::from(area.height) <= point.1,
+                }
+            })
+            .min_by(|a, b| {
+                let dist1 = nearest_distance_area(point, a.monitor.workarea, direction);
+                let dist2 = nearest_distance_area(point, b.monitor.workarea, direction);
+                dist1.cmp(&dist2)
+            });
+
+        return nearest;
+    }
+
     pub fn get_containers(&mut self) -> Vec<&mut Container> {
         self.containers.iter_mut().collect()
+    }
+}
+
+fn nearest_distance_area(ref_point: (i32, i32), area: Area, direction: Direction) -> u32 {
+    let point = match direction {
+        Direction::Right => match (ref_point.1 >= area.y, ref_point.1 <= area.y + i32::from(area.height)) {
+            (true, true) => ref_point,
+            (true, false) => area.get_sw_corner(),
+            (false, true) => area.get_nw_corner(),
+            _ => area.get_left_center(),
+        },
+        Direction::Down => match (ref_point.0 >= area.x, ref_point.0 <= area.x + i32::from(area.width)) {
+            (true, true) => ref_point,
+            (true, false) => area.get_ne_corner(),
+            (false, true) => area.get_nw_corner(),
+            _ => area.get_top_center(),
+        },
+        Direction::Left => match (ref_point.1 >= area.y, ref_point.1 <= area.y + i32::from(area.height)) {
+            (true, true) => ref_point,
+            (true, false) => area.get_se_corner(),
+            (false, true) => area.get_ne_corner(),
+            _ => area.get_right_center(),
+        },
+        Direction::Up => match (ref_point.0 >= area.x, ref_point.0 <= area.x + i32::from(area.width)) {
+            (true, true) => ref_point,
+            (true, false) => area.get_se_corner(),
+            (false, true) => area.get_sw_corner(),
+            _ => area.get_bottom_center(),
+        },
+    };
+    point.distance(ref_point)
+}
+
+trait Point {
+    fn distance(&self, other: (i32, i32)) -> u32;
+}
+
+impl Point for (i32, i32) {
+    fn distance(&self, other: (i32, i32)) -> u32 {
+        let (x1, y1) = self;
+        let (x2, y2) = other;
+        ((x2 - x1).pow(2) + (y2 - y1).pow(2)) as u32
     }
 }

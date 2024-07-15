@@ -2,7 +2,7 @@ use crate::app::config::filters::window_match_filter::WinMatchAnyFilters;
 use crate::app::tiles_manager::config::TilesManagerConfig;
 use crate::app::tiles_manager::manager::TilesManager;
 use crate::app::tiles_manager::monitor_layout::MonitorLayout;
-use crate::app::win32_event::Win32Event;
+use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::modules::module::{ConfigurableModule, Module};
 use crate::win32::win_event_loop::next_win_event_loop_no_block;
 
@@ -24,7 +24,7 @@ use std::time::Duration;
 use super::config::CoreConfigs;
 
 pub struct CoreModule {
-    tiles_manager_loop_event_tx: Option<Sender<Win32Event>>,
+    tm_command_tx: Option<Sender<TMCommand>>,
     win_events_thread: Option<thread::JoinHandle<()>>,
     tiles_manager_thread: Option<thread::JoinHandle<()>>,
     configs: CoreConfigs,
@@ -70,7 +70,7 @@ impl CoreModule {
     pub fn new() -> Self {
         CoreModule {
             configs: CoreConfigs::default(),
-            tiles_manager_loop_event_tx: None,
+            tm_command_tx: None,
             win_events_thread: None,
             tiles_manager_thread: None,
             running: Arc::new(AtomicBool::new(false)),
@@ -84,6 +84,15 @@ impl CoreModule {
             self.stop();
         } else {
             self.start();
+        }
+    }
+
+    pub fn send_to_tiles_manager(&self, event: TMCommand) {
+        if !self.enabled || !self.running.load(Ordering::SeqCst) {
+            return;
+        }
+        if let Some(tx) = self.tm_command_tx.as_ref() {
+            tx.send(event).expect("Failed to send event to tiles manager");
         }
     }
 
@@ -105,7 +114,7 @@ impl CoreModule {
 
         self.run_win_events_loop(event_sender.clone());
 
-        self.tiles_manager_loop_event_tx = Some(event_sender.clone());
+        self.tm_command_tx = Some(event_sender.clone());
         self.run_tiles_manager(event_receiver);
 
         log::trace!("App::run() done");
@@ -119,10 +128,10 @@ impl CoreModule {
         self.running.store(false, Ordering::SeqCst);
 
         log::trace!("Start App::stop()");
-        self.tiles_manager_loop_event_tx
+        self.tm_command_tx
             .as_ref()
             .unwrap()
-            .send(Win32Event::Quit)
+            .send(TMCommand::Quit)
             .unwrap();
 
         if let Some(thread) = self.win_events_thread.take() {
@@ -142,7 +151,7 @@ impl CoreModule {
         self.start();
     }
 
-    fn run_win_events_loop(&mut self, event_sender: Sender<Win32Event>) {
+    fn run_win_events_loop(&mut self, event_sender: Sender<TMCommand>) {
         let wem_builder = WinEventManager::builder()
             .handler(PositionEventHandler::new(event_sender.clone()))
             .handler(OpenCloseEventHandler::new(event_sender.clone()))
@@ -163,7 +172,7 @@ impl CoreModule {
         }));
     }
 
-    fn run_tiles_manager(&mut self, event_receiver: Receiver<Win32Event>) {
+    fn run_tiles_manager(&mut self, event_receiver: Receiver<TMCommand>) {
         let filter = self.configs.filter.clone().unwrap();
 
         let monitors = enum_display_monitors()
@@ -192,41 +201,42 @@ impl CoreModule {
     }
 }
 
-fn handle_tiles_manager(tm: &mut TilesManager, event: Win32Event) -> bool {
+fn handle_tiles_manager(tm: &mut TilesManager, event: TMCommand) -> bool {
     match event {
-        Win32Event::WindowOpened(hwnd) | Win32Event::WindowRestored(hwnd) => drop(tm.add(WindowRef::new(hwnd), true)),
-        Win32Event::WindowClosed(hwnd) | Win32Event::WindowMinimized(hwnd) => tm.remove(hwnd),
-        Win32Event::WindowMoved(hwnd, coords, orientation) => tm.change_window_position(hwnd, coords, orientation),
-        Win32Event::WindowResized(hwnd) => tm.refresh_window_size(hwnd),
-        Win32Event::Quit => return false,
-        _ => (),
+        TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) => drop(tm.add(WindowRef::new(hwnd), true)),
+        TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) => tm.remove(hwnd),
+        TMCommand::WindowMoved(hwnd, coords, orientation) => tm.change_window_position(hwnd, coords, orientation),
+        TMCommand::WindowResized(hwnd) => tm.refresh_window_size(hwnd),
+        TMCommand::Focus(direction) => tm.focus_at(direction),
+        TMCommand::Noop => return true,
+        TMCommand::Quit => return false,
     };
     true
 }
 
 fn filter_events(
-    result: Result<Win32Event, RecvError>,
+    result: Result<TMCommand, RecvError>,
     win_filter: &WinMatchAnyFilters,
-) -> Result<Win32Event, RecvError> {
+) -> Result<TMCommand, RecvError> {
     let event = match result {
         Ok(event) => event,
-        _ => return Ok(Win32Event::Noop),
+        _ => return Ok(TMCommand::Noop),
     };
 
     Ok(match event {
-        Win32Event::WindowClosed(hwnd) => {
+        TMCommand::WindowClosed(hwnd) => {
             let snap = WindowRef::new(hwnd).snapshot();
             log::info!("[{:?}]: {}", event, snap.map_or("/".to_string(), |w| format!("{}", w)));
             event
         }
-        Win32Event::WindowOpened(hwnd)
-        | Win32Event::WindowMinimized(hwnd)
-        | Win32Event::WindowRestored(hwnd)
-        | Win32Event::WindowResized(hwnd)
-        | Win32Event::WindowMoved(hwnd, _, _) => {
+        TMCommand::WindowOpened(hwnd)
+        | TMCommand::WindowMinimized(hwnd)
+        | TMCommand::WindowRestored(hwnd)
+        | TMCommand::WindowResized(hwnd)
+        | TMCommand::WindowMoved(hwnd, _, _) => {
             let win_info = match WindowRef::new(hwnd).snapshot() {
                 Some(win_info) => win_info,
-                None => return Ok(Win32Event::Noop),
+                None => return Ok(TMCommand::Noop),
             };
 
             match !win_filter.filter(&win_info) {
@@ -236,7 +246,7 @@ fn filter_events(
                 }
                 false => {
                     log::trace!("[excluded][{:?}]: {}", event, win_info);
-                    Win32Event::Noop
+                    TMCommand::Noop
                 }
             }
         }
