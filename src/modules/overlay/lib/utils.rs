@@ -14,7 +14,7 @@ use windows::{
 use super::color::Color;
 
 pub fn to_pcwstr(s: &str) -> PCWSTR {
-    let wide: Vec<u16> = OsStr::new(s).encode_wide().chain(Some(0).into_iter()).collect();
+    let wide: Vec<u16> = OsStr::new(s).encode_wide().chain(Some(0)).collect();
     PCWSTR(wide.as_ptr())
 }
 

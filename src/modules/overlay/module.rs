@@ -1,7 +1,8 @@
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_QUIT};
 
 use crate::{
-    modules::module::{ConfigurableModule, Module},
+    app::{config::app_configs::AppConfigs, mondrian_command::MondrianCommand},
+    modules::module::{module_impl::ModuleImpl, ConfigurableModule, Module},
     win32::{
         win_event_loop::{next_win_event_loop_no_block, start_mono_win_event_loop},
         win_events_manager::WinEventManagerBuilder,
@@ -28,39 +29,6 @@ pub struct OverlayModule {
     enabled: bool,
 }
 
-impl Module for OverlayModule {
-    fn start(&mut self) {
-        if self.enabled {
-            self.start();
-        }
-    }
-
-    fn stop(&mut self) {
-        if self.enabled {
-            self.stop();
-        }
-    }
-
-    fn restart(&mut self) {
-        if self.enabled {
-            self.restart();
-        }
-    }
-
-    fn enable(&mut self, enabled: bool) {
-        self.enabled = enabled;
-        if !enabled {
-            self.stop();
-        }
-    }
-}
-
-impl ConfigurableModule<OverlayConfig> for OverlayModule {
-    fn configure(&mut self, config: OverlayConfig) {
-        self.configs = config;
-    }
-}
-
 impl OverlayModule {
     pub fn new() -> OverlayModule {
         OverlayModule {
@@ -70,15 +38,9 @@ impl OverlayModule {
             enabled: true,
         }
     }
+}
 
-    pub fn pause(&mut self, is_paused: bool) {
-        if is_paused {
-            self.stop();
-        } else {
-            self.start();
-        }
-    }
-
+impl ModuleImpl for OverlayModule {
     fn start(&mut self) {
         if self.running.load(Ordering::SeqCst) {
             return;
@@ -91,7 +53,7 @@ impl OverlayModule {
         let padding = self.configs.padding;
         let main_thread = thread::spawn(move || {
             let overlay = WindowOverlay::new(thickness, border_color, padding);
-            let overlay_hwnd = overlay.hwnd.clone();
+            let overlay_hwnd = overlay.hwnd;
 
             let wem_builder = WinEventManagerBuilder::new().handler(FocusEventHandler::new(overlay));
             thread::spawn(move || {
@@ -117,7 +79,46 @@ impl OverlayModule {
     }
 
     fn restart(&mut self) {
-        self.stop();
-        self.start();
+        Module::stop(self);
+        Module::start(self);
+    }
+
+    fn pause(&mut self, is_paused: bool) {
+        match is_paused {
+            true => Module::stop(self),
+            false => Module::start(self),
+        }
+    }
+
+    fn enable(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    fn handle(&mut self, event: &MondrianCommand, app_configs: &AppConfigs) {
+        match event {
+            MondrianCommand::Pause(pause) => Module::pause(self, *pause),
+            MondrianCommand::Configure => {
+                Module::enable(self, app_configs.overlay_enabled);
+                self.configure(app_configs.into());
+            }
+            MondrianCommand::RefreshConfig => {
+                Module::enable(self, app_configs.overlay_enabled);
+                self.configure(app_configs.into());
+                Module::restart(self);
+            }
+            MondrianCommand::Quit => Module::stop(self),
+            _ => {}
+        }
+    }
+}
+
+impl ConfigurableModule for OverlayModule {
+    type Config = OverlayConfig;
+    fn configure(&mut self, config: Self::Config) {
+        self.configs = config;
     }
 }

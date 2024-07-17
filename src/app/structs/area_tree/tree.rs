@@ -1,20 +1,22 @@
 use crate::app::structs::{area::Area, orientation::Orientation};
 
 use super::{
-    layout::layout_strategy::{AreaTreeLayoutStrategy, AreaTreeLayoutStrategyEnum},
+    layout_strategy::{LayoutStrategy, LayoutStrategyEnum},
     leaf::AreaLeaf,
     node::AreaNode,
 };
 use std::fmt::Debug;
 
+pub type WinTree = AreaTree<isize>;
+
 pub struct AreaTree<T: Copy> {
     root: AreaNode<T>,
     area: Area,
-    layout_strategy: AreaTreeLayoutStrategyEnum,
+    layout_strategy: LayoutStrategyEnum,
 }
 
 impl<T: Copy> AreaTree<T> {
-    pub fn new(area: Area, layout_strategy: AreaTreeLayoutStrategyEnum) -> AreaTree<T> {
+    pub fn new(area: Area, layout_strategy: LayoutStrategyEnum) -> AreaTree<T> {
         let (orientation, ratio) = layout_strategy.get_initial_params();
         AreaTree {
             root: AreaNode::new_internal(orientation, ratio),
@@ -27,10 +29,9 @@ impl<T: Copy> AreaTree<T> {
         self.root.insert(id, self.area, &mut self.layout_strategy);
     }
 
-    pub fn set_parent_orientation(&mut self, point: (i32, i32), orientation: Orientation) {
-        let parent = self.root.find_parent_as_mut(point, self.area);
-        if let Some(parent) = parent {
-            parent.orientation = orientation;
+    pub fn switch_subtree_orientations(&mut self, point: (i32, i32)) {
+        if let Some(parent) = self.root.find_parent_mut(point, self.area) {
+            parent.switch_subtree_orientations();
         }
     }
 

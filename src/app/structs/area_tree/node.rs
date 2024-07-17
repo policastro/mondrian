@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::app::structs::{area::Area, direction::Direction, orientation::Orientation};
 
 use super::{
-    layout::layout_strategy::{AreaTreeLayoutStrategy, AreaTreeLayoutStrategyEnum},
+    layout_strategy::{LayoutStrategy, LayoutStrategyEnum},
     leaf::AreaLeaf,
 };
 
@@ -30,12 +30,12 @@ impl<T: Copy> AreaNode<T> {
         AreaNode::new(None, orientation, ratio)
     }
 
-    pub fn insert(&mut self, id: T, area: Area, insert_strategy: &mut AreaTreeLayoutStrategyEnum) -> AreaLeaf<T> {
+    pub fn insert(&mut self, id: T, area: Area, insert_strategy: &mut LayoutStrategyEnum) -> AreaLeaf<T> {
         insert_strategy.reset();
         self.insert_rec(id, area, insert_strategy)
     }
 
-    fn insert_rec(&mut self, id: T, area: Area, insert_strategy: &mut AreaTreeLayoutStrategyEnum) -> AreaLeaf<T> {
+    fn insert_rec(&mut self, id: T, area: Area, insert_strategy: &mut LayoutStrategyEnum) -> AreaLeaf<T> {
         if self.id.is_none() && self.is_leaf() {
             self.id = Some(id);
             return AreaLeaf::new(id, area);
@@ -105,6 +105,21 @@ impl<T: Copy> AreaNode<T> {
         leaves
     }
 
+    pub fn switch_subtree_orientations(&mut self) {
+        let mut leaves = vec![self];
+        while let Some(node) = leaves.pop() {
+            if !node.is_leaf() {
+                node.orientation = node.orientation.opposite();
+            }
+            if let Some(left) = &mut node.left {
+                leaves.push(left);
+            }
+            if let Some(right) = &mut node.right {
+                leaves.push(right);
+            }
+        }
+    }
+
     pub fn remove(&mut self, point: (i32, i32), area: Area) {
         if self.is_leaf() {
             self.id = None;
@@ -162,7 +177,7 @@ impl<T: Copy> AreaNode<T> {
         Some(curr_node)
     }
 
-    pub fn find_parent_as_mut(&mut self, point: (i32, i32), area: Area) -> Option<&mut AreaNode<T>> {
+    pub fn find_parent_mut(&mut self, point: (i32, i32), area: Area) -> Option<&mut AreaNode<T>> {
         if self.is_leaf() {
             return None;
         }
@@ -173,16 +188,16 @@ impl<T: Copy> AreaNode<T> {
             if self.left.as_ref().unwrap().is_leaf() {
                 Some(self)
             } else {
-                self.left.as_mut().unwrap().find_parent_as_mut(point, min_area)
+                self.left.as_mut().unwrap().find_parent_mut(point, min_area)
             }
         } else if self.right.as_ref().unwrap().is_leaf() {
             Some(self)
         } else {
-            self.right.as_mut().unwrap().find_parent_as_mut(point, max_area)
+            self.right.as_mut().unwrap().find_parent_mut(point, max_area)
         }
     }
 
-    fn find_node_as_mut(&mut self, point: (i32, i32), area: Area) -> &mut AreaNode<T> {
+    fn find_node_mut(&mut self, point: (i32, i32), area: Area) -> &mut AreaNode<T> {
         if self.is_leaf() {
             return self;
         }
@@ -196,7 +211,7 @@ impl<T: Copy> AreaNode<T> {
         subtree
             .as_mut()
             .expect("This should be impossible")
-            .find_node_as_mut(point, curr_area)
+            .find_node_mut(point, curr_area)
     }
 
     fn get_split_area(&self, area: Area) -> (Area, Area) {
@@ -221,7 +236,7 @@ impl<T: Copy> AreaNode<T> {
     }
 
     pub fn set_id(&mut self, id: T, point: (i32, i32), area: Area) -> Option<T> {
-        let node = self.find_node_as_mut(point, area);
+        let node = self.find_node_mut(point, area);
         let prev_id = node.id;
         node.id = Some(id);
         prev_id

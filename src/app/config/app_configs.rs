@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    app::structs::area_tree::layout::layout_strategy::AreaTreeLayoutStrategyEnum, modules::overlay::lib::color::Color,
+    app::structs::area_tree::layout_strategy::LayoutStrategyEnum, modules::overlay::lib::color::Color,
 };
 
 use super::{
@@ -12,7 +12,7 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct AppConfigs {
     pub filter: Option<WinMatchAnyFilters>,
-    pub layout_strategy: AreaTreeLayoutStrategyEnum,
+    pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
     pub border_padding: u8,
     pub refresh_time: u64,
@@ -22,6 +22,7 @@ pub struct AppConfigs {
     pub overlay_padding: u8,
     pub keybinds_enabled: bool,
     pub bindings: Vec<ExtBindingConfig>,
+    pub insert_in_monitor: bool,
 }
 
 impl AppConfigs {
@@ -29,7 +30,7 @@ impl AppConfigs {
         let file_content = std::fs::read_to_string(path).expect("Something went wrong reading the file");
 
         let cfg: ExtConfig = toml::from_str(&file_content)?;
-        
+
         let filter = Self::extract_filters(&cfg);
         let layout_strategy = Self::extract_tiling_layout(&cfg.layout);
         let refresh_time = cfg.advanced.refresh_time;
@@ -50,6 +51,8 @@ impl AppConfigs {
                 ..b
             })
             .collect();
+        let insert_in_monitor = cfg.layout.insert_in_monitor;
+
         Ok(AppConfigs {
             filter,
             layout_strategy,
@@ -62,6 +65,7 @@ impl AppConfigs {
             overlay_padding,
             keybinds_enabled,
             bindings,
+            insert_in_monitor,
         })
     }
 
@@ -86,11 +90,12 @@ impl AppConfigs {
         app_filter
     }
 
-    fn extract_tiling_layout(configs: &ExtLayoutConfig) -> AreaTreeLayoutStrategyEnum {
-        let app_layout_strategy: AreaTreeLayoutStrategyEnum = match configs.tiling_strategy.as_str() {
-            "horizontal" => AreaTreeLayoutStrategyEnum::from(configs.horizontal.clone()),
-            "vertical" => AreaTreeLayoutStrategyEnum::from(configs.vertical.clone()),
-            _ => AreaTreeLayoutStrategyEnum::from(configs.golden_ratio.clone()),
+    fn extract_tiling_layout(configs: &ExtLayoutConfig) -> LayoutStrategyEnum {
+        let app_layout_strategy: LayoutStrategyEnum = match configs.tiling_strategy.as_str() {
+            "horizontal" => LayoutStrategyEnum::from(configs.horizontal.clone()),
+            "vertical" => LayoutStrategyEnum::from(configs.vertical.clone()),
+            "twostep" => LayoutStrategyEnum::from(configs.twostep.clone()),
+            _ => LayoutStrategyEnum::from(configs.golden_ratio.clone()),
         };
 
         app_layout_strategy

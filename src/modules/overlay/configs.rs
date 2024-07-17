@@ -22,7 +22,7 @@ impl From<&AppConfigs> for OverlayConfig {
     fn from(app_configs: &AppConfigs) -> Self {
         OverlayConfig {
             thickness: app_configs.overlay_thickness,
-            color: Color::from(app_configs.overlay_color),
+            color: app_configs.overlay_color,
             padding: app_configs.overlay_padding,
         }
     }

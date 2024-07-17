@@ -1,4 +1,4 @@
-use crate::app::structs::{area::Area, area_tree::tree::AreaTree, direction::Direction};
+use crate::app::structs::{area::Area, area_tree::tree::WinTree, direction::Direction};
 
 use super::container::Container;
 
@@ -29,7 +29,7 @@ impl ContainersManager {
         self.containers.iter_mut().find(|c| c.contains(point))
     }
 
-    pub fn which_tree(&mut self, point: (i32, i32)) -> Option<&mut AreaTree<isize>> {
+    pub fn which_tree(&mut self, point: (i32, i32)) -> Option<&mut WinTree> {
         self.which_mut(point).map(|c| &mut c.tree)
     }
 
@@ -67,7 +67,7 @@ impl ContainersManager {
                 dist1.cmp(&dist2)
             });
 
-        return nearest;
+        nearest
     }
 
     pub fn get_containers(&mut self) -> Vec<&mut Container> {

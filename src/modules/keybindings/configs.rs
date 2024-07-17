@@ -1,13 +1,9 @@
 use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianCommand};
 use inputbot::KeybdKey::*;
+
+#[derive(Default)]
 pub struct KeybindingsConfig {
     pub bindings: Vec<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianCommand)>,
-}
-
-impl Default for KeybindingsConfig {
-    fn default() -> Self {
-        KeybindingsConfig { bindings: vec![] }
-    }
 }
 
 impl From<&AppConfigs> for KeybindingsConfig {
@@ -16,8 +12,7 @@ impl From<&AppConfigs> for KeybindingsConfig {
             .bindings
             .clone()
             .iter()
-            .map(|b| parse_binding(b.modifier.clone().unwrap_or_default(), b.key.clone(), b.action.clone()))
-            .flatten()
+            .filter_map(|b| parse_binding(b.modifier.clone().unwrap_or_default(), b.key.clone(), b.action))
             .collect();
 
         KeybindingsConfig { bindings }
@@ -31,15 +26,13 @@ fn parse_binding(
 ) -> Option<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianCommand)> {
     let modifiers_input: Vec<inputbot::KeybdKey> = modifiers
         .into_iter()
-        .map(|m| match m.to_uppercase().as_str() {
+        .filter_map(|m| match m.to_uppercase().as_str() {
             "ALT" => Some(LAltKey),
             "CTRL" => Some(LControlKey),
             "SHIFT" => Some(LShiftKey),
             "WIN" => Some(LSuper),
             _ => None,
         })
-        .filter(|m| m.is_some())
-        .map(|m| m.unwrap())
         .collect();
 
     let key_input: Option<inputbot::KeybdKey> = if key.len() == 1 {

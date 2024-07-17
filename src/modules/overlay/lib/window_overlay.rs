@@ -12,7 +12,10 @@ use windows::Win32::{
 
 use crate::win32::api::window::{get_window_box, is_user_managable_window};
 
-use super::{color::Color, utils::{create_border, to_pcwstr}};
+use super::{
+    color::Color,
+    utils::{create_border, to_pcwstr},
+};
 
 #[derive(Debug, Clone, Copy)]
 struct WindowOverlayParams {
@@ -126,7 +129,7 @@ impl WindowOverlay {
             }
             let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_white.into()), 0, LWA_COLORKEY);
 
-            return hwnd;
+            hwnd
         }
     }
 }

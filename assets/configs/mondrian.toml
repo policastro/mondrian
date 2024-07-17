@@ -1,19 +1,23 @@
 [layout]
-tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal" or "vertical"
+tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal", "vertical" or "twostep"
 tiles_padding = 4                # padding between tiles, it must be between 0 and 60
 border_padding = 4               # padding between border and tiles, it must be between 0 and 60
+insert_in_monitor = false        # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
 
 [layout.golden_ratio] # if tiling_strategy = "golden_ratio"
 clockwise = true # true = clockwise, false = counterclockwise
 vertical = false # if true, the first split will be vertical
+ratio = 50       # ratio of the first split
 
 [layout.horizontal] # if tiling_strategy = "horizontal"
-start_right = true # direction of the first split
-toogle = false     # if toggled, the direction of the next split will be opposite
+split_right = true # direction of the first split
 
 [layout.vertical] # if tiling_strategy = "vertical"
-start_down = true # direction of the first split
-toogle = false    # if toggled, the direction of the next split will be opposite
+split_down = true # direction of the first split
+
+[layout.twostep] # if tiling_strategy = "twostep"
+first_step = "right" # first insertion direction, can be "right", "left", "up" or "down"
+second_step = "down" # second insertion direction, can be "right", "left", "up" or "down"
 
 [modules]
 keybindings = true # enable the keybindings module
@@ -22,7 +26,7 @@ overlay = true     # enable the overlay module
 [keybindings] # if keybindings = true
 default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
 bindings = [
-    { key = "X", action = "quit" }, # e.g. when pressing <default_modifier>+X, the action will be "quit"
+    { key = "X", action = "quit" },                              # e.g. when pressing <default_modifier>+X, the action will be "quit"
     { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
 ]
 

@@ -3,12 +3,13 @@ use tray_icon::{
     Icon, TrayIconBuilder,
 };
 use windows::Win32::{
-    System::Threading::GetCurrentThreadId, UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT},
+    System::Threading::GetCurrentThreadId,
+    UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT},
 };
 
 use crate::{
-    app::mondrian_command::MondrianCommand,
-    modules::module::Module,
+    app::{config::app_configs::AppConfigs, mondrian_command::MondrianCommand},
+    modules::module::{module_impl::ModuleImpl, Module},
     win32::win_event_loop::next_win_event_loop_iteration,
 };
 
@@ -29,33 +30,6 @@ pub struct TrayModule {
     main_thread_id: Arc<AtomicU32>,
 }
 
-impl Module for TrayModule {
-    fn start(&mut self) {
-        if self.enabled {
-            self.start();
-        }
-    }
-
-    fn stop(&mut self) {
-        if self.enabled {
-            self.stop();
-        }
-    }
-
-    fn restart(&mut self) {
-        if self.enabled {
-            self.restart();
-        }
-    }
-
-    fn enable(&mut self, enabled: bool) {
-        self.enabled = enabled;
-        if !enabled {
-            self.stop();
-        }
-    }
-}
-
 impl TrayModule {
     pub fn new(bus: Sender<MondrianCommand>) -> Self {
         Self {
@@ -66,7 +40,9 @@ impl TrayModule {
             main_thread_id: Arc::new(AtomicU32::new(0)),
         }
     }
+}
 
+impl ModuleImpl for TrayModule {
     fn start(&mut self) {
         if self.running.load(Ordering::SeqCst) {
             return;
@@ -137,7 +113,28 @@ impl TrayModule {
     }
 
     fn restart(&mut self) {
-        self.stop();
-        self.start();
+        Module::stop(self);
+        Module::start(self);
+    }
+
+    fn pause(&mut self, is_paused: bool) {
+        match is_paused {
+            true => Module::stop(self),
+            false => Module::start(self),
+        }
+    }
+
+    fn enable(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    fn handle(&mut self, event: &MondrianCommand, _app_configs: &AppConfigs) {
+        if let MondrianCommand::Quit = event {
+            Module::stop(self)
+        }
     }
 }

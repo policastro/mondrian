@@ -2,16 +2,14 @@ use std::ffi::OsString;
 use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 
-use crate::app::globals::EXPERIMENTAL_FEATURES;
 use crate::win32::callbacks::enum_windows::user_managed_windows;
 use crate::win32::window::window_ref::WindowRef;
 use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
-use windows::Win32::System::Threading::{
-    AttachThreadInput, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
-};
+use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
+use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowRect, GetWindowTextW,
     GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
@@ -49,12 +47,7 @@ pub fn get_executable_path(hwnd: HWND) -> Option<String> {
 
         let h_process = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, BOOL(0), pid) {
             Ok(h_process) => h_process,
-            Err(err) => {
-                if !EXPERIMENTAL_FEATURES {
-                    log::error!("OpenProcess failed: {}", err);
-                }
-                return None;
-            }
+            Err(_) => return None,
         };
 
         size = GetModuleFileNameExW(h_process, HMODULE(0), &mut buf);
@@ -187,10 +180,13 @@ pub fn is_window_cloaked(hwnd: HWND) -> bool {
 
 pub fn focus(hwnd: HWND) {
     unsafe {
-        let curr_thread = GetWindowThreadProcessId(GetForegroundWindow(), None);
-        let target_thread = GetWindowThreadProcessId(hwnd, None);
-        let _ = AttachThreadInput(curr_thread, target_thread, true);
         let _ = SetForegroundWindow(hwnd);
+        let _ = SetFocus(hwnd);
+        let event = INPUT {
+            r#type: INPUT_KEYBOARD,
+            ..Default::default()
+        };
+        SendInput(&[event], size_of::<INPUT>() as i32);
     };
 }
 

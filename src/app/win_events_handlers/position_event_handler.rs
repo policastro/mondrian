@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::mpsc::Sender};
 
-use notify_rust::Notification;
 use windows::Win32::{
     Foundation::HWND,
     UI::{
@@ -9,7 +8,6 @@ use windows::Win32::{
     },
 };
 
-use crate::app::structs::orientation::Orientation;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::is_user_managable_window;
@@ -38,22 +36,8 @@ impl PositionEventHandler {
     }
 
     fn end_movesize(&mut self, hwnd: HWND) {
-        let (alt_key, shift_key) = (get_key_state(VK_MENU.0), get_key_state(VK_SHIFT.0));
-        let orientation = match (alt_key.pressed, shift_key.pressed) {
-            (true, true) => {
-                // TODO This should be removed in production
-                log::info!(target: "app::inspector", "{:?}", WindowRef::new(hwnd).snapshot());
-                let _ = Notification::new()
-                    .summary("Mondrian: inspection done!")
-                    .body("Added new window to the inspection file")
-                    .icon("mondrian")
-                    .show();
-                None
-            }
-            (_, true) => Some(Orientation::Vertical),
-            (true, _) => Some(Orientation::Horizontal),
-            _ => None,
-        };
+        let (shift_key, alt_key) = (get_key_state(VK_SHIFT.0), get_key_state(VK_MENU.0));
+        let (invert_op, switch_orientation) = (shift_key.pressed, alt_key.pressed);
         let dest_point = get_cursor_pos();
 
         let area = match self
@@ -78,12 +62,12 @@ impl PositionEventHandler {
                 // TODO Used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
                 let is_minsize = (curr_area.width as i32 == min_width) || (curr_area.height as i32 == min_height);
                 if !curr_area.contains(dest_point) && is_minsize {
-                    TMCommand::WindowMoved(hwnd, dest_point, orientation)
+                    TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation)
                 } else {
                     TMCommand::WindowResized(hwnd)
                 }
             }
-            false => TMCommand::WindowMoved(hwnd, dest_point, orientation),
+            false => TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation),
         };
 
         if let Err(err) = self.sender.send(event) {

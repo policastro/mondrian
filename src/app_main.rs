@@ -7,10 +7,9 @@ use std::time::Duration;
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
 use crate::app::mondrian_command::MondrianCommand;
-use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::modules::core::module::CoreModule;
 use crate::modules::keybindings::module::KeybindingsModule;
-use crate::modules::module::{ConfigurableModule, Module};
+use crate::modules::module::Module;
 use crate::modules::overlay::module::OverlayModule;
 use crate::modules::tray::module::TrayModule;
 
@@ -24,75 +23,45 @@ pub fn main() {
 }
 
 fn start_app(cfg_file: &PathBuf) {
-    let app_configs = &match init_configs(cfg_file) {
+    let mut app_configs = match init_configs(cfg_file) {
         Ok(c) => c,
         Err(e) => panic!("Failed to initialize configs: {}", e),
     };
 
     let (bus_tx, bus_rx) = std::sync::mpsc::channel();
 
-    let mut core = CoreModule::new();
-    let mut overlay = OverlayModule::new();
-    let mut keybindings = KeybindingsModule::new(bus_tx.clone());
-    let mut tray = TrayModule::new(bus_tx.clone());
-
-    overlay.enable(app_configs.overlay_enabled);
-    keybindings.enable(app_configs.keybinds_enabled);
-
-    core.configure(app_configs.into());
-    overlay.configure(app_configs.into());
-    keybindings.configure(app_configs.into());
-
-    core.start();
-    tray.start();
-    keybindings.start();
-    thread::sleep(Duration::from_millis(40)); // TODO Magic number, find a better way to start the overlay only after the core module is ready (i.e. has placed the initial windows on the screen)
-    overlay.start();
+    let mut modules: Vec<Box<dyn Module>> = vec![
+        Box::new(CoreModule::new()),
+        Box::new(TrayModule::new(bus_tx.clone())),
+        Box::new(KeybindingsModule::new(bus_tx.clone())),
+        Box::new(OverlayModule::new()),
+    ];
+    modules.iter_mut().for_each(|m| {
+        m.handle(&MondrianCommand::Configure, &app_configs);
+        m.start();
+        thread::sleep(Duration::from_millis(20)); // TODO Magic number, find a better way to start the overlay only after the core module is ready (i.e. has placed the initial windows on the screen)
+    });
 
     log::info!("Application started!");
     loop {
-        let event = match bus_rx.recv() {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
+        let event = if let Ok(e) = bus_rx.recv() { e } else { continue };
 
         match event {
-            MondrianCommand::Pause(pause) => {
-                core.pause(pause);
-                overlay.pause(pause);
-                keybindings.pause(pause);
-            }
-            MondrianCommand::Retile => core.restart(),
-            MondrianCommand::RefreshConfig => {
-                let app_configs = &match init_configs(cfg_file) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log::error!("Can't read config file: {}", e);
-                        app_configs.clone()
-                    }
-                };
-
-                core.configure(app_configs.into());
-                core.restart();
-
-                overlay.enable(app_configs.overlay_enabled);
-                overlay.configure(app_configs.into());
-                overlay.restart();
-
-                keybindings.enable(app_configs.keybinds_enabled);
-                keybindings.configure(app_configs.into());
-                keybindings.restart();
-            }
             MondrianCommand::OpenConfig => drop(open::that(cfg_file.clone())),
-            MondrianCommand::Focus(dir) => core.send_to_tiles_manager(TMCommand::Focus(dir)),
-            MondrianCommand::Quit => break,
+            MondrianCommand::RefreshConfig => {
+                app_configs = init_configs(cfg_file).unwrap_or_else(|e| {
+                    log::error!("Can't read config file: {}", e);
+                    app_configs.clone()
+                });
+                modules.iter_mut().for_each(|m| m.handle(&event, &app_configs));
+            }
+            event => modules.iter_mut().for_each(|m| m.handle(&event, &app_configs)),
+        }
+
+        if event == MondrianCommand::Quit {
+            break;
         }
     }
-
-    core.stop();
-    overlay.stop();
-    tray.stop();
-    keybindings.stop();
 
     log::info!("Application stopped!");
 }

@@ -1,4 +1,7 @@
-#[derive(Debug, PartialEq, Clone, Copy)]
+use serde::Deserialize;
+
+#[derive(Debug, PartialEq, Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Direction {
     Left,
     Right,

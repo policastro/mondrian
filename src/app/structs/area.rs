@@ -135,8 +135,8 @@ impl Area {
 
     fn add_to_dimension(value: u16, delta: i8) -> u16 {
         match delta > 0 {
-            true => value.saturating_sub(delta.abs() as u16),
-            false => value.saturating_add(delta.abs() as u16),
+            true => value.saturating_sub(delta.unsigned_abs() as u16),
+            false => value.saturating_add(delta.unsigned_abs() as u16),
         }
     }
 }

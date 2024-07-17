@@ -1,28 +1,37 @@
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 
-use super::layout_strategy::AreaTreeLayoutStrategy;
+use super::LayoutStrategy;
 
 #[derive(Clone, Copy, Debug)]
-pub struct GoldenRatioLayoutStrategy {
+pub struct GoldenRatio {
     current_direction: Direction,
     clockwise: bool,
     first_split: Orientation,
+    ratio: u8,
 }
 
-impl GoldenRatioLayoutStrategy {
-    pub fn new(clockwise: bool, first_split: Orientation) -> GoldenRatioLayoutStrategy {
-        GoldenRatioLayoutStrategy {
+impl GoldenRatio {
+    pub fn new(clockwise: bool, first_split: Orientation, ratio: u8) -> GoldenRatio {
+        assert!(ratio > 0 && ratio < 100);
+        GoldenRatio {
             current_direction: match first_split {
                 Orientation::Horizontal => Direction::Up,
                 Orientation::Vertical => Direction::Right,
             },
             clockwise,
             first_split,
+            ratio,
         }
     }
 }
 
-impl AreaTreeLayoutStrategy for GoldenRatioLayoutStrategy {
+impl Default for GoldenRatio {
+    fn default() -> Self {
+        GoldenRatio::new(true, Orientation::Horizontal, 50)
+    }
+}
+
+impl LayoutStrategy for GoldenRatio {
     fn reset(&mut self) {
         self.current_direction = match self.first_split {
             Orientation::Horizontal => Direction::Up,
@@ -52,6 +61,9 @@ impl AreaTreeLayoutStrategy for GoldenRatioLayoutStrategy {
     }
 
     fn get_initial_params(&self) -> (Orientation, u8) {
-        (Orientation::Vertical, 50)
+        (
+            Orientation::Vertical,
+            if self.clockwise { self.ratio } else { 100 - self.ratio },
+        )
     }
 }

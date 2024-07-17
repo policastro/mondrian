@@ -3,10 +3,7 @@ use serde::{de::Error, Deserialize, Deserializer};
 use crate::app::{
     mondrian_command::MondrianCommand,
     structs::{
-        area_tree::layout::{
-            golden_ration_layout::GoldenRatioLayoutStrategy, layout_strategy::AreaTreeLayoutStrategyEnum,
-            mono_axis_layout::MonoAxisLayoutStrategy,
-        },
+        area_tree::layout_strategy::{golden_ratio::GoldenRatio, mono_axis::MonoAxis, two_step::TwoStep, LayoutStrategyEnum},
         direction::Direction,
         orientation::Orientation,
     },
@@ -48,8 +45,8 @@ pub struct ExtKeybindingsConfig {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct ExtLayoutConfig {
+    #[serde(deserialize_with = "deserialize_tiling_strategy")]
     pub tiling_strategy: String,
-
     #[serde(deserialize_with = "deserialize_u8_max::<60,_>")]
     pub tiles_padding: u8,
     #[serde(deserialize_with = "deserialize_u8_max::<60,_>")]
@@ -57,6 +54,8 @@ pub struct ExtLayoutConfig {
     pub golden_ratio: ExtLayoutGoldenRatioConfig,
     pub horizontal: ExtLayoutHorizontalConfig,
     pub vertical: ExtLayoutVerticalConfig,
+    pub twostep: ExtLayoutTwoStepConfig,
+    pub insert_in_monitor: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -72,20 +71,26 @@ pub struct ExtOverlayConfig {
 pub struct ExtLayoutGoldenRatioConfig {
     pub clockwise: bool,
     pub vertical: bool,
+    #[serde(deserialize_with = "deserialize_u8_max::<100,_>")]
+    pub ratio: u8,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct ExtLayoutHorizontalConfig {
-    pub start_right: bool,
-    pub toogle: bool,
+    pub split_right: bool,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct ExtLayoutVerticalConfig {
-    pub start_down: bool,
-    pub toogle: bool,
+    pub split_down: bool,
+}
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct ExtLayoutTwoStepConfig {
+    pub first_step: Direction,
+    pub second_step: Direction,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -105,10 +110,8 @@ pub struct ExtModulesConfig {
 pub struct ExtBindingConfig {
     #[serde(default, deserialize_with = "deserialize_modifier_opt")]
     pub modifier: Option<Vec<String>>,
-
     #[serde(deserialize_with = "deserialize_key")]
     pub key: String,
-
     pub action: MondrianCommand,
 }
 
@@ -156,10 +159,7 @@ impl Default for ExtKeybindingsConfig {
 
 impl Default for ExtLayoutVerticalConfig {
     fn default() -> Self {
-        ExtLayoutVerticalConfig {
-            start_down: true,
-            toogle: false,
-        }
+        ExtLayoutVerticalConfig { split_down: true }
     }
 }
 
@@ -168,15 +168,22 @@ impl Default for ExtLayoutGoldenRatioConfig {
         ExtLayoutGoldenRatioConfig {
             clockwise: true,
             vertical: false,
+            ratio: 50,
         }
     }
 }
 
 impl Default for ExtLayoutHorizontalConfig {
     fn default() -> Self {
-        ExtLayoutHorizontalConfig {
-            start_right: true,
-            toogle: false,
+        ExtLayoutHorizontalConfig { split_right: true }
+    }
+}
+
+impl Default for ExtLayoutTwoStepConfig {
+    fn default() -> Self {
+        ExtLayoutTwoStepConfig {
+            first_step: Direction::Right,
+            second_step: Direction::Down,
         }
     }
 }
@@ -190,6 +197,8 @@ impl Default for ExtLayoutConfig {
             golden_ratio: ExtLayoutGoldenRatioConfig::default(),
             horizontal: ExtLayoutHorizontalConfig::default(),
             vertical: ExtLayoutVerticalConfig::default(),
+            twostep: ExtLayoutTwoStepConfig::default(),
+            insert_in_monitor: false,
         }
     }
 }
@@ -219,35 +228,41 @@ impl From<&ExtFilterConfig> for WinMatchAllFilters {
     }
 }
 
-impl From<ExtLayoutGoldenRatioConfig> for AreaTreeLayoutStrategyEnum {
-    fn from(golden_ratio: ExtLayoutGoldenRatioConfig) -> AreaTreeLayoutStrategyEnum {
+impl From<ExtLayoutGoldenRatioConfig> for LayoutStrategyEnum {
+    fn from(golden_ratio: ExtLayoutGoldenRatioConfig) -> LayoutStrategyEnum {
         let axis = match golden_ratio.vertical {
             true => Orientation::Vertical,
             false => Orientation::Horizontal,
         };
-        GoldenRatioLayoutStrategy::new(golden_ratio.clockwise, axis).into()
+        GoldenRatio::new(golden_ratio.clockwise, axis, golden_ratio.ratio).into()
     }
 }
 
-impl From<ExtLayoutHorizontalConfig> for AreaTreeLayoutStrategyEnum {
-    fn from(horizontal: ExtLayoutHorizontalConfig) -> AreaTreeLayoutStrategyEnum {
-        let direction = match horizontal.start_right {
+impl From<ExtLayoutHorizontalConfig> for LayoutStrategyEnum {
+    fn from(horizontal: ExtLayoutHorizontalConfig) -> LayoutStrategyEnum {
+        let direction = match horizontal.split_right {
             true => Direction::Right,
             false => Direction::Left,
         };
 
-        MonoAxisLayoutStrategy::new(Orientation::Horizontal, direction, horizontal.toogle).into()
+        MonoAxis::new(Orientation::Horizontal, direction).into()
     }
 }
 
-impl From<ExtLayoutVerticalConfig> for AreaTreeLayoutStrategyEnum {
-    fn from(vertical: ExtLayoutVerticalConfig) -> AreaTreeLayoutStrategyEnum {
-        let direction = match vertical.start_down {
+impl From<ExtLayoutVerticalConfig> for LayoutStrategyEnum {
+    fn from(vertical: ExtLayoutVerticalConfig) -> LayoutStrategyEnum {
+        let direction = match vertical.split_down {
             true => Direction::Down,
             false => Direction::Up,
         };
 
-        MonoAxisLayoutStrategy::new(Orientation::Horizontal, direction, vertical.toogle).into()
+        MonoAxis::new(Orientation::Vertical, direction).into()
+    }
+}
+
+impl From<ExtLayoutTwoStepConfig> for LayoutStrategyEnum {
+    fn from(twostep: ExtLayoutTwoStepConfig) -> LayoutStrategyEnum {
+        TwoStep::new(twostep.first_step, twostep.second_step).into()
     }
 }
 
@@ -281,7 +296,7 @@ where
     let valid_modifiers = ["ALT", "CTRL", "SHIFT", "WIN"];
 
     let s: String = String::deserialize(deserializer)?;
-    let keys = s.trim().split("+").map(|key| key.trim().to_uppercase());
+    let keys = s.trim().split('+').map(|key| key.trim().to_uppercase());
     let is_valid = keys.clone().all(|key| valid_modifiers.contains(&key.as_str()));
     match is_valid {
         true => Ok(keys.collect::<Vec<String>>()),
@@ -301,7 +316,7 @@ where
         Some(s) => s,
         None => return Ok(None),
     };
-    let keys = s.trim().split("+").map(|key| key.trim().to_uppercase());
+    let keys = s.trim().split('+').map(|key| key.trim().to_uppercase());
     let is_valid = keys.clone().all(|key| valid_modifiers.contains(&key.as_str()));
     match is_valid {
         true => Ok(Some(keys.collect::<Vec<String>>())),
@@ -320,5 +335,21 @@ where
     match is_valid {
         true => Ok(s.to_uppercase()),
         false => Err(D::Error::custom(format!("Invalid key: {}", s))),
+    }
+}
+
+fn deserialize_tiling_strategy<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let valid = ["golden_ratio", "horizontal", "vertical", "twostep"];
+    let s: String = String::deserialize(deserializer)?;
+    match valid.contains(&s.to_lowercase().as_str()) {
+        true => Ok(s.to_lowercase()),
+        false => Err(D::Error::custom(format!(
+            "Invalid tiling strategy: {}, valid options are {}",
+            s,
+            valid.join(", ")
+        ))),
     }
 }

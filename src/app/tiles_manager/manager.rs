@@ -1,7 +1,6 @@
 use crate::app::structs::area::Area;
 use crate::app::structs::area_tree::leaf::AreaLeaf;
 use crate::app::structs::direction::Direction;
-use crate::app::structs::orientation::Orientation;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
@@ -192,7 +191,7 @@ impl TilesManager {
         self.update();
     }
 
-    pub fn change_window_position(&mut self, hwnd: HWND, new_point: (i32, i32), orientation: Option<Orientation>) {
+    pub fn move_window(&mut self, hwnd: HWND, new_point: (i32, i32), invert_monitor_op: bool, switch_orient: bool) {
         if !self.has_window(hwnd) {
             return;
         }
@@ -200,39 +199,44 @@ impl TilesManager {
         let area = self.get_stored_area(hwnd).expect("Area not found");
         let center = area.get_center();
 
-        if !self.containers.is_same_container(center, new_point) {
-            if let Some(orientation) = orientation {
-                match self.containers.which_tree(center) {
-                    Some(tree) => tree.remove(center),
-                    None => panic!("Container not found"),
-                }
+        let containers = &mut self.containers;
+        if containers.is_same_container(center, new_point) {
+            // If it is in the same monitor
+            let tree = containers.which_tree(center).expect("Container not found");
+            tree.swap_ids(center, new_point);
+            if switch_orient {
+                tree.switch_subtree_orientations(new_point);
+            }
+        } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient {
+            // If it is in another monitor and insert
+            match containers.which_tree(center) {
+                Some(tree) => tree.remove(center),
+                None => panic!("Container not found"),
+            }
 
-                match self.containers.which_tree(new_point) {
-                    Some(tree) => {
-                        tree.insert(hwnd.0);
-                        tree.set_parent_orientation(new_point, orientation)
-                    }
-                    None => panic!("Container not found"),
-                }
-            } else {
-                let replaced_id = self
-                    .containers
-                    .which_tree(new_point)
-                    .expect("Container not found")
-                    .replace_id(new_point, hwnd.0);
-
-                let container = self.containers.which_tree(center).expect("Container not found");
-                if let Some(other_id) = replaced_id {
-                    container.replace_id(center, other_id);
-                } else {
-                    container.remove(center);
-                }
+            let tree = containers.which_tree(new_point).expect("Container not found");
+            tree.insert(hwnd.0);
+            if switch_orient {
+                tree.switch_subtree_orientations(new_point);
             }
         } else {
-            let container = self.containers.which_mut(center).expect("Container not found");
-            container.tree.swap_ids(center, new_point);
-            if let Some(orientation) = orientation {
-                container.tree.set_parent_orientation(new_point, orientation);
+            // If it is in another monitor and swap
+            let replaced_id = containers
+                .which_tree(new_point)
+                .map(|t| {
+                    let id = t.replace_id(new_point, hwnd.0);
+                    if switch_orient {
+                        t.switch_subtree_orientations(new_point);
+                    }
+                    id
+                })
+                .expect("Container not found");
+
+            let tree = containers.which_tree(center).expect("Container not found");
+            if let Some(id) = replaced_id {
+                tree.replace_id(center, id);
+            } else {
+                tree.remove(center);
             }
         }
 
@@ -240,16 +244,16 @@ impl TilesManager {
     }
 
     pub fn update(&mut self) {
-        let leaves_vec: Vec<(Area, Vec<AreaLeaf<isize>>)> = self
+        let leaves_vec: Vec<Vec<AreaLeaf<isize>>> = self
             .containers
             .get_containers()
             .iter()
-            .map(|c| (c.monitor.workarea, c.tree.get_all_leaves(self.config.get_border_pad())))
+            .map(|l| l.tree.get_all_leaves(self.config.get_border_pad()))
             .collect();
-        leaves_vec.into_iter().for_each(|l| self.update_leaves(l.1, l.0));
+        leaves_vec.into_iter().for_each(|l| self.update_leaves(l));
     }
 
-    pub fn update_leaves(&mut self, leaves: Vec<AreaLeaf<isize>>, workarea: Area) {
+    pub fn update_leaves(&mut self, leaves: Vec<AreaLeaf<isize>>) {
         let managed_wins = self.managed_wins.clone();
 
         managed_wins
@@ -277,7 +281,7 @@ impl TilesManager {
         });
 
         if errors > 0 {
-            self.update_leaves(leaves, workarea);
+            self.update_leaves(leaves);
         }
     }
 

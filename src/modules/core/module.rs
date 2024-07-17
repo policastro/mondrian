@@ -1,8 +1,11 @@
+use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::filters::window_match_filter::WinMatchAnyFilters;
+use crate::app::mondrian_command::MondrianCommand;
 use crate::app::tiles_manager::config::TilesManagerConfig;
 use crate::app::tiles_manager::manager::TilesManager;
 use crate::app::tiles_manager::monitor_layout::MonitorLayout;
 use crate::app::tiles_manager::tm_command::TMCommand;
+use crate::modules::module::module_impl::ModuleImpl;
 use crate::modules::module::{ConfigurableModule, Module};
 use crate::win32::win_event_loop::next_win_event_loop_no_block;
 
@@ -14,7 +17,7 @@ use crate::app::win_events_handlers::{
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::win_events_manager::WinEventManager;
 use crate::win32::window::window_ref::WindowRef;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::mpsc::{RecvError, Sender};
 use std::sync::Arc;
@@ -29,41 +32,7 @@ pub struct CoreModule {
     tiles_manager_thread: Option<thread::JoinHandle<()>>,
     configs: CoreConfigs,
     running: Arc<AtomicBool>,
-    ready: Arc<AtomicU8>,
     enabled: bool,
-}
-
-impl Module for CoreModule {
-    fn start(&mut self) {
-        if self.enabled {
-            self.start();
-        }
-    }
-
-    fn stop(&mut self) {
-        if self.enabled {
-            self.stop();
-        }
-    }
-
-    fn restart(&mut self) {
-        if self.enabled {
-            self.restart();
-        }
-    }
-
-    fn enable(&mut self, enabled: bool) {
-        self.enabled = enabled;
-        if !enabled {
-            self.stop();
-        }
-    }
-}
-
-impl ConfigurableModule<CoreConfigs> for CoreModule {
-    fn configure(&mut self, config: CoreConfigs) {
-        self.configs = config;
-    }
 }
 
 impl CoreModule {
@@ -74,16 +43,7 @@ impl CoreModule {
             win_events_thread: None,
             tiles_manager_thread: None,
             running: Arc::new(AtomicBool::new(false)),
-            ready: Arc::new(AtomicU8::new(0)),
             enabled: true,
-        }
-    }
-
-    pub fn pause(&mut self, is_paused: bool) {
-        if is_paused {
-            self.stop();
-        } else {
-            self.start();
         }
     }
 
@@ -96,61 +56,6 @@ impl CoreModule {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn ready(&self) -> bool {
-        self.ready.load(Ordering::SeqCst) == 2
-    }
-
-    fn start(&mut self) {
-        if self.running.load(Ordering::SeqCst) {
-            return;
-        }
-
-        log::trace!("Start App::run()");
-
-        self.running.store(true, Ordering::SeqCst);
-
-        let (event_sender, event_receiver) = channel();
-
-        self.run_win_events_loop(event_sender.clone());
-
-        self.tm_command_tx = Some(event_sender.clone());
-        self.run_tiles_manager(event_receiver);
-
-        log::trace!("App::run() done");
-    }
-
-    fn stop(&mut self) {
-        if !self.running.load(Ordering::SeqCst) {
-            return;
-        }
-
-        self.running.store(false, Ordering::SeqCst);
-
-        log::trace!("Start App::stop()");
-        self.tm_command_tx
-            .as_ref()
-            .unwrap()
-            .send(TMCommand::Quit)
-            .unwrap();
-
-        if let Some(thread) = self.win_events_thread.take() {
-            thread.join().unwrap();
-        };
-
-        if let Some(thread) = self.tiles_manager_thread.take() {
-            thread.join().unwrap();
-        };
-
-        self.ready.store(0, Ordering::SeqCst);
-        log::trace!("App::stop() done");
-    }
-
-    fn restart(&mut self) {
-        self.stop();
-        self.start();
-    }
-
     fn run_win_events_loop(&mut self, event_sender: Sender<TMCommand>) {
         let wem_builder = WinEventManager::builder()
             .handler(PositionEventHandler::new(event_sender.clone()))
@@ -159,10 +64,8 @@ impl CoreModule {
 
         let refresh_time = self.configs.refresh_time;
         let running = self.running.clone();
-        let ready = self.ready.clone();
         self.win_events_thread = Some(thread::spawn(move || {
             let mut wem = wem_builder.build();
-            ready.fetch_add(1, Ordering::SeqCst);
             while running.load(Ordering::SeqCst) {
                 next_win_event_loop_no_block(None);
                 wem.check_for_events();
@@ -180,11 +83,9 @@ impl CoreModule {
             .map(|monitor| MonitorLayout::new(monitor.clone(), self.configs.get_layout(Some(&monitor.name))))
             .collect();
 
-        let tm_configs = TilesManagerConfig::new(self.configs.tiles_padding, self.configs.border_padding);
+        let tm_configs = TilesManagerConfig::from(&self.configs);
         let mut tm = TilesManager::new(monitors, Some(tm_configs));
-        let ready = self.ready.clone();
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
-            ready.fetch_add(1, Ordering::SeqCst);
             match filter_events(event_receiver.recv(), &filter) {
                 Ok(app_event) => {
                     if !handle_tiles_manager(&mut tm, app_event) {
@@ -201,11 +102,94 @@ impl CoreModule {
     }
 }
 
+impl ModuleImpl for CoreModule {
+    fn start(&mut self) {
+        if self.running.load(Ordering::SeqCst) {
+            return;
+        }
+
+        log::trace!("Start App::run()");
+
+        self.running.store(true, Ordering::SeqCst);
+        let (event_sender, event_receiver) = channel();
+        self.run_win_events_loop(event_sender.clone());
+        self.tm_command_tx = Some(event_sender.clone());
+        self.run_tiles_manager(event_receiver);
+
+        log::trace!("App::run() done");
+    }
+
+    fn stop(&mut self) {
+        if !self.running.load(Ordering::SeqCst) {
+            return;
+        }
+
+        self.running.store(false, Ordering::SeqCst);
+
+        log::trace!("Start App::stop()");
+        self.tm_command_tx.as_ref().unwrap().send(TMCommand::Quit).unwrap();
+
+        if let Some(thread) = self.win_events_thread.take() {
+            thread.join().unwrap();
+        };
+
+        if let Some(thread) = self.tiles_manager_thread.take() {
+            thread.join().unwrap();
+        };
+
+        log::trace!("App::stop() done");
+    }
+
+    fn restart(&mut self) {
+        Module::stop(self);
+        Module::start(self);
+    }
+
+    fn pause(&mut self, is_paused: bool) {
+        match is_paused {
+            true => Module::stop(self),
+            false => Module::start(self),
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    fn enable(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    fn handle(&mut self, event: &MondrianCommand, app_configs: &AppConfigs) {
+        match event {
+            MondrianCommand::Pause(pause) => Module::pause(self, *pause),
+            MondrianCommand::Configure => {
+                self.configure(app_configs.into());
+            }
+            MondrianCommand::Retile => Module::restart(self),
+            MondrianCommand::RefreshConfig => {
+                self.configure(app_configs.into());
+                Module::restart(self);
+            }
+            MondrianCommand::Focus(dir) => self.send_to_tiles_manager(TMCommand::Focus(*dir)),
+            MondrianCommand::Quit => Module::stop(self),
+            _ => {}
+        }
+    }
+}
+
+impl ConfigurableModule for CoreModule {
+    type Config = CoreConfigs;
+    fn configure(&mut self, config: Self::Config) {
+        self.configs = config;
+    }
+}
+
 fn handle_tiles_manager(tm: &mut TilesManager, event: TMCommand) -> bool {
     match event {
         TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) => drop(tm.add(WindowRef::new(hwnd), true)),
         TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) => tm.remove(hwnd),
-        TMCommand::WindowMoved(hwnd, coords, orientation) => tm.change_window_position(hwnd, coords, orientation),
+        TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.move_window(hwnd, coords, invert, switch),
         TMCommand::WindowResized(hwnd) => tm.refresh_window_size(hwnd),
         TMCommand::Focus(direction) => tm.focus_at(direction),
         TMCommand::Noop => return true,
@@ -233,7 +217,7 @@ fn filter_events(
         | TMCommand::WindowMinimized(hwnd)
         | TMCommand::WindowRestored(hwnd)
         | TMCommand::WindowResized(hwnd)
-        | TMCommand::WindowMoved(hwnd, _, _) => {
+        | TMCommand::WindowMoved(hwnd, _, _, _) => {
             let win_info = match WindowRef::new(hwnd).snapshot() {
                 Some(win_info) => win_info,
                 None => return Ok(TMCommand::Noop),

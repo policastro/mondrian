@@ -1,14 +1,15 @@
 use crate::app::{
     config::{app_configs::AppConfigs, filters::window_match_filter::WinMatchAnyFilters},
-    structs::area_tree::layout::layout_strategy::AreaTreeLayoutStrategyEnum,
+    structs::area_tree::layout_strategy::LayoutStrategyEnum,
 };
 
 pub struct CoreConfigs {
     pub refresh_time: u64,
     pub filter: Option<WinMatchAnyFilters>,
-    pub layout_strategy: AreaTreeLayoutStrategyEnum,
+    pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
     pub border_padding: u8,
+    pub insert_in_monitor: bool,
 }
 
 impl Default for CoreConfigs {
@@ -16,15 +17,16 @@ impl Default for CoreConfigs {
         CoreConfigs {
             refresh_time: 50,
             filter: None,
-            layout_strategy: AreaTreeLayoutStrategyEnum::default(),
+            layout_strategy: LayoutStrategyEnum::default(),
             tiles_padding: 0,
             border_padding: 0,
+            insert_in_monitor: false,
         }
     }
 }
 
 impl CoreConfigs {
-    pub fn get_layout(&self, _display_name: Option<&String>) -> AreaTreeLayoutStrategyEnum {
+    pub fn get_layout(&self, _display_name: Option<&String>) -> LayoutStrategyEnum {
         //TODO implement display_name support
         self.layout_strategy.clone()
     }
@@ -38,6 +40,7 @@ impl From<&AppConfigs> for CoreConfigs {
             layout_strategy: app_configs.layout_strategy.clone(),
             tiles_padding: app_configs.tiles_padding,
             border_padding: app_configs.border_padding,
+            insert_in_monitor: app_configs.insert_in_monitor,
         }
     }
 }

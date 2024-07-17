@@ -7,6 +7,7 @@ pub enum MondrianCommand {
     RefreshConfig,
     OpenConfig,
     Retile,
+    Configure,
     Focus(Direction),
     Pause(bool),
     Quit,
@@ -24,7 +25,7 @@ impl<'de> serde::Deserialize<'de> for MondrianCommand {
         ];
 
         let s: String = Deserialize::deserialize(d)?;
-        let parts: Vec<&str> = s.split(' ').into_iter().map(|s| s.trim()).collect();
+        let parts: Vec<&str> = s.split(' ').map(|s| s.trim()).collect();
 
         let valid_len = match parts[0] {
             "refresh-config" => parts.len() == 1,
@@ -62,4 +63,3 @@ impl<'de> serde::Deserialize<'de> for MondrianCommand {
         }
     }
 }
-

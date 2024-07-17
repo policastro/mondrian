@@ -42,7 +42,7 @@ impl WinEventHandler for FocusEventHandler {
     }
 
     fn get_managed_events(&self) -> Option<Vec<u32>> {
-        return Some(vec![
+        Some(vec![
             EVENT_OBJECT_UNCLOAKED,
             EVENT_OBJECT_CLOAKED,
             EVENT_OBJECT_DESTROY,
@@ -52,6 +52,6 @@ impl WinEventHandler for FocusEventHandler {
             EVENT_SYSTEM_MINIMIZESTART,
             EVENT_SYSTEM_MINIMIZEEND,
             EVENT_SYSTEM_MOVESIZESTART,
-        ]);
+        ])
     }
 }

@@ -66,7 +66,7 @@ impl Debug for WindowSnapshot {
             .field("cloaked", &self.cloaked)
             .field(
                 "viewarea",
-                &self.viewarea.clone().map_or("/".to_string(), |a| format!("{:?}", a)),
+                &self.viewarea.map_or("/".to_string(), |a| format!("{:?}", a)),
             )
             .finish()
     }
@@ -77,7 +77,7 @@ impl Display for WindowSnapshot {
         let title = default_str(self.title.as_ref());
         let exe = default_str(self.exe_name.as_ref());
         let class = default_str(self.class_name.as_ref());
-        let area = self.viewarea.clone().map_or("/".to_string(), |a| {
+        let area = self.viewarea.map_or("/".to_string(), |a| {
             format!("({}, {}, {}, {})", a.x, a.y, a.width, a.height)
         });
         let visible = if self.visible { "v" } else { "!v" };

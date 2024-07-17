@@ -1,27 +1,27 @@
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 
-use super::layout_strategy::AreaTreeLayoutStrategy;
+use super::LayoutStrategy;
 
 #[derive(Clone, Copy, Debug)]
-pub struct MonoAxisLayoutStrategy {
+pub struct MonoAxis {
     axis: Orientation,
-    //intial_direction: Direction,
     current_direction: Direction,
-    //toogle: bool,
 }
 
-impl MonoAxisLayoutStrategy {
-    pub fn new(axis: Orientation, direction: Direction, _toogle: bool) -> MonoAxisLayoutStrategy {
-        MonoAxisLayoutStrategy {
+impl MonoAxis {
+    pub fn new(axis: Orientation, direction: Direction) -> MonoAxis {
+        match axis {
+            Orientation::Horizontal => assert!(direction == Direction::Right || direction == Direction::Left),
+            Orientation::Vertical => assert!(direction == Direction::Down || direction == Direction::Up),
+        }
+        MonoAxis {
             axis: axis.opposite(),
-            //intial_direction: direction, // TODO fix
             current_direction: direction,
-            //toogle,
         }
     }
 }
 
-impl AreaTreeLayoutStrategy for MonoAxisLayoutStrategy {
+impl LayoutStrategy for MonoAxis {
     fn reset(&mut self) {}
 
     fn next(&mut self) -> (Direction, Orientation) {

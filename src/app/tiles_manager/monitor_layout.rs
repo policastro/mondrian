@@ -1,13 +1,13 @@
-use crate::{app::structs::area_tree::layout::layout_strategy::AreaTreeLayoutStrategyEnum, win32::api::monitor::Monitor};
+use crate::{app::structs::area_tree::layout_strategy::LayoutStrategyEnum, win32::api::monitor::Monitor};
 
 #[derive(Debug)]
 pub struct MonitorLayout {
     pub monitor: Monitor,
-    pub layout: AreaTreeLayoutStrategyEnum,
+    pub layout: LayoutStrategyEnum,
 }
 
 impl MonitorLayout {
-    pub fn new(monitor: Monitor, layout: AreaTreeLayoutStrategyEnum) -> Self {
+    pub fn new(monitor: Monitor, layout: LayoutStrategyEnum) -> Self {
         MonitorLayout { monitor, layout }
     }
 }
