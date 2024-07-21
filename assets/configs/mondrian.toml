@@ -21,7 +21,7 @@ second_step = "down" # second insertion direction, can be "right", "left", "up" 
 
 [modules]
 keybindings = true # enable the keybindings module
-overlay = true     # enable the overlay module
+overlays = true    # enable the overlays module
 
 [keybindings] # if keybindings = true
 default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
@@ -30,10 +30,16 @@ bindings = [
     { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
 ]
 
-[overlay] # if overlay = true
-thickness = 4         # thickness of the border
-color = [0, 150, 148] # color of the border
-padding = 0           # padding between the border and the tiles
+[overlays] # if overlay = true
+follow_movements = true      # if true, the overlay will follow the window movements
+active.enabled = true        # if true, the active overlay will be shown
+active.thickness = 4         # thickness of the border
+active.color = [0, 200, 0]   # color of the border
+active.padding = 0           # padding between the border and the tiles
+inactive.enabled = true      # if true, the inactive overlay will be shown
+inactive.thickness = 4       # thickness of the border
+inactive.color = [200, 0, 0] # color of the border
+inactive.padding = 0         # padding between the border and the tiles
 
 [advanced]
 refresh_time = 50 # in milliseconds, set the time between each refresh. Values below 30 are not recommended, and probably there is no benefit with such a low value

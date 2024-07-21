@@ -3,7 +3,7 @@ use crate::app::{
     structs::area_tree::layout_strategy::LayoutStrategyEnum,
 };
 
-pub struct CoreConfigs {
+pub struct CoreModuleConfigs {
     pub refresh_time: u64,
     pub filter: Option<WinMatchAnyFilters>,
     pub layout_strategy: LayoutStrategyEnum,
@@ -12,9 +12,9 @@ pub struct CoreConfigs {
     pub insert_in_monitor: bool,
 }
 
-impl Default for CoreConfigs {
+impl Default for CoreModuleConfigs {
     fn default() -> Self {
-        CoreConfigs {
+        CoreModuleConfigs {
             refresh_time: 50,
             filter: None,
             layout_strategy: LayoutStrategyEnum::default(),
@@ -25,16 +25,16 @@ impl Default for CoreConfigs {
     }
 }
 
-impl CoreConfigs {
+impl CoreModuleConfigs {
     pub fn get_layout(&self, _display_name: Option<&String>) -> LayoutStrategyEnum {
         //TODO implement display_name support
         self.layout_strategy.clone()
     }
 }
 
-impl From<&AppConfigs> for CoreConfigs {
+impl From<&AppConfigs> for CoreModuleConfigs {
     fn from(app_configs: &AppConfigs) -> Self {
-        CoreConfigs {
+        CoreModuleConfigs {
             refresh_time: app_configs.refresh_time,
             filter: app_configs.filter.clone(),
             layout_strategy: app_configs.layout_strategy.clone(),

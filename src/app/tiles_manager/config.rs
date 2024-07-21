@@ -1,4 +1,4 @@
-use crate::modules::core::config::CoreConfigs;
+use crate::modules::core::config::CoreModuleConfigs;
 
 #[derive(Default)]
 pub struct TilesManagerConfig {
@@ -43,8 +43,8 @@ impl TilesManagerConfig {
     }
 }
 
-impl From<&CoreConfigs> for TilesManagerConfig {
-    fn from(configs: &CoreConfigs) -> Self {
+impl From<&CoreModuleConfigs> for TilesManagerConfig {
+    fn from(configs: &CoreModuleConfigs) -> Self {
         Self::new(configs.tiles_padding, configs.border_padding, configs.insert_in_monitor)
     }
 }

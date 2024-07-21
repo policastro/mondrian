@@ -1,9 +1,11 @@
 use serde::{de::Error, Deserialize, Deserializer};
 
 use crate::app::{
-    mondrian_command::MondrianCommand,
+    mondrian_command::MondrianMessage,
     structs::{
-        area_tree::layout_strategy::{golden_ratio::GoldenRatio, mono_axis::MonoAxis, two_step::TwoStep, LayoutStrategyEnum},
+        area_tree::layout_strategy::{
+            golden_ratio::GoldenRatio, mono_axis::MonoAxis, two_step::TwoStep, LayoutStrategyEnum,
+        },
         direction::Direction,
         orientation::Orientation,
     },
@@ -24,7 +26,7 @@ pub struct ExtConfig {
     #[serde(default)]
     pub modules: ExtModulesConfig,
     #[serde(default)]
-    pub overlay: ExtOverlayConfig,
+    pub overlays: ExtOverlaysConfig,
     #[serde(default)]
     pub keybindings: ExtKeybindingsConfig,
 }
@@ -58,9 +60,18 @@ pub struct ExtLayoutConfig {
     pub insert_in_monitor: bool,
 }
 
+#[derive(Deserialize, Debug, Default)]
+#[serde(default)]
+pub struct ExtOverlaysConfig {
+    pub active: ExtOverlayConfig,
+    pub inactive: ExtOverlayConfig,
+    pub follow_movements: bool,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(default)]
 pub struct ExtOverlayConfig {
+    pub enabled: bool,
     pub thickness: u8,
     pub color: (u8, u8, u8),
     pub padding: u8,
@@ -86,6 +97,7 @@ pub struct ExtLayoutHorizontalConfig {
 pub struct ExtLayoutVerticalConfig {
     pub split_down: bool,
 }
+
 #[derive(Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct ExtLayoutTwoStepConfig {
@@ -103,7 +115,7 @@ pub struct AdvancedConfig {
 #[serde(default)]
 pub struct ExtModulesConfig {
     pub keybindings: bool,
-    pub overlay: bool,
+    pub overlays: bool,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -112,7 +124,7 @@ pub struct ExtBindingConfig {
     pub modifier: Option<Vec<String>>,
     #[serde(deserialize_with = "deserialize_key")]
     pub key: String,
-    pub action: MondrianCommand,
+    pub action: MondrianMessage,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -133,14 +145,15 @@ impl Default for ExtModulesConfig {
     fn default() -> Self {
         ExtModulesConfig {
             keybindings: true,
-            overlay: true,
+            overlays: true,
         }
     }
 }
 
 impl Default for ExtOverlayConfig {
     fn default() -> Self {
-        ExtOverlayConfig {
+        Self {
+            enabled: true,
             thickness: 4,
             color: (0, 150, 148),
             padding: 0,

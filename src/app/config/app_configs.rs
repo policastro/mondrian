@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use crate::{
-    app::structs::area_tree::layout_strategy::LayoutStrategyEnum, modules::overlay::lib::color::Color,
+    app::structs::area_tree::layout_strategy::LayoutStrategyEnum, modules::overlays::lib::{color::Color, overlay::OverlayParams},
 };
 
 use super::{
-    ext_configs::{ExtBindingConfig, ExtConfig, ExtFilterConfig, ExtLayoutConfig},
+    ext_configs::{ExtBindingConfig, ExtConfig, ExtFilterConfig, ExtLayoutConfig, ExtOverlayConfig},
     filters::window_match_filter::WinMatchAnyFilters,
 };
 
@@ -16,10 +16,12 @@ pub struct AppConfigs {
     pub tiles_padding: u8,
     pub border_padding: u8,
     pub refresh_time: u64,
-    pub overlay_enabled: bool,
-    pub overlay_thickness: u8,
-    pub overlay_color: Color,
-    pub overlay_padding: u8,
+    pub active_overlay_enabled: bool,
+    pub inactive_overlay_enabled: bool,
+    pub overlay_follow_movements: bool,
+    pub active_overlay: OverlayParams,
+    pub inactive_overlay: OverlayParams,
+    pub overlays_enabled: bool,
     pub keybinds_enabled: bool,
     pub bindings: Vec<ExtBindingConfig>,
     pub insert_in_monitor: bool,
@@ -36,10 +38,12 @@ impl AppConfigs {
         let refresh_time = cfg.advanced.refresh_time;
         let tiles_padding = cfg.layout.tiles_padding;
         let border_padding = cfg.layout.border_padding;
-        let overlay_enabled = cfg.modules.overlay;
-        let overlay_thickness = cfg.overlay.thickness;
-        let overlay_color = Color::from(cfg.overlay.color);
-        let overlay_padding = cfg.overlay.padding;
+        let overlays_enabled = cfg.modules.overlays;
+        let active_overlay_enabled = cfg.overlays.active.enabled;
+        let inactive_overlay_enabled = cfg.overlays.inactive.enabled;
+        let active_overlay = Self::extract_overlay_params(&cfg.overlays.active);
+        let inactive_overlay = Self::extract_overlay_params(&cfg.overlays.inactive);
+        let overlay_follow_movements = cfg.overlays.follow_movements;
         let keybinds_enabled = cfg.modules.keybindings;
         let default_mod = cfg.keybindings.default_modifier;
         let bindings = cfg
@@ -59,10 +63,12 @@ impl AppConfigs {
             refresh_time,
             tiles_padding,
             border_padding,
-            overlay_enabled,
-            overlay_thickness,
-            overlay_color,
-            overlay_padding,
+            overlays_enabled,
+            active_overlay_enabled,
+            inactive_overlay_enabled,
+            overlay_follow_movements,
+            active_overlay,
+            inactive_overlay,
             keybinds_enabled,
             bindings,
             insert_in_monitor,
@@ -99,5 +105,10 @@ impl AppConfigs {
         };
 
         app_layout_strategy
+    }
+
+    pub fn extract_overlay_params(configs: &ExtOverlayConfig) -> OverlayParams {
+        let color = Color::new(configs.color.0, configs.color.1, configs.color.2);
+        OverlayParams::new(color, configs.thickness, configs.padding)
     }
 }

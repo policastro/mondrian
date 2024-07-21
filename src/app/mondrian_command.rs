@@ -1,19 +1,22 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Deserializer};
 
 use super::structs::direction::Direction;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum MondrianCommand {
+#[derive(Debug, PartialEq, Clone)]
+pub enum MondrianMessage {
     RefreshConfig,
     OpenConfig,
     Retile,
     Configure,
     Focus(Direction),
     Pause(bool),
+    UpdatedWindows(HashSet<isize>),
     Quit,
 }
 
-impl<'de> serde::Deserialize<'de> for MondrianCommand {
+impl<'de> serde::Deserialize<'de> for MondrianMessage {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let actions = [
             "refresh-config",
@@ -45,9 +48,9 @@ impl<'de> serde::Deserialize<'de> for MondrianCommand {
         }
 
         match parts[0] {
-            "refresh-config" => Ok(MondrianCommand::RefreshConfig),
-            "open-config" => Ok(MondrianCommand::OpenConfig),
-            "retile" => Ok(MondrianCommand::Retile),
+            "refresh-config" => Ok(MondrianMessage::RefreshConfig),
+            "open-config" => Ok(MondrianMessage::OpenConfig),
+            "retile" => Ok(MondrianMessage::Retile),
             "focus" => {
                 let dir = match parts[1] {
                     "up" => Direction::Up,
@@ -56,9 +59,9 @@ impl<'de> serde::Deserialize<'de> for MondrianCommand {
                     "right" => Direction::Right,
                     _ => return invalid_action_err,
                 };
-                Ok(MondrianCommand::Focus(dir))
+                Ok(MondrianMessage::Focus(dir))
             }
-            "quit" => Ok(MondrianCommand::Quit),
+            "quit" => Ok(MondrianMessage::Quit),
             _ => invalid_action_err,
         }
     }

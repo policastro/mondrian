@@ -6,8 +6,7 @@ use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
 use crate::win32::window::window_snapshot::WindowSnapshot;
 use ::windows::Win32::Foundation::HWND;
-use log::warn;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::config::TilesManagerConfig;
 use super::container::Container;
@@ -40,29 +39,17 @@ impl TilesManager {
         }
     }
 
-    pub fn add(&mut self, win: WindowRef, update: bool) -> bool {
+    pub fn add(&mut self, win: WindowRef, update: bool) -> Result<(), Error> {
         if self.has_window(win.hwnd) {
-            return false;
+            return Err(Error::WindowAlreadyAdded);
         }
 
-        let snapshot = match win.snapshot() {
-            Some(snapshot) => snapshot,
-            None => {
-                log::warn!("Could not get snapshot for window: {:?}", win);
-                return false;
-            }
-        };
-
-        let tree = match self
+        let snapshot = win.snapshot().ok_or(Error::NoWindowsInfo)?;
+        let viewarea = snapshot.viewarea.ok_or(Error::NoWindowsInfo)?;
+        let tree = self
             .containers
-            .which_tree(snapshot.viewarea.expect("Could not get area").get_center())
-        {
-            Some(tree) => tree,
-            None => {
-                warn!("Could not get tree for window: {:?}", win);
-                return false;
-            }
-        };
+            .which_tree(viewarea.get_center())
+            .ok_or(Error::NoWindowsInfo)?;
 
         tree.insert(win.hwnd.0);
         self.store_window(snapshot, None);
@@ -71,7 +58,7 @@ impl TilesManager {
             self.update();
         }
 
-        true
+        Ok(())
     }
 
     pub fn find_at(&mut self, direction: Direction) -> Option<AreaLeaf<isize>> {
@@ -108,10 +95,11 @@ impl TilesManager {
         None
     }
 
-    pub fn focus_at(&mut self, direction: Direction) {
-        if let Some(leaf) = self.find_at(direction) {
-            self.focus_window(leaf.id);
-        }
+    pub fn focus_at(&mut self, direction: Direction) -> Result<(), Error> {
+        let leaf = self.find_at(direction).ok_or(Error::NoWindowFound)?;
+        self.focus_window(leaf.id);
+
+        Ok(())
     }
 
     pub fn focus_next(&mut self) {
@@ -136,39 +124,41 @@ impl TilesManager {
         }
     }
 
-    pub fn remove(&mut self, hwnd: HWND) {
-        if let Some(center) = self.get_stored_area(hwnd).map(|a| a.get_center()) {
-            if let Some(win_tree) = self.containers.which_tree(center) {
-                win_tree.remove(center);
-            }
+    pub fn remove(&mut self, hwnd: HWND, update: bool) -> Result<(), Error> {
+        let center = self
+            .get_stored_area(hwnd)
+            .map(|a| a.get_center())
+            .ok_or(Error::Generic)?;
 
-            self.managed_wins.remove(&hwnd.0);
+        let tree = self.containers.which_tree(center).ok_or(Error::Generic)?;
 
-            if get_foreground_window().is_none() {
-                self.focus_next();
-            }
+        tree.remove(center);
+        self.managed_wins.remove(&hwnd.0);
 
+        if get_foreground_window().is_none() {
+            self.focus_next();
+        }
+
+        if update {
             self.update();
         }
+
+        Ok(())
     }
 
-    pub fn refresh_window_size(&mut self, hwnd: HWND) {
+    pub fn refresh_window_size(&mut self, hwnd: HWND, update: bool) -> Result<(), Error> {
         if !self.has_window(hwnd) {
-            warn!("Window not found: {}", hwnd.0);
-            return;
+            return Err(Error::NoWindow);
         }
 
         let win = WindowRef::new(hwnd);
         let area = self.get_stored_area(win.hwnd).expect("Area not found");
         let center = area.get_center();
 
-        let win_tree = match self.containers.which_tree(center) {
-            Some(win_tree) => win_tree,
-            None => return,
-        };
-
-        let area_shift = win.get_window_box().expect("Snapshot not found").get_shift(&area);
-
+        let win_tree = self.containers.which_tree(center).ok_or(Error::Generic)?;
+        let wb = win.get_window_box().ok_or(Error::NoWindowsInfo)?;
+        let area_shift = wb.get_shift(&area);
+        
         if area_shift.2 != 0 {
             let growth = (area_shift.2 as f32 / area.width as f32) * 100f32;
             let (x, growth) = match area_shift.0.abs() > 10 {
@@ -188,21 +178,33 @@ impl TilesManager {
 
             win_tree.resize_ancestor(center, (center.0, y), grow_perc as i32);
         }
-        self.update();
-    }
 
-    pub fn move_window(&mut self, hwnd: HWND, new_point: (i32, i32), invert_monitor_op: bool, switch_orient: bool) {
-        if !self.has_window(hwnd) {
-            return;
+        if update {
+            self.update();
         }
 
-        let area = self.get_stored_area(hwnd).expect("Area not found");
+        Ok(())
+    }
+
+    pub fn move_window(
+        &mut self,
+        hwnd: HWND,
+        new_point: (i32, i32),
+        invert_monitor_op: bool,
+        switch_orient: bool,
+        update: bool,
+    ) -> Result<(), Error> {
+        if !self.has_window(hwnd) {
+            return Err(Error::NoWindow);
+        }
+
+        let area = self.get_stored_area(hwnd).ok_or(Error::Generic)?;
         let center = area.get_center();
 
         let containers = &mut self.containers;
         if containers.is_same_container(center, new_point) {
             // If it is in the same monitor
-            let tree = containers.which_tree(center).expect("Container not found");
+            let tree = containers.which_tree(center).ok_or(Error::Generic)?;
             tree.swap_ids(center, new_point);
             if switch_orient {
                 tree.switch_subtree_orientations(new_point);
@@ -223,66 +225,36 @@ impl TilesManager {
             // If it is in another monitor and swap
             let replaced_id = containers
                 .which_tree(new_point)
-                .map(|t| {
-                    let id = t.replace_id(new_point, hwnd.0);
+                .map(|t| (t.replace_id(center, hwnd.0), t))
+                .map(|(id, t)| {
                     if switch_orient {
                         t.switch_subtree_orientations(new_point);
                     }
                     id
                 })
-                .expect("Container not found");
+                .ok_or(Error::Generic)?;
 
-            let tree = containers.which_tree(center).expect("Container not found");
-            if let Some(id) = replaced_id {
-                tree.replace_id(center, id);
-            } else {
-                tree.remove(center);
-            }
+            let tree = containers.which_tree(center).ok_or(Error::Generic)?;
+            match replaced_id {
+                Some(id) => drop(tree.replace_id(center, id)),
+                None => tree.remove(center),
+            };
         }
 
-        self.update();
+        if update {
+            self.update();
+        }
+
+        Ok(())
     }
 
     pub fn update(&mut self) {
-        let leaves_vec: Vec<Vec<AreaLeaf<isize>>> = self
-            .containers
-            .get_containers()
-            .iter()
-            .map(|l| l.tree.get_all_leaves(self.config.get_border_pad()))
-            .collect();
-        leaves_vec.into_iter().for_each(|l| self.update_leaves(l));
+        let ids = self.containers.get_containers_ids();
+        ids.into_iter().for_each(|c| drop(self.update_container(c)));
     }
 
-    pub fn update_leaves(&mut self, leaves: Vec<AreaLeaf<isize>>) {
-        let managed_wins = self.managed_wins.clone();
-
-        managed_wins
-            .into_iter()
-            .map(|w| WindowRef::from(w.0))
-            .filter(|wr| wr.get_exe_name().is_none() || !wr.is_window())
-            .for_each(|wr| self.remove(wr.hwnd));
-
-        let leaves: Vec<AreaLeaf<isize>> = leaves.into_iter().filter(|l| self.has_window(HWND(l.id))).collect();
-
-        let mut errors = 0;
-        leaves.clone().into_iter().for_each(|leaf| {
-            let win_ref = WindowRef::from(leaf.id);
-            let area = leaf.viewbox.pad_xy(self.config.get_tile_pad_xy());
-            let res = win_ref.resize_and_move(area.get_origin(), area.get_size());
-
-            if res.is_err() {
-                warn!("Failed to resize and move window: {}", win_ref.hwnd.0);
-                errors += 1;
-            };
-
-            if let Some(snapshot) = win_ref.snapshot() {
-                self.store_window(snapshot, Some(leaf));
-            }
-        });
-
-        if errors > 0 {
-            self.update_leaves(leaves);
-        }
+    pub fn get_managed_windows(&self) -> HashSet<isize> {
+        self.managed_wins.keys().cloned().collect()
     }
 
     pub fn focus_window(&mut self, id: isize) {
@@ -293,6 +265,45 @@ impl TilesManager {
 
     pub fn has_window(&self, hwnd: HWND) -> bool {
         self.managed_wins.contains_key(&hwnd.0)
+    }
+
+    fn update_container(&mut self, container_id: isize) -> Result<(), Error> {
+        let managed_wins = self.managed_wins.clone();
+        let win_refs = managed_wins.into_iter().map(|w| WindowRef::from(w.0));
+        win_refs
+            .filter(|wr| wr.get_exe_name().is_none() || !wr.is_window())
+            .for_each(|wr| drop(self.remove(wr.hwnd, false)));
+
+        let container = self.containers.get_container(container_id);
+        let tree = container.map(|c| &c.tree).ok_or(Error::ContainerNotFound)?;
+
+        let leaves: Vec<AreaLeaf<isize>> = tree.get_all_leaves(self.config.get_border_pad());
+        let mut errors = false;
+        for leaf in &leaves {
+            let win_ref = WindowRef::from(leaf.id);
+            let area = leaf.viewbox.pad_xy(self.config.get_tile_pad_xy());
+            let res = win_ref.resize_and_move(area.get_origin(), area.get_size());
+
+            if res.is_err() {
+                log::warn!("Failed to resize and move window: {}", win_ref.hwnd.0);
+                errors = true;
+                break;
+            } else if let Some(s) = win_ref.snapshot() {
+                if s.viewarea.is_none() {
+                    log::warn!("Area not found for window: {}", win_ref.hwnd.0);
+                    errors = true;
+                    break;
+                } else {
+                    self.store_window(s, Some(*leaf));
+                }
+            }
+        }
+
+        if errors {
+            return self.update_container(container_id);
+        }
+
+        Ok(())
     }
 
     fn get_stored_area(&self, hwnd: HWND) -> Option<Area> {
@@ -313,5 +324,21 @@ trait Point {
 impl Point for (i32, i32) {
     fn with_offset(&self, offset_x: i32, offset_y: i32) -> (i32, i32) {
         (self.0.saturating_add(offset_x), self.1.saturating_add(offset_y))
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    Generic,
+    WindowAlreadyAdded,
+    NoWindowsInfo,
+    ContainerNotFound,
+    NoWindow,
+    NoWindowFound,
+}
+
+impl Error {
+    pub fn is_warn(&self) -> bool {
+        matches!(self, Error::WindowAlreadyAdded | Error::NoWindowsInfo)
     }
 }

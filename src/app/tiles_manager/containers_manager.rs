@@ -1,14 +1,18 @@
+use std::collections::HashMap;
+
 use crate::app::structs::{area::Area, area_tree::tree::WinTree, direction::Direction};
 
 use super::container::Container;
 
 pub(super) struct ContainersManager {
-    containers: Vec<Container>,
+    containers: HashMap<isize, Container>,
 }
 
 impl ContainersManager {
     pub fn new(containers: Vec<Container>) -> Self {
-        ContainersManager { containers }
+        ContainersManager {
+            containers: containers.into_iter().map(|c| (c.monitor.id, c)).collect(),
+        }
     }
 
     pub fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool {
@@ -22,11 +26,11 @@ impl ContainersManager {
     }
 
     pub fn which(&self, point: (i32, i32)) -> Option<&Container> {
-        self.containers.iter().find(|c| c.contains(point))
+        self.containers.values().find(|c| c.contains(point))
     }
 
     pub fn which_mut(&mut self, point: (i32, i32)) -> Option<&mut Container> {
-        self.containers.iter_mut().find(|c| c.contains(point))
+        self.containers.values_mut().find(|c| c.contains(point))
     }
 
     pub fn which_tree(&mut self, point: (i32, i32)) -> Option<&mut WinTree> {
@@ -36,7 +40,7 @@ impl ContainersManager {
     pub fn which_nearest_mut(&mut self, ref_point: (i32, i32), direction: Direction) -> Option<&mut Container> {
         let ref_m = self
             .containers
-            .iter()
+            .values()
             .find(|c| c.contains(ref_point))
             .map(|c| c.monitor)?;
 
@@ -49,7 +53,7 @@ impl ContainersManager {
 
         let nearest = self
             .containers
-            .iter_mut()
+            .values_mut()
             .filter(|c| c.monitor.id != ref_m.id) // Filter out the same monitor
             .filter(|c| {
                 // Filter out the ones that are not in the same direction
@@ -70,8 +74,12 @@ impl ContainersManager {
         nearest
     }
 
-    pub fn get_containers(&mut self) -> Vec<&mut Container> {
-        self.containers.iter_mut().collect()
+    pub fn get_containers_ids(&self) -> Vec<isize> {
+        self.containers.keys().cloned().collect()
+    }
+
+    pub fn get_container(&self, id: isize) -> Option<&Container> {
+        self.containers.get(&id)
     }
 }
 

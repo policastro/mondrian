@@ -1,16 +1,14 @@
 use clap::Parser;
 use log4rs::config::RawConfig;
 use std::path::PathBuf;
-use std::thread;
-use std::time::Duration;
 
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
-use crate::app::mondrian_command::MondrianCommand;
+use crate::app::mondrian_command::MondrianMessage;
 use crate::modules::core::module::CoreModule;
 use crate::modules::keybindings::module::KeybindingsModule;
 use crate::modules::module::Module;
-use crate::modules::overlay::module::OverlayModule;
+use crate::modules::overlays::module::OverlaysModule;
 use crate::modules::tray::module::TrayModule;
 
 pub fn main() {
@@ -31,24 +29,26 @@ fn start_app(cfg_file: &PathBuf) {
     let (bus_tx, bus_rx) = std::sync::mpsc::channel();
 
     let mut modules: Vec<Box<dyn Module>> = vec![
-        Box::new(CoreModule::new()),
+        Box::new(OverlaysModule::new()),
+        Box::new(CoreModule::new(bus_tx.clone())),
         Box::new(TrayModule::new(bus_tx.clone())),
         Box::new(KeybindingsModule::new(bus_tx.clone())),
-        Box::new(OverlayModule::new()),
     ];
+
+    log::info!("Starting modules ...");
+
     modules.iter_mut().for_each(|m| {
-        m.handle(&MondrianCommand::Configure, &app_configs);
+        m.handle(&MondrianMessage::Configure, &app_configs);
         m.start();
-        thread::sleep(Duration::from_millis(20)); // TODO Magic number, find a better way to start the overlay only after the core module is ready (i.e. has placed the initial windows on the screen)
     });
 
     log::info!("Application started!");
     loop {
         let event = if let Ok(e) = bus_rx.recv() { e } else { continue };
 
-        match event {
-            MondrianCommand::OpenConfig => drop(open::that(cfg_file.clone())),
-            MondrianCommand::RefreshConfig => {
+        match event.clone() {
+            MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
+            MondrianMessage::RefreshConfig => {
                 app_configs = init_configs(cfg_file).unwrap_or_else(|e| {
                     log::error!("Can't read config file: {}", e);
                     app_configs.clone()
@@ -58,7 +58,7 @@ fn start_app(cfg_file: &PathBuf) {
             event => modules.iter_mut().for_each(|m| m.handle(&event, &app_configs)),
         }
 
-        if event == MondrianCommand::Quit {
+        if event == MondrianMessage::Quit {
             break;
         }
     }

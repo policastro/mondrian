@@ -1,12 +1,10 @@
 use inputbot::BlockInput;
-use windows::Win32::{
-    System::Threading::GetCurrentThreadId,
-    UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT},
-};
+use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 use crate::{
-    app::{config::app_configs::AppConfigs, mondrian_command::MondrianCommand},
+    app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage},
     modules::module::{module_impl::ModuleImpl, ConfigurableModule, Module},
+    win32::api::misc::{get_current_thread_id, post_empty_thread_message},
 };
 use std::{
     sync::{
@@ -17,24 +15,24 @@ use std::{
     thread,
 };
 
-use super::configs::KeybindingsConfig;
+use super::configs::KeybindingsModuleConfigs;
 pub struct KeybindingsModule {
-    bus: Sender<MondrianCommand>,
+    bus: Sender<MondrianMessage>,
     input_thread: Option<thread::JoinHandle<()>>,
     enabled: bool,
     running: Arc<AtomicBool>,
-    configs: KeybindingsConfig,
+    configs: KeybindingsModuleConfigs,
     binded_keys: Vec<inputbot::KeybdKey>,
     main_thread_id: Arc<AtomicU32>,
 }
 
 impl KeybindingsModule {
-    pub fn new(bus: Sender<MondrianCommand>) -> KeybindingsModule {
+    pub fn new(bus: Sender<MondrianMessage>) -> KeybindingsModule {
         KeybindingsModule {
             input_thread: None,
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
-            configs: KeybindingsConfig::default(),
+            configs: KeybindingsModuleConfigs::default(),
             binded_keys: vec![],
             bus,
             main_thread_id: Arc::new(AtomicU32::new(0)),
@@ -53,11 +51,11 @@ impl ModuleImpl for KeybindingsModule {
         let main_thread_id = self.main_thread_id.clone();
         self.configs.bindings.iter().for_each(move |b| {
             let modifiers = b.0.clone();
-            let command = b.2;
+            let command = b.2.clone();
             let bus = bus.clone();
             b.1.blockable_bind(move || {
                 if modifiers.iter().all(|m| m.is_pressed()) {
-                    bus.send(command).expect("Failed to send command");
+                    bus.send(command.clone()).expect("Failed to send command");
                     return BlockInput::Block;
                 }
                 BlockInput::DontBlock
@@ -66,7 +64,7 @@ impl ModuleImpl for KeybindingsModule {
 
         self.binded_keys = self.configs.bindings.iter().map(|b| b.1).collect();
         let input_thread = thread::spawn(move || {
-            main_thread_id.store(unsafe { GetCurrentThreadId() }, Ordering::SeqCst);
+            main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             inputbot::handle_input_events(false);
         });
         self.input_thread = Some(input_thread);
@@ -81,7 +79,7 @@ impl ModuleImpl for KeybindingsModule {
         self.binded_keys.iter().for_each(|k| k.unbind());
         self.binded_keys.clear();
         // Not sure why this is required, but without it the module crashes
-        let _ = unsafe { PostThreadMessageW(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT, None, None) };
+        post_empty_thread_message(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT);
         inputbot::stop_handling_input_events();
         if self.input_thread.is_some() {
             self.input_thread.take().unwrap().join().unwrap();
@@ -108,26 +106,26 @@ impl ModuleImpl for KeybindingsModule {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianCommand, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
         match event {
-            MondrianCommand::Pause(pause) => Module::pause(self, *pause),
-            MondrianCommand::Configure => {
+            MondrianMessage::Pause(pause) => Module::pause(self, *pause),
+            MondrianMessage::Configure => {
                 Module::enable(self, app_configs.keybinds_enabled);
                 self.configure(app_configs.into());
             }
-            MondrianCommand::RefreshConfig => {
+            MondrianMessage::RefreshConfig => {
                 Module::enable(self, app_configs.keybinds_enabled);
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianCommand::Quit => Module::stop(self),
+            MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
     }
 }
 
 impl ConfigurableModule for KeybindingsModule {
-    type Config = KeybindingsConfig;
+    type Config = KeybindingsModuleConfigs;
     fn configure(&mut self, config: Self::Config) {
         self.configs = config;
     }

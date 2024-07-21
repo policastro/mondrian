@@ -1,6 +1,6 @@
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::filters::window_match_filter::WinMatchAnyFilters;
-use crate::app::mondrian_command::MondrianCommand;
+use crate::app::mondrian_command::MondrianMessage;
 use crate::app::tiles_manager::config::TilesManagerConfig;
 use crate::app::tiles_manager::manager::TilesManager;
 use crate::app::tiles_manager::monitor_layout::MonitorLayout;
@@ -24,26 +24,28 @@ use std::sync::Arc;
 use std::thread::{self, sleep};
 use std::time::Duration;
 
-use super::config::CoreConfigs;
+use super::config::CoreModuleConfigs;
 
 pub struct CoreModule {
     tm_command_tx: Option<Sender<TMCommand>>,
     win_events_thread: Option<thread::JoinHandle<()>>,
     tiles_manager_thread: Option<thread::JoinHandle<()>>,
-    configs: CoreConfigs,
+    configs: CoreModuleConfigs,
     running: Arc<AtomicBool>,
     enabled: bool,
+    bus_tx: Sender<MondrianMessage>,
 }
 
 impl CoreModule {
-    pub fn new() -> Self {
+    pub fn new(bus_tx: Sender<MondrianMessage>) -> Self {
         CoreModule {
-            configs: CoreConfigs::default(),
+            configs: CoreModuleConfigs::default(),
             tm_command_tx: None,
             win_events_thread: None,
             tiles_manager_thread: None,
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
+            bus_tx,
         }
     }
 
@@ -85,10 +87,11 @@ impl CoreModule {
 
         let tm_configs = TilesManagerConfig::from(&self.configs);
         let mut tm = TilesManager::new(monitors, Some(tm_configs));
+        let tx = self.bus_tx.clone();
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
             match filter_events(event_receiver.recv(), &filter) {
                 Ok(app_event) => {
-                    if !handle_tiles_manager(&mut tm, app_event) {
+                    if !handle_tiles_manager(&mut tm, &tx, app_event) {
                         log::trace!("TilesManager exit!");
                         break;
                     }
@@ -160,41 +163,53 @@ impl ModuleImpl for CoreModule {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianCommand, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
         match event {
-            MondrianCommand::Pause(pause) => Module::pause(self, *pause),
-            MondrianCommand::Configure => {
+            MondrianMessage::Pause(pause) => Module::pause(self, *pause),
+            MondrianMessage::Configure => {
                 self.configure(app_configs.into());
             }
-            MondrianCommand::Retile => Module::restart(self),
-            MondrianCommand::RefreshConfig => {
+            MondrianMessage::Retile => Module::restart(self),
+            MondrianMessage::RefreshConfig => {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianCommand::Focus(dir) => self.send_to_tiles_manager(TMCommand::Focus(*dir)),
-            MondrianCommand::Quit => Module::stop(self),
+            MondrianMessage::Focus(dir) => self.send_to_tiles_manager(TMCommand::Focus(*dir)),
+            MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
     }
 }
 
 impl ConfigurableModule for CoreModule {
-    type Config = CoreConfigs;
+    type Config = CoreModuleConfigs;
     fn configure(&mut self, config: Self::Config) {
         self.configs = config;
     }
 }
 
-fn handle_tiles_manager(tm: &mut TilesManager, event: TMCommand) -> bool {
-    match event {
-        TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) => drop(tm.add(WindowRef::new(hwnd), true)),
-        TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) => tm.remove(hwnd),
-        TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.move_window(hwnd, coords, invert, switch),
-        TMCommand::WindowResized(hwnd) => tm.refresh_window_size(hwnd),
+fn handle_tiles_manager(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
+    let res = match event {
+        TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) => tm.add(WindowRef::new(hwnd), true),
+        TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) => tm.remove(hwnd, true),
+        TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.move_window(hwnd, coords, invert, switch, true),
+        TMCommand::WindowResized(hwnd) => tm.refresh_window_size(hwnd, true),
         TMCommand::Focus(direction) => tm.focus_at(direction),
         TMCommand::Noop => return true,
         TMCommand::Quit => return false,
     };
+
+    match res {
+        Err(error) if error.is_warn() => log::warn!("{:?}", error),
+        Err(error) => log::error!("{:?}", error),
+        Ok(_) => {}
+    }
+
+    if event.require_update() {
+        let windows = tm.get_managed_windows();
+        tx.send(MondrianMessage::UpdatedWindows(windows)).unwrap();
+    }
+
     true
 }
 
@@ -207,33 +222,29 @@ fn filter_events(
         _ => return Ok(TMCommand::Noop),
     };
 
-    Ok(match event {
+    let cmd = match event {
         TMCommand::WindowClosed(hwnd) => {
             let snap = WindowRef::new(hwnd).snapshot();
             log::info!("[{:?}]: {}", event, snap.map_or("/".to_string(), |w| format!("{}", w)));
             event
         }
-        TMCommand::WindowOpened(hwnd)
-        | TMCommand::WindowMinimized(hwnd)
-        | TMCommand::WindowRestored(hwnd)
-        | TMCommand::WindowResized(hwnd)
-        | TMCommand::WindowMoved(hwnd, _, _, _) => {
-            let win_info = match WindowRef::new(hwnd).snapshot() {
+        command if command.can_be_filtered() => {
+            let hwnd = command.get_hwnd().unwrap();
+            let info = match WindowRef::new(hwnd).snapshot() {
                 Some(win_info) => win_info,
                 None => return Ok(TMCommand::Noop),
             };
 
-            match !win_filter.filter(&win_info) {
-                true => {
-                    log::info!("[{:?}]: {}", event, win_info);
-                    event
-                }
-                false => {
-                    log::trace!("[excluded][{:?}]: {}", event, win_info);
-                    TMCommand::Noop
-                }
+            if win_filter.filter(&info) {
+                log::trace!("[excluded][{:?}]: {}", event, info);
+                TMCommand::Noop
+            } else {
+                log::info!("[{:?}]: {}", event, info);
+                event
             }
         }
         _ => event,
-    })
+    };
+    
+    Ok(cmd)
 }

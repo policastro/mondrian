@@ -4,6 +4,7 @@ mod win32 {
         pub mod accessibility;
         pub mod cursor;
         pub mod key;
+        pub mod misc;
         pub mod monitor;
         pub mod window;
     }
@@ -63,13 +64,8 @@ mod app {
 
 mod modules {
     pub(super) mod module;
-    pub mod overlay {
-        pub mod lib {
-            pub mod color;
-            pub mod focus_event_handler;
-            pub mod utils;
-            pub mod window_overlay;
-        }
+    pub mod overlays {
+        pub(crate) mod lib;
         pub mod configs;
         pub mod module;
     }

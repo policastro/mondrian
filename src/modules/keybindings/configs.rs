@@ -1,29 +1,29 @@
-use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianCommand};
+use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage};
 use inputbot::KeybdKey::*;
 
 #[derive(Default)]
-pub struct KeybindingsConfig {
-    pub bindings: Vec<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianCommand)>,
+pub struct KeybindingsModuleConfigs {
+    pub bindings: Vec<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianMessage)>,
 }
 
-impl From<&AppConfigs> for KeybindingsConfig {
+impl From<&AppConfigs> for KeybindingsModuleConfigs {
     fn from(app_configs: &AppConfigs) -> Self {
         let bindings = app_configs
             .bindings
             .clone()
-            .iter()
+            .into_iter()
             .filter_map(|b| parse_binding(b.modifier.clone().unwrap_or_default(), b.key.clone(), b.action))
             .collect();
 
-        KeybindingsConfig { bindings }
+        KeybindingsModuleConfigs { bindings }
     }
 }
 
 fn parse_binding(
     modifiers: Vec<String>,
     key: String,
-    command: MondrianCommand,
-) -> Option<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianCommand)> {
+    command: MondrianMessage,
+) -> Option<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianMessage)> {
     let modifiers_input: Vec<inputbot::KeybdKey> = modifiers
         .into_iter()
         .filter_map(|m| match m.to_uppercase().as_str() {

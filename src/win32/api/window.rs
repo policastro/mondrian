@@ -11,9 +11,10 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFOR
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
-    GWL_STYLE, GW_OWNER, MINMAXINFO, TITLEBARINFO, WM_GETMINMAXINFO, WS_POPUP,
+    DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowRect,
+    GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW,
+    SetForegroundWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, TITLEBARINFO, WM_GETMINMAXINFO,
+    WS_POPUP,
 };
 
 pub fn get_foreground_window() -> Option<HWND> {
@@ -205,5 +206,11 @@ pub fn get_window_minmax_size(hwnd: HWND) -> ((i32, i32), (i32, i32)) {
         let max_height = min_max_info.ptMaxTrackSize.y;
 
         ((min_width - 8, min_height - 8), (max_width - 8, max_height - 8)) // TODO -8 to remove the border
+    }
+}
+
+pub fn destroy_window(hwnd: HWND) {
+    unsafe {
+        let _ = DestroyWindow(hwnd);
     }
 }

@@ -2,15 +2,12 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
     Icon, TrayIconBuilder,
 };
-use windows::Win32::{
-    System::Threading::GetCurrentThreadId,
-    UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT},
-};
+use windows::Win32::UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT};
 
 use crate::{
-    app::{config::app_configs::AppConfigs, mondrian_command::MondrianCommand},
+    app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage},
     modules::module::{module_impl::ModuleImpl, Module},
-    win32::win_event_loop::next_win_event_loop_iteration,
+    win32::{api::misc::get_current_thread_id, win_event_loop::next_win_event_loop_iteration},
 };
 
 use std::{
@@ -23,7 +20,7 @@ use std::{
 };
 
 pub struct TrayModule {
-    bus: Sender<MondrianCommand>,
+    bus: Sender<MondrianMessage>,
     main_thread: Option<thread::JoinHandle<()>>,
     running: Arc<AtomicBool>,
     enabled: bool,
@@ -31,7 +28,7 @@ pub struct TrayModule {
 }
 
 impl TrayModule {
-    pub fn new(bus: Sender<MondrianCommand>) -> Self {
+    pub fn new(bus: Sender<MondrianMessage>) -> Self {
         Self {
             bus,
             main_thread: None,
@@ -74,8 +71,7 @@ impl ModuleImpl for TrayModule {
                 .build()
                 .unwrap();
 
-            let thread_id = unsafe { GetCurrentThreadId() };
-            main_thread_id.store(thread_id, Ordering::SeqCst);
+            main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
 
             while next_win_event_loop_iteration(None) && running.load(Ordering::SeqCst) {
                 let event_id = MenuEvent::receiver()
@@ -83,16 +79,16 @@ impl ModuleImpl for TrayModule {
                     .map_or(None, |e| Some(e.id.0.to_owned()));
 
                 let app_event = match event_id.as_deref() {
-                    Some("PAUSE") => Some(MondrianCommand::Pause(pause.is_checked())),
-                    Some("RETILE") => Some(MondrianCommand::Retile),
-                    Some("REFRESH_CONFIG") => Some(MondrianCommand::RefreshConfig),
-                    Some("OPEN_CONFIG") => Some(MondrianCommand::OpenConfig),
-                    Some("QUIT") => Some(MondrianCommand::Quit),
+                    Some("PAUSE") => Some(MondrianMessage::Pause(pause.is_checked())),
+                    Some("RETILE") => Some(MondrianMessage::Retile),
+                    Some("REFRESH_CONFIG") => Some(MondrianMessage::RefreshConfig),
+                    Some("OPEN_CONFIG") => Some(MondrianMessage::OpenConfig),
+                    Some("QUIT") => Some(MondrianMessage::Quit),
                     _ => None,
                 };
 
                 match app_event {
-                    Some(e) if e == MondrianCommand::Quit => {
+                    Some(e) if e == MondrianMessage::Quit => {
                         bus.send(e).expect("TrayModule: Failed to send event");
                         break;
                     }
@@ -132,8 +128,8 @@ impl ModuleImpl for TrayModule {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianCommand, _app_configs: &AppConfigs) {
-        if let MondrianCommand::Quit = event {
+    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
+        if let MondrianMessage::Quit = event {
             Module::stop(self)
         }
     }

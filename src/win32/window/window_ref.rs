@@ -109,10 +109,7 @@ impl WindowObjHandler for WindowRef {
 
             match SetWindowPos(self.hwnd, HWND_TOP, coord.0, coord.1, size.0, size.1, flags) {
                 Ok(_) => Ok(()),
-                Err(err) => {
-                    log::error!("SetWindowPos failed for window {:?}: {}", self.hwnd, err);
-                    Err(())
-                }
+                Err(_) => Err(()),
             }
         }
     }
