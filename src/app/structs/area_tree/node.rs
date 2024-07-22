@@ -26,40 +26,33 @@ impl<T: Copy> AreaNode<T> {
         }
     }
 
-    pub fn new_internal(orientation: Orientation, ratio: u8) -> AreaNode<T> {
-        AreaNode::new(None, orientation, ratio)
-    }
-
-    pub fn insert(&mut self, id: T, area: Area, insert_strategy: &mut LayoutStrategyEnum) -> AreaLeaf<T> {
-        insert_strategy.reset();
-        self.insert_rec(id, area, insert_strategy)
-    }
-
-    fn insert_rec(&mut self, id: T, area: Area, insert_strategy: &mut LayoutStrategyEnum) -> AreaLeaf<T> {
+    pub fn insert(&mut self, id: T, area: Area, strategy: &mut LayoutStrategyEnum) {
         if self.id.is_none() && self.is_leaf() {
+            let _ = strategy.insert_complete();
             self.id = Some(id);
-            return AreaLeaf::new(id, area);
+            return;
         }
 
-        let (direction, orientation) = insert_strategy.next();
+        let (direction, orientation, ratio) = strategy.insert_next();
 
         let (min_area, max_area) = area.split(self.ratio, self.orientation);
-        let (main_subtree, cross_subtree, _) = match direction {
+        let (main_tree, cross_tree, area) = match direction {
             Direction::Left | Direction::Up => (&mut self.left, &mut self.right, min_area),
             Direction::Right | Direction::Down => (&mut self.right, &mut self.left, max_area),
         };
 
-        if main_subtree.is_none() {
-            self.orientation = orientation;
-            *main_subtree = Some(Box::new(AreaNode::new_internal(orientation, 50)));
-            *cross_subtree = Some(Box::new(AreaNode::new(self.id, orientation, 50)));
-            self.id = None;
+        self.orientation = orientation.unwrap_or(self.orientation);
+        self.ratio = ratio.unwrap_or(self.ratio);
+
+        if main_tree.is_none() {
+            let (orientation, ratio) = strategy.insert_complete();
+            *main_tree = Some(Box::new(AreaNode::new(Some(id), orientation, ratio)));
+            *cross_tree = Some(Box::new(AreaNode::new(self.id, orientation, ratio)));
+            (self.orientation, self.ratio, self.id) = (orientation, ratio, None);
+            return;
         }
 
-        main_subtree
-            .as_mut()
-            .expect("This should be impossible")
-            .insert_rec(id, area, insert_strategy)
+        return main_tree.as_mut().unwrap().insert(id, area, strategy);
     }
 
     pub fn find_leaf(&self, point: (i32, i32), area: Area) -> Option<AreaLeaf<T>> {
@@ -82,10 +75,6 @@ impl<T: Copy> AreaNode<T> {
     }
 
     pub fn get_all_leaves(&self, area: Area) -> Vec<AreaLeaf<T>> {
-        self.get_all_leaves_rec(area)
-    }
-
-    fn get_all_leaves_rec(&self, area: Area) -> Vec<AreaLeaf<T>> {
         let mut leaves = Vec::new();
 
         if self.is_leaf() && self.id.is_some() {
@@ -95,11 +84,11 @@ impl<T: Copy> AreaNode<T> {
         let (min_area, max_area) = self.get_split_area(area);
 
         if let Some(left) = &self.left {
-            leaves.extend(left.get_all_leaves_rec(min_area));
+            leaves.extend(left.get_all_leaves(min_area));
         }
 
         if let Some(right) = &self.right {
-            leaves.extend(right.get_all_leaves_rec(max_area));
+            leaves.extend(right.get_all_leaves(max_area));
         }
 
         leaves
@@ -120,8 +109,9 @@ impl<T: Copy> AreaNode<T> {
         }
     }
 
-    pub fn remove(&mut self, point: (i32, i32), area: Area) {
+    pub fn remove(&mut self, point: (i32, i32), area: Area, strategy: &mut LayoutStrategyEnum) {
         if self.is_leaf() {
+            strategy.remove_complete(self.id.is_some());
             self.id = None;
             return;
         }
@@ -129,24 +119,29 @@ impl<T: Copy> AreaNode<T> {
         let (min_area, max_area) = area.split(self.ratio, self.orientation);
         let is_left = min_area.contains(point);
 
-        let (main_subtree, cross_subtree, curr_area) = match is_left {
+        let (main_tree, cross_tree, curr_area) = match is_left {
             true => (&mut self.left, &mut self.right, min_area),
             false => (&mut self.right, &mut self.left, max_area),
         };
 
-        if main_subtree.is_none() || main_subtree.as_ref().unwrap().is_leaf() {
-            *main_subtree = None;
+        let (orientation, ratio) = strategy.remove_next();
+        self.orientation = orientation.unwrap_or(self.orientation);
+        self.ratio = ratio.unwrap_or(self.ratio);
+
+        if main_tree.is_none() || main_tree.as_ref().is_some_and(|t| t.is_leaf()) {
+            *main_tree = None;
             let mut temp_node = None;
 
-            std::mem::swap(cross_subtree, &mut temp_node);
+            std::mem::swap(cross_tree, &mut temp_node);
 
             if temp_node.as_mut().is_some() {
                 std::mem::swap(self, temp_node.as_mut().unwrap());
             }
+            strategy.remove_complete(true);
             return;
         }
 
-        main_subtree.as_mut().unwrap().remove(point, curr_area);
+        main_tree.as_mut().unwrap().remove(point, curr_area, strategy)
     }
 
     pub fn find_lowest_common_ancestor(
@@ -208,10 +203,7 @@ impl<T: Copy> AreaNode<T> {
             false => (&mut self.right, max_area),
         };
 
-        subtree
-            .as_mut()
-            .expect("This should be impossible")
-            .find_node_mut(point, curr_area)
+        subtree.as_mut().unwrap().find_node_mut(point, curr_area)
     }
 
     fn get_split_area(&self, area: Area) -> (Area, Area) {
@@ -229,10 +221,7 @@ impl<T: Copy> AreaNode<T> {
             false => (&self.right, max_area),
         };
 
-        subtree
-            .as_ref()
-            .expect("This should be impossible")
-            .find_node(point, curr_area)
+        subtree.as_ref().unwrap().find_node(point, curr_area)
     }
 
     pub fn set_id(&mut self, id: T, point: (i32, i32), area: Area) -> Option<T> {

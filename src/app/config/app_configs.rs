@@ -1,114 +1,195 @@
-use std::path::PathBuf;
+use serde::Deserialize;
 
 use crate::{
-    app::structs::area_tree::layout_strategy::LayoutStrategyEnum, modules::overlays::lib::{color::Color, overlay::OverlayParams},
+    app::structs::area_tree::layout_strategy::{
+        self,
+        golden_ratio::GoldenRatio,
+        mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
+        two_step::TwoStep,
+        LayoutStrategyEnum,
+    },
+    modules::{keybindings::configs::KeybindingsModuleConfigs, overlays::configs::OverlaysModuleConfigs},
 };
 
-use super::{
-    ext_configs::{ExtBindingConfig, ExtConfig, ExtFilterConfig, ExtLayoutConfig, ExtOverlayConfig},
-    filters::window_match_filter::WinMatchAnyFilters,
-};
+use super::win_matcher::WinMatcher;
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct AppConfigs {
-    pub filter: Option<WinMatchAnyFilters>,
-    pub layout_strategy: LayoutStrategyEnum,
+    #[serde(default)]
+    pub layout: Layout,
+    #[serde(default)]
+    pub core: Core,
+    #[serde(default)]
+    pub modules: Modules,
+    #[serde(default)]
+    pub advanced: Advanced,
+}
+
+#[derive(Deserialize, Default, Debug, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct Core {
+    pub rules: Vec<RuleConfig>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct Layout {
+    #[serde(deserialize_with = "deserializers::to_tiling_strategy")]
+    pub tiling_strategy: String,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
     pub tiles_padding: u8,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
     pub border_padding: u8,
-    pub refresh_time: u64,
-    pub active_overlay_enabled: bool,
-    pub inactive_overlay_enabled: bool,
-    pub overlay_follow_movements: bool,
-    pub active_overlay: OverlayParams,
-    pub inactive_overlay: OverlayParams,
-    pub overlays_enabled: bool,
-    pub keybinds_enabled: bool,
-    pub bindings: Vec<ExtBindingConfig>,
     pub insert_in_monitor: bool,
+    #[serde(default)]
+    pub golden_ratio: layout_strategy::golden_ratio::GoldenRatio,
+    #[serde(default)]
+    pub twostep: layout_strategy::two_step::TwoStep,
+    #[serde(default)]
+    pub horizontal: layout_strategy::mono_axis::MonoAxisHorizontal,
+    #[serde(default)]
+    pub vertical: layout_strategy::mono_axis::MonoAxisVertical,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(default, deny_unknown_fields)]
+pub struct Advanced {
+    pub refresh_time: u64,
+}
+
+#[derive(Deserialize, Clone, Debug, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct Modules {
+    pub keybindings: KeybindingsModuleConfigs,
+    pub overlays: OverlaysModuleConfigs,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RuleConfig {
+    pub classname: Option<String>,
+    pub exename: Option<String>,
+    pub title: Option<String>,
 }
 
 impl AppConfigs {
-    pub fn from_file(path: &PathBuf) -> Result<AppConfigs, toml::de::Error> {
-        let file_content = std::fs::read_to_string(path).expect("Something went wrong reading the file");
-
-        let cfg: ExtConfig = toml::from_str(&file_content)?;
-
-        let filter = Self::extract_filters(&cfg);
-        let layout_strategy = Self::extract_tiling_layout(&cfg.layout);
-        let refresh_time = cfg.advanced.refresh_time;
-        let tiles_padding = cfg.layout.tiles_padding;
-        let border_padding = cfg.layout.border_padding;
-        let overlays_enabled = cfg.modules.overlays;
-        let active_overlay_enabled = cfg.overlays.active.enabled;
-        let inactive_overlay_enabled = cfg.overlays.inactive.enabled;
-        let active_overlay = Self::extract_overlay_params(&cfg.overlays.active);
-        let inactive_overlay = Self::extract_overlay_params(&cfg.overlays.inactive);
-        let overlay_follow_movements = cfg.overlays.follow_movements;
-        let keybinds_enabled = cfg.modules.keybindings;
-        let default_mod = cfg.keybindings.default_modifier;
-        let bindings = cfg
-            .keybindings
-            .bindings
-            .into_iter()
-            .map(|b| ExtBindingConfig {
-                modifier: b.modifier.or(Some(default_mod.clone())),
-                ..b
-            })
-            .collect();
-        let insert_in_monitor = cfg.layout.insert_in_monitor;
-
-        Ok(AppConfigs {
-            filter,
-            layout_strategy,
-            refresh_time,
-            tiles_padding,
-            border_padding,
-            overlays_enabled,
-            active_overlay_enabled,
-            inactive_overlay_enabled,
-            overlay_follow_movements,
-            active_overlay,
-            inactive_overlay,
-            keybinds_enabled,
-            bindings,
-            insert_in_monitor,
-        })
-    }
-
-    fn extract_filters(configs: &ExtConfig) -> Option<WinMatchAnyFilters> {
+    pub fn get_filters(&self) -> Option<WinMatcher> {
         // Needed to prevent the tray icon and overlay from being filtered
-        let mut base_filters = vec![ExtFilterConfig {
+        let mut base_filters = vec![RuleConfig {
             exename: Some("mondrian.exe".to_owned()),
             classname: None,
             title: None,
         }];
-
-        let cfg_filters = configs
-            .rules
-            .as_ref()
-            .map(|r| r.filters.clone().unwrap_or_default())
-            .unwrap_or_default();
-
-        base_filters.extend(cfg_filters);
-
-        let app_filter: Option<WinMatchAnyFilters> = Some(WinMatchAnyFilters::from(&base_filters));
-
-        app_filter
+        base_filters.extend(self.core.rules.clone());
+        Some(WinMatcher::from(&base_filters))
     }
 
-    fn extract_tiling_layout(configs: &ExtLayoutConfig) -> LayoutStrategyEnum {
-        let app_layout_strategy: LayoutStrategyEnum = match configs.tiling_strategy.as_str() {
-            "horizontal" => LayoutStrategyEnum::from(configs.horizontal.clone()),
-            "vertical" => LayoutStrategyEnum::from(configs.vertical.clone()),
-            "twostep" => LayoutStrategyEnum::from(configs.twostep.clone()),
-            _ => LayoutStrategyEnum::from(configs.golden_ratio.clone()),
+    pub fn get_layout_strategy(&self) -> LayoutStrategyEnum {
+        let app_layout_strategy: LayoutStrategyEnum = match self.layout.tiling_strategy.as_str() {
+            "horizontal" => self.layout.horizontal.into(),
+            "vertical" => self.layout.vertical.into(),
+            "twostep" => self.layout.twostep.into(),
+            _ => self.layout.golden_ratio.into(),
         };
 
         app_layout_strategy
     }
+}
 
-    pub fn extract_overlay_params(configs: &ExtOverlayConfig) -> OverlayParams {
-        let color = Color::new(configs.color.0, configs.color.1, configs.color.2);
-        OverlayParams::new(color, configs.thickness, configs.padding)
+/// Defaults
+impl Default for AppConfigs {
+    fn default() -> Self {
+        AppConfigs {
+            layout: Layout::default(),
+            core: Core::default(),
+            modules: Modules::default(),
+            advanced: Advanced::default(),
+        }
+    }
+}
+
+impl Default for Advanced {
+    fn default() -> Self {
+        Advanced { refresh_time: 50 }
+    }
+}
+
+impl Default for Layout {
+    fn default() -> Self {
+        Layout {
+            tiling_strategy: "golden_ratio".to_string(),
+            tiles_padding: 4,
+            border_padding: 4,
+            golden_ratio: GoldenRatio::default(),
+            horizontal: MonoAxisHorizontal::default(),
+            vertical: MonoAxisVertical::default(),
+            twostep: TwoStep::default(),
+            insert_in_monitor: false,
+        }
+    }
+}
+
+/// From implementations
+impl From<&Vec<RuleConfig>> for WinMatcher {
+    fn from(rules: &Vec<RuleConfig>) -> Self {
+        let matchers: Vec<WinMatcher> = rules
+            .iter()
+            .map(|r| {
+                let mut matchers: Vec<WinMatcher> = Vec::new();
+
+                if let Some(exename) = &r.exename {
+                    matchers.push(WinMatcher::Exename(exename.clone()));
+                }
+
+                if let Some(classname) = &r.classname {
+                    matchers.push(WinMatcher::Classname(classname.clone()));
+                }
+
+                if let Some(title) = &r.title {
+                    matchers.push(WinMatcher::Title(title.clone()));
+                }
+
+                if matchers.is_empty() {
+                    panic!("The filter must specify at least one field between 'exename', 'classname' and 'title'.")
+                }
+
+                WinMatcher::All(matchers)
+            })
+            .collect();
+
+        WinMatcher::Any(matchers)
+    }
+}
+
+/// Deserialization functions
+pub mod deserializers {
+    use serde::{de::Error, Deserialize, Deserializer};
+
+    pub fn to_u8_max<'de, const L: u8, D>(deserializer: D) -> Result<u8, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let v: u8 = u8::deserialize(deserializer)?;
+        match v <= L {
+            true => Ok(v),
+            false => Err(D::Error::custom(format!("value must be less than {L}"))),
+        }
+    }
+
+    pub fn to_tiling_strategy<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let valid = ["golden_ratio", "horizontal", "vertical", "twostep"];
+        let s: String = String::deserialize(deserializer)?;
+        match valid.contains(&s.to_lowercase().as_str()) {
+            true => Ok(s.to_lowercase()),
+            false => Err(D::Error::custom(format!(
+                "Invalid tiling strategy: {}, valid options are {}",
+                s,
+                valid.join(", ")
+            ))),
+        }
     }
 }

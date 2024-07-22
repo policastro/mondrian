@@ -1,6 +1,4 @@
 use std::collections::{HashMap, HashSet};
-
-use log::trace;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::{
     Accessibility::{UnhookWinEvent, HWINEVENTHOOK},
@@ -55,7 +53,6 @@ impl WinEventManager {
 
     pub fn check_for_last_event(&mut self) -> bool {
         if let Ok(event) = WINEVENT_CHANNEL.with(|channel| channel.lock().unwrap().1.try_recv()) {
-            trace!("EVENT: {:?}", event);
             self.execute_hooks(&event);
             return true;
         }

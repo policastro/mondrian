@@ -1,11 +1,14 @@
 use crate::app::{
-    config::{app_configs::AppConfigs, filters::window_match_filter::WinMatchAnyFilters},
+    config::{
+        app_configs::AppConfigs,
+        win_matcher::{self},
+    },
     structs::area_tree::layout_strategy::LayoutStrategyEnum,
 };
 
 pub struct CoreModuleConfigs {
     pub refresh_time: u64,
-    pub filter: Option<WinMatchAnyFilters>,
+    pub filter: Option<win_matcher::WinMatcher>,
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
     pub border_padding: u8,
@@ -35,12 +38,12 @@ impl CoreModuleConfigs {
 impl From<&AppConfigs> for CoreModuleConfigs {
     fn from(app_configs: &AppConfigs) -> Self {
         CoreModuleConfigs {
-            refresh_time: app_configs.refresh_time,
-            filter: app_configs.filter.clone(),
-            layout_strategy: app_configs.layout_strategy.clone(),
-            tiles_padding: app_configs.tiles_padding,
-            border_padding: app_configs.border_padding,
-            insert_in_monitor: app_configs.insert_in_monitor,
+            refresh_time: app_configs.advanced.refresh_time,
+            filter: app_configs.get_filters(),
+            layout_strategy: app_configs.get_layout_strategy(),
+            tiles_padding: app_configs.layout.tiles_padding,
+            border_padding: app_configs.layout.border_padding,
+            insert_in_monitor: app_configs.layout.insert_in_monitor,
         }
     }
 }

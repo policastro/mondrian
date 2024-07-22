@@ -53,20 +53,15 @@ mod app {
     pub mod config {
         pub mod app_configs;
         pub mod cli_args;
-        pub(super) mod ext_configs;
-        pub mod filters {
-            pub mod window_filter;
-            pub mod window_filter_type;
-            pub mod window_match_filter;
-        }
+        pub mod win_matcher;
     }
 }
 
 mod modules {
     pub(super) mod module;
     pub mod overlays {
-        pub(crate) mod lib;
         pub mod configs;
+        pub(crate) mod lib;
         pub mod module;
     }
     pub mod tray {

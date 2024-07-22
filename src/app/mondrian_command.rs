@@ -11,8 +11,10 @@ pub enum MondrianMessage {
     Retile,
     Configure,
     Focus(Direction),
+    Move(Direction),
     Pause(bool),
     UpdatedWindows(HashSet<isize>),
+    Minimize,
     Quit,
 }
 
@@ -23,6 +25,8 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "open-config",
             "retile",
             "focus <left|right|up|down>",
+            "move <left|right|up|down>",
+            "minimize",
             "pause",
             "quit",
         ];
@@ -35,7 +39,9 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "open-config" => parts.len() == 1,
             "retile" => parts.len() == 1,
             "focus" => parts.len() == 2,
+            "move" => parts.len() == 2,
             "pause" => parts.len() == 2,
+            "minimize" => parts.len() == 1,
             "quit" => parts.len() == 1,
             _ => false,
         };
@@ -51,6 +57,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "refresh-config" => Ok(MondrianMessage::RefreshConfig),
             "open-config" => Ok(MondrianMessage::OpenConfig),
             "retile" => Ok(MondrianMessage::Retile),
+            "minimize" => Ok(MondrianMessage::Minimize),
             "focus" => {
                 let dir = match parts[1] {
                     "up" => Direction::Up,
@@ -60,6 +67,16 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
                     _ => return invalid_action_err,
                 };
                 Ok(MondrianMessage::Focus(dir))
+            }
+            "move" => {
+                let dir = match parts[1] {
+                    "up" => Direction::Up,
+                    "down" => Direction::Down,
+                    "left" => Direction::Left,
+                    "right" => Direction::Right,
+                    _ => return invalid_action_err,
+                };
+                Ok(MondrianMessage::Move(dir))
             }
             "quit" => Ok(MondrianMessage::Quit),
             _ => invalid_action_err,

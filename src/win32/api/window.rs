@@ -13,9 +13,13 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, IN
 use windows::Win32::UI::WindowsAndMessaging::{
     DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowRect,
     GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW,
-    SetForegroundWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, TITLEBARINFO, WM_GETMINMAXINFO,
+    SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, TITLEBARINFO, WM_GETMINMAXINFO,
     WS_POPUP,
 };
+
+pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
+    unsafe { ShowWindow(hwnd, cmd).into() }
+}
 
 pub fn get_foreground_window() -> Option<HWND> {
     match unsafe { GetForegroundWindow() } {
@@ -181,13 +185,13 @@ pub fn is_window_cloaked(hwnd: HWND) -> bool {
 
 pub fn focus(hwnd: HWND) {
     unsafe {
-        let _ = SetForegroundWindow(hwnd);
-        let _ = SetFocus(hwnd);
         let event = INPUT {
             r#type: INPUT_KEYBOARD,
             ..Default::default()
         };
         SendInput(&[event], size_of::<INPUT>() as i32);
+        let _ = SetForegroundWindow(hwnd);
+        let _ = SetFocus(hwnd);
     };
 }
 

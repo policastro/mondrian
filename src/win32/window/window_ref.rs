@@ -1,7 +1,7 @@
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{
-        IsIconic, IsWindow, IsWindowVisible, SetWindowPos, HWND_TOP, SWP_NOSENDCHANGING, SWP_SHOWWINDOW,
+        IsIconic, IsWindow, IsWindowVisible, SetWindowPos, HWND_TOP, SWP_NOSENDCHANGING, SWP_SHOWWINDOW, SW_MINIMIZE,
     },
 };
 
@@ -13,7 +13,7 @@ use crate::{
     app::structs::area::Area,
     win32::api::window::{
         focus, get_class_name, get_executable_name, get_window_box, get_window_style, get_window_title,
-        is_window_cloaked,
+        is_window_cloaked, show_window,
     },
 };
 
@@ -116,5 +116,9 @@ impl WindowObjHandler for WindowRef {
 
     fn is_window(&self) -> bool {
         unsafe { IsWindow(self.hwnd) }.as_bool()
+    }
+
+    fn minimize(&self) -> bool {
+        show_window(self.hwnd, SW_MINIMIZE)
     }
 }

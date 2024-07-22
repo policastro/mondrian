@@ -10,27 +10,25 @@ vertical = false # if true, the first split will be vertical
 ratio = 50       # ratio of the first split
 
 [layout.horizontal] # if tiling_strategy = "horizontal"
-split_right = true # direction of the first split
+grow_right = true # direction of the first split
 
 [layout.vertical] # if tiling_strategy = "vertical"
-split_down = true # direction of the first split
+grow_down = true # direction of the first split
 
 [layout.twostep] # if tiling_strategy = "twostep"
 first_step = "right" # first insertion direction, can be "right", "left", "up" or "down"
 second_step = "down" # second insertion direction, can be "right", "left", "up" or "down"
 
-[modules]
-keybindings = true # enable the keybindings module
-overlays = true    # enable the overlays module
-
-[keybindings] # if keybindings = true
+[modules.keybindings]
+enabled = true # if true, the keybindings will be shown
 default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
 bindings = [
     { key = "X", action = "quit" },                              # e.g. when pressing <default_modifier>+X, the action will be "quit"
     { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
 ]
 
-[overlays] # if overlay = true
+[modules.overlays]
+enabled = true               # if true, the overlays will be shown
 follow_movements = true      # if true, the overlay will follow the window movements
 active.enabled = true        # if true, the active overlay will be shown
 active.thickness = 4         # thickness of the border
@@ -41,11 +39,12 @@ inactive.thickness = 4       # thickness of the border
 inactive.color = [200, 0, 0] # color of the border
 inactive.padding = 0         # padding between the border and the tiles
 
+# Other settings
 [advanced]
 refresh_time = 50 # in milliseconds, set the time between each refresh. Values below 30 are not recommended, and probably there is no benefit with such a low value
 
-[rules]
-filters = [
+[core]
+rules = [
     # { title = "Title", exename = "app.exe", classname ="ApplicationWindow" }, # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
     # { title = "Title" }, # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
     # { title = "/Title[0-9]/" }, # match any window with a title that matches the regex "/Title[0-9]/" (you can use regex in title, exename and classname by enclosing them in slashes)

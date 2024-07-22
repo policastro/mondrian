@@ -1,21 +1,134 @@
+use std::collections::HashMap;
+
 use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage};
 use inputbot::KeybdKey::*;
+use serde::{de::Error, Deserialize, Deserializer};
 
-#[derive(Default)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default, try_from = "ExtKeybindingsConfig")]
 pub struct KeybindingsModuleConfigs {
+    pub enabled: bool,
     pub bindings: Vec<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianMessage)>,
+}
+
+impl KeybindingsModuleConfigs {
+    pub fn get_grouped_bindings(&self) -> HashMap<inputbot::KeybdKey, Vec<(Vec<inputbot::KeybdKey>, MondrianMessage)>> {
+        let mut bindings = self.bindings.clone();
+        bindings.sort_by(|(m0, _, _), (m1, _, _)| m1.len().cmp(&m0.len()));
+
+        bindings.iter().fold(HashMap::new(), |mut acc, (m, k, a)| {
+            acc.entry(*k).or_default().push((m.clone(), a.clone()));
+            acc
+        })
+    }
 }
 
 impl From<&AppConfigs> for KeybindingsModuleConfigs {
     fn from(app_configs: &AppConfigs) -> Self {
-        let bindings = app_configs
+        app_configs.modules.keybindings.clone()
+    }
+}
+
+impl Default for KeybindingsModuleConfigs {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            bindings: vec![],
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(default)]
+struct ExtKeybindingsConfig {
+    enabled: bool,
+    #[serde(deserialize_with = "deserialize_modifier")]
+    default_modifier: Vec<String>,
+    bindings: Vec<ExtBindingConfig>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+struct ExtBindingConfig {
+    #[serde(default, deserialize_with = "deserialize_modifier_opt")]
+    pub modifier: Option<Vec<String>>,
+    #[serde(deserialize_with = "deserialize_key")]
+    pub key: String,
+    pub action: MondrianMessage,
+}
+
+impl Default for ExtKeybindingsConfig {
+    fn default() -> Self {
+        ExtKeybindingsConfig {
+            enabled: true,
+            default_modifier: vec!["ALT".to_string()],
+            bindings: vec![],
+        }
+    }
+}
+
+impl From<ExtKeybindingsConfig> for KeybindingsModuleConfigs {
+    fn from(val: ExtKeybindingsConfig) -> Self {
+        let bindings = val
             .bindings
             .clone()
             .into_iter()
-            .filter_map(|b| parse_binding(b.modifier.clone().unwrap_or_default(), b.key.clone(), b.action))
+            .filter_map(|b| {
+                parse_binding(
+                    b.modifier.clone().unwrap_or(val.default_modifier.clone()),
+                    b.key.clone(),
+                    b.action,
+                )
+            })
             .collect();
 
-        KeybindingsModuleConfigs { bindings }
+        KeybindingsModuleConfigs {
+            enabled: val.enabled,
+            bindings,
+        }
+    }
+}
+
+fn deserialize_modifier<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let res = deserialize_modifier_opt(deserializer)?.ok_or(D::Error::missing_field("modifier"))?;
+    Ok(res)
+}
+
+// TODO I can probably merge this with deserialize_modifier
+fn deserialize_modifier_opt<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let valid_modifiers = ["ALT", "CTRL", "SHIFT", "WIN"];
+
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    let s = match s {
+        Some(s) => s,
+        None => return Ok(None),
+    };
+    let mut keys: Vec<String> = s.trim().split('+').map(|key| key.trim().to_uppercase()).collect();
+    keys.sort();
+    keys.dedup();
+    let is_valid = keys.iter().all(|key| valid_modifiers.contains(&key.as_str()));
+    match is_valid {
+        true => Ok(Some(keys)),
+        false => Err(D::Error::custom(format!("Invalid modifier: {}", s))),
+    }
+}
+
+fn deserialize_key<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let is_char = regex::Regex::new(r"^[A-Za-z\d]$").unwrap();
+    let is_dir = regex::Regex::new(r"^\b(?i)left|right|up|down\b$").unwrap();
+    let s: String = String::deserialize(deserializer)?;
+    let is_valid = is_char.is_match(&s.to_uppercase()) || is_dir.is_match(&s.to_uppercase());
+    match is_valid {
+        true => Ok(s.to_uppercase()),
+        false => Err(D::Error::custom(format!("Invalid key: {}", s))),
     }
 }
 

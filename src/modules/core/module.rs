@@ -1,5 +1,5 @@
 use crate::app::config::app_configs::AppConfigs;
-use crate::app::config::filters::window_match_filter::WinMatchAnyFilters;
+use crate::app::config::win_matcher;
 use crate::app::mondrian_command::MondrianMessage;
 use crate::app::tiles_manager::config::TilesManagerConfig;
 use crate::app::tiles_manager::manager::TilesManager;
@@ -9,7 +9,6 @@ use crate::modules::module::module_impl::ModuleImpl;
 use crate::modules::module::{ConfigurableModule, Module};
 use crate::win32::win_event_loop::next_win_event_loop_no_block;
 
-use crate::app::config::filters::window_filter::WindowFilter;
 use crate::app::win_events_handlers::position_event_handler::PositionEventHandler;
 use crate::app::win_events_handlers::{
     minimize_event_handler::MinimizeEventHandler, open_event_handler::OpenCloseEventHandler,
@@ -49,7 +48,7 @@ impl CoreModule {
         }
     }
 
-    pub fn send_to_tiles_manager(&self, event: TMCommand) {
+    pub fn send_to_tm(&self, event: TMCommand) {
         if !self.enabled || !self.running.load(Ordering::SeqCst) {
             return;
         }
@@ -91,7 +90,7 @@ impl CoreModule {
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
             match filter_events(event_receiver.recv(), &filter) {
                 Ok(app_event) => {
-                    if !handle_tiles_manager(&mut tm, &tx, app_event) {
+                    if !handle_tm(&mut tm, &tx, app_event) {
                         log::trace!("TilesManager exit!");
                         break;
                     }
@@ -174,7 +173,7 @@ impl ModuleImpl for CoreModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianMessage::Focus(dir) => self.send_to_tiles_manager(TMCommand::Focus(*dir)),
+            msg if TMCommand::from(msg).is_op() => self.send_to_tm(msg.into()),
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
@@ -188,18 +187,24 @@ impl ConfigurableModule for CoreModule {
     }
 }
 
-fn handle_tiles_manager(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
+fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
     let res = match event {
         TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) => tm.add(WindowRef::new(hwnd), true),
         TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) => tm.remove(hwnd, true),
         TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.move_window(hwnd, coords, invert, switch, true),
         TMCommand::WindowResized(hwnd) => tm.refresh_window_size(hwnd, true),
         TMCommand::Focus(direction) => tm.focus_at(direction),
+        TMCommand::Minimize => tm.minimize(),
+        TMCommand::Move(direction) => tm.move_to(direction, true),
         TMCommand::Noop => return true,
         TMCommand::Quit => return false,
     };
 
     match res {
+        Err(error) if error.require_refresh() => {
+            tm.update();
+            log::error!("{:?}", error)
+        }
         Err(error) if error.is_warn() => log::warn!("{:?}", error),
         Err(error) => log::error!("{:?}", error),
         Ok(_) => {}
@@ -215,7 +220,7 @@ fn handle_tiles_manager(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, eve
 
 fn filter_events(
     result: Result<TMCommand, RecvError>,
-    win_filter: &WinMatchAnyFilters,
+    win_match: &win_matcher::WinMatcher,
 ) -> Result<TMCommand, RecvError> {
     let event = match result {
         Ok(event) => event,
@@ -235,7 +240,7 @@ fn filter_events(
                 None => return Ok(TMCommand::Noop),
             };
 
-            if win_filter.filter(&info) {
+            if win_match.matches(&info) {
                 log::trace!("[excluded][{:?}]: {}", event, info);
                 TMCommand::Noop
             } else {
@@ -245,6 +250,6 @@ fn filter_events(
         }
         _ => event,
     };
-    
+
     Ok(cmd)
 }

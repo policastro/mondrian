@@ -1,5 +1,6 @@
 use std::sync::mpsc::{channel, Sender};
 
+use serde::Deserialize;
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::WM_QUIT};
 
 use crate::win32::{
@@ -65,15 +66,12 @@ impl Overlay {
                     }
                     Ok(OverlayMessage::Reposition(activated)) => {
                         let activated = activated.unwrap_or(curr_activated);
-                        let (tickness, padding) = match activated {
-                            true => (active.thickness, active.padding),
-                            false => (inactive.thickness, inactive.padding),
-                        };
+                        let p = if activated { active } else { inactive };
                         if curr_activated != activated {
                             curr_activated = activated;
-                            post_message(hwnd, utils::overlay::WM_CHANGE_BORDER, Some(params));
+                            post_message(hwnd, utils::overlay::WM_CHANGE_BORDER, Some(p));
                         }
-                        Self::move_overlay_to_target(hwnd, target, tickness, padding);
+                        Self::move_overlay_to_target(hwnd, target, p.thickness, p.padding);
                     }
                     _ => {
                         post_empyt_message(hwnd, WM_QUIT);
@@ -144,8 +142,9 @@ impl Drop for Overlay {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub struct OverlayParams {
+    pub enabled: bool,
     pub color: Color,
     pub thickness: u8,
     pub padding: u8,
@@ -154,6 +153,7 @@ pub struct OverlayParams {
 impl Default for OverlayParams {
     fn default() -> Self {
         OverlayParams {
+            enabled: true,
             color: Color::new(0, 0, 0),
             thickness: 0,
             padding: 0,
@@ -162,8 +162,9 @@ impl Default for OverlayParams {
 }
 
 impl OverlayParams {
-    pub fn new(color: Color, thickness: u8, padding: u8) -> OverlayParams {
+    pub fn new(enabled: bool, color: Color, thickness: u8, padding: u8) -> OverlayParams {
         OverlayParams {
+            enabled,
             color,
             thickness,
             padding,
@@ -171,6 +172,14 @@ impl OverlayParams {
     }
 
     pub fn empty() -> OverlayParams {
-        OverlayParams::new(Color::new(0, 0, 0), 0, 0)
+        OverlayParams::new(false, Color::new(0, 0, 0), 0, 0)
+    }
+
+    pub fn default_active() -> OverlayParams {
+        OverlayParams::new(true, Color::new(0, 180, 0), 1, 0)
+    }
+
+    pub fn default_inactive() -> OverlayParams {
+        OverlayParams::new(false, Color::new(180, 0, 0), 0, 0)
     }
 }

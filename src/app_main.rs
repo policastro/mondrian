@@ -2,8 +2,8 @@ use clap::Parser;
 use log4rs::config::RawConfig;
 use std::path::PathBuf;
 
-use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
+use crate::app::config::app_configs::AppConfigs;
 use crate::app::mondrian_command::MondrianMessage;
 use crate::modules::core::module::CoreModule;
 use crate::modules::keybindings::module::KeybindingsModule;
@@ -21,9 +21,13 @@ pub fn main() {
 }
 
 fn start_app(cfg_file: &PathBuf) {
-    let mut app_configs = match init_configs(cfg_file) {
+    let mut configs = match init_configs(cfg_file) {
         Ok(c) => c,
-        Err(e) => panic!("Failed to initialize configs: {}", e),
+        Err(e) => {
+            log::error!("Failed to initialize configs: {}", e);
+            log::warn!("Using default configs ...");
+            AppConfigs::default()
+        },
     };
 
     let (bus_tx, bus_rx) = std::sync::mpsc::channel();
@@ -38,7 +42,7 @@ fn start_app(cfg_file: &PathBuf) {
     log::info!("Starting modules ...");
 
     modules.iter_mut().for_each(|m| {
-        m.handle(&MondrianMessage::Configure, &app_configs);
+        m.handle(&MondrianMessage::Configure, &configs);
         m.start();
     });
 
@@ -49,13 +53,13 @@ fn start_app(cfg_file: &PathBuf) {
         match event.clone() {
             MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
             MondrianMessage::RefreshConfig => {
-                app_configs = init_configs(cfg_file).unwrap_or_else(|e| {
+                configs = init_configs(cfg_file).unwrap_or_else(|e| {
                     log::error!("Can't read config file: {}", e);
-                    app_configs.clone()
+                    configs.clone()
                 });
-                modules.iter_mut().for_each(|m| m.handle(&event, &app_configs));
+                modules.iter_mut().for_each(|m| m.handle(&event, &configs));
             }
-            event => modules.iter_mut().for_each(|m| m.handle(&event, &app_configs)),
+            event => modules.iter_mut().for_each(|m| m.handle(&event, &configs)),
         }
 
         if event == MondrianMessage::Quit {
@@ -74,11 +78,8 @@ fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfigs, String> {
     if !app_cfg_file.exists() {
         std::fs::write(app_cfg_file, include_bytes!("../assets/configs/mondrian.toml")).unwrap();
     }
-
-    match AppConfigs::from_file(app_cfg_file) {
-        Ok(c) => Ok(c),
-        Err(e) => Err(e.to_string()),
-    }
+    let file_content = std::fs::read_to_string(app_cfg_file).expect("Something went wrong reading the file");
+    toml::from_str::<AppConfigs>(&file_content).map_err(|e| e.to_string())
 }
 
 fn init_logger() {

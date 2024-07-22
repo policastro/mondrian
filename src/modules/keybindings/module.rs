@@ -49,19 +49,19 @@ impl ModuleImpl for KeybindingsModule {
 
         let bus = self.bus.clone();
         let main_thread_id = self.main_thread_id.clone();
-        self.configs.bindings.iter().for_each(move |b| {
-            let modifiers = b.0.clone();
-            let command = b.2.clone();
+        let bindings = self.configs.get_grouped_bindings();
+        for (key, list_mod_command) in bindings {
             let bus = bus.clone();
-            b.1.blockable_bind(move || {
-                if modifiers.iter().all(|m| m.is_pressed()) {
-                    bus.send(command.clone()).expect("Failed to send command");
-                    return BlockInput::Block;
+            key.blockable_bind(move || {
+                for (m, c) in list_mod_command.iter() {
+                    if m.iter().all(|m| m.is_pressed()) {
+                        bus.send(c.clone()).expect("Failed to send command");
+                        return BlockInput::Block;
+                    }
                 }
                 BlockInput::DontBlock
             });
-        });
-
+        }
         self.binded_keys = self.configs.bindings.iter().map(|b| b.1).collect();
         let input_thread = thread::spawn(move || {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
@@ -110,11 +110,11 @@ impl ModuleImpl for KeybindingsModule {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, *pause),
             MondrianMessage::Configure => {
-                Module::enable(self, app_configs.keybinds_enabled);
+                Module::enable(self, app_configs.modules.keybindings.enabled);
                 self.configure(app_configs.into());
             }
             MondrianMessage::RefreshConfig => {
-                Module::enable(self, app_configs.keybinds_enabled);
+                Module::enable(self, app_configs.modules.keybindings.enabled);
                 self.configure(app_configs.into());
                 Module::restart(self);
             }

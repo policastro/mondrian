@@ -2,24 +2,22 @@ pub mod overlay {
     use windows::Win32::{
         Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM},
         Graphics::Gdi::{
-            BeginPaint, CreatePen, DeleteObject, EndPaint, Rectangle, SelectObject, PAINTSTRUCT, PS_SOLID,
+            BeginPaint, CreatePen, DeleteObject, EndPaint, FillRect, GetSysColorBrush, Rectangle, SelectObject,
+            COLOR_WINDOW, PAINTSTRUCT, PS_SOLID,
         },
         UI::WindowsAndMessaging::{
             GetClientRect, GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA,
-            HTCAPTION, WM_CREATE, WM_DESTROY, WM_PAINT,
+            HTCAPTION, SW_SHOWNOACTIVATE, WM_CREATE, WM_DESTROY, WM_PAINT, WS_EX_NOACTIVATE,
         },
     };
 
-    use windows::Win32::{
-        System::LibraryLoader::GetModuleHandleW,
-        UI::WindowsAndMessaging::{WNDCLASSW, WS_VISIBLE},
-    };
+    use windows::Win32::{System::LibraryLoader::GetModuleHandleW, UI::WindowsAndMessaging::WNDCLASSW};
 
     use windows::Win32::{
         Foundation::GetLastError,
         UI::WindowsAndMessaging::{
             CreateWindowExW, RegisterClassW, SetLayeredWindowAttributes, CS_HREDRAW, CS_VREDRAW, LWA_COLORKEY,
-            WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_OVERLAPPEDWINDOW, WS_POPUP,
+            WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
         },
     };
 
@@ -30,7 +28,10 @@ pub mod overlay {
 
     use crate::{
         modules::overlays::lib::{color::Color, overlay::OverlayParams},
-        win32::api::{misc::str_to_pcwstr, window::get_window_box},
+        win32::api::{
+            misc::str_to_pcwstr,
+            window::{get_window_box, show_window},
+        },
     };
 
     pub const WM_CHANGE_BORDER: u32 = WM_USER + 1;
@@ -75,8 +76,8 @@ pub mod overlay {
                 ..Default::default()
             };
 
-            let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
-            let style = WS_OVERLAPPEDWINDOW | WS_POPUP | WS_VISIBLE;
+            let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+            let style = WS_POPUP;
 
             let data = Some(Box::into_raw(Box::new(params)) as *mut _ as _);
             let parent = target.unwrap_or(HWND(0));
@@ -96,6 +97,7 @@ pub mod overlay {
                     log::warn!("Overlay window creation failed ({:?}). Retry: {}.", error, retry);
                 }
             }
+            show_window(hwnd, SW_SHOWNOACTIVATE);
             let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_white.into()), 0, LWA_COLORKEY);
             hwnd
         }
@@ -113,16 +115,21 @@ pub mod overlay {
         unsafe {
             let mut ps: PAINTSTRUCT = std::mem::zeroed();
             let hdc = BeginPaint(hwnd, &mut ps);
+
             let mut rc: RECT = std::mem::zeroed();
             let _ = GetClientRect(hwnd, &mut rc);
+            if thickness > 0 {
+                let h_pen = CreatePen(PS_SOLID, thickness, COLORREF(color.into()));
+                let old_pen = SelectObject(hdc, h_pen);
 
-            let h_pen = CreatePen(PS_SOLID, thickness, COLORREF(color.into()));
-            let old_pen = SelectObject(hdc, h_pen);
+                let _ = Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
 
-            let _ = Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
-
-            SelectObject(hdc, old_pen);
-            let _ = DeleteObject(h_pen);
+                SelectObject(hdc, old_pen);
+                let _ = DeleteObject(h_pen);
+            } else {
+                let h_brush = GetSysColorBrush(COLOR_WINDOW);
+                let _ = FillRect(hdc, &rc, h_brush);
+            }
 
             let _ = EndPaint(hwnd, &ps);
         }

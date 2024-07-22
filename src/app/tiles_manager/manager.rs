@@ -63,6 +63,7 @@ impl TilesManager {
 
     pub fn find_at(&mut self, direction: Direction) -> Option<AreaLeaf<isize>> {
         let current = get_foreground_window()?;
+
         if !self.has_window(current) || self.managed_wins.len() < 2 {
             return None;
         }
@@ -158,7 +159,7 @@ impl TilesManager {
         let win_tree = self.containers.which_tree(center).ok_or(Error::Generic)?;
         let wb = win.get_window_box().ok_or(Error::NoWindowsInfo)?;
         let area_shift = wb.get_shift(&area);
-        
+
         if area_shift.2 != 0 {
             let growth = (area_shift.2 as f32 / area.width as f32) * 100f32;
             let (x, growth) = match area_shift.0.abs() > 10 {
@@ -178,6 +179,35 @@ impl TilesManager {
 
             win_tree.resize_ancestor(center, (center.0, y), grow_perc as i32);
         }
+
+        if update {
+            self.update();
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn move_to(&mut self, direction: Direction, update: bool) -> Result<(), Error> {
+        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+
+        let src_center = self.get_stored_area(curr).ok_or(Error::Generic)?.get_center();
+        let w = self.find_at(direction).ok_or(Error::NoWindowFound)?;
+        let target_center = w.viewbox.get_center();
+
+        let containers = &mut self.containers;
+        if containers.is_same_container(src_center, target_center) {
+            let tree = containers.which_tree(src_center).ok_or(Error::Generic)?;
+            tree.swap_ids(src_center, target_center);
+        } else {
+            let replaced_id = containers
+                .which_tree(target_center)
+                .map(|t| t.replace_id(target_center, curr.0))
+                .ok_or(Error::Generic)?
+                .ok_or(Error::Generic)?;
+
+            let tree = containers.which_tree(src_center).ok_or(Error::Generic)?;
+            tree.replace_id(src_center, replaced_id);
+        };
 
         if update {
             self.update();
@@ -211,15 +241,17 @@ impl TilesManager {
             }
         } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient {
             // If it is in another monitor and insert
-            match containers.which_tree(center) {
-                Some(tree) => tree.remove(center),
-                None => panic!("Container not found"),
-            }
-
-            let tree = containers.which_tree(new_point).expect("Container not found");
+            let tree = containers
+                .which_tree(new_point)
+                .ok_or(Error::ContainerNotFound { refresh: true })?;
             tree.insert(hwnd.0);
             if switch_orient {
                 tree.switch_subtree_orientations(new_point);
+            }
+
+            match containers.which_tree(center) {
+                Some(tree) => tree.remove(center),
+                None => panic!("Container not found"),
             }
         } else {
             // If it is in another monitor and swap
@@ -239,7 +271,7 @@ impl TilesManager {
                 Some(id) => drop(tree.replace_id(center, id)),
                 None => tree.remove(center),
             };
-        }
+        };
 
         if update {
             self.update();
@@ -267,6 +299,13 @@ impl TilesManager {
         self.managed_wins.contains_key(&hwnd.0)
     }
 
+    pub fn minimize(&mut self) -> Result<(), Error> {
+        let win_ref = WindowRef::new(get_foreground_window().ok_or(Error::NoWindow)?);
+        win_ref.minimize();
+        self.focus_next();
+        Ok(())
+    }
+
     fn update_container(&mut self, container_id: isize) -> Result<(), Error> {
         let managed_wins = self.managed_wins.clone();
         let win_refs = managed_wins.into_iter().map(|w| WindowRef::from(w.0));
@@ -275,7 +314,9 @@ impl TilesManager {
             .for_each(|wr| drop(self.remove(wr.hwnd, false)));
 
         let container = self.containers.get_container(container_id);
-        let tree = container.map(|c| &c.tree).ok_or(Error::ContainerNotFound)?;
+        let tree = container
+            .map(|c| &c.tree)
+            .ok_or(Error::ContainerNotFound { refresh: false })?;
 
         let leaves: Vec<AreaLeaf<isize>> = tree.get_all_leaves(self.config.get_border_pad());
         let mut errors = false;
@@ -332,7 +373,7 @@ pub enum Error {
     Generic,
     WindowAlreadyAdded,
     NoWindowsInfo,
-    ContainerNotFound,
+    ContainerNotFound { refresh: bool },
     NoWindow,
     NoWindowFound,
 }
@@ -340,5 +381,9 @@ pub enum Error {
 impl Error {
     pub fn is_warn(&self) -> bool {
         matches!(self, Error::WindowAlreadyAdded | Error::NoWindowsInfo)
+    }
+
+    pub fn require_refresh(&self) -> bool {
+        matches!(self, Error::ContainerNotFound { refresh: true })
     }
 }

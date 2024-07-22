@@ -1,10 +1,6 @@
 use crate::app::structs::{area::Area, orientation::Orientation};
 
-use super::{
-    layout_strategy::{LayoutStrategy, LayoutStrategyEnum},
-    leaf::AreaLeaf,
-    node::AreaNode,
-};
+use super::{layout_strategy::LayoutStrategyEnum, leaf::AreaLeaf, node::AreaNode};
 use std::fmt::Debug;
 
 pub type WinTree = AreaTree<isize>;
@@ -12,21 +8,20 @@ pub type WinTree = AreaTree<isize>;
 pub struct AreaTree<T: Copy> {
     root: AreaNode<T>,
     area: Area,
-    layout_strategy: LayoutStrategyEnum,
+    strategy: LayoutStrategyEnum,
 }
 
 impl<T: Copy> AreaTree<T> {
-    pub fn new(area: Area, layout_strategy: LayoutStrategyEnum) -> AreaTree<T> {
-        let (orientation, ratio) = layout_strategy.get_initial_params();
+    pub fn new(area: Area, strategy: LayoutStrategyEnum) -> AreaTree<T> {
         AreaTree {
-            root: AreaNode::new_internal(orientation, ratio),
+            root: AreaNode::new(None, Orientation::Horizontal, 50),
             area,
-            layout_strategy,
+            strategy,
         }
     }
 
     pub fn insert(&mut self, id: T) {
-        self.root.insert(id, self.area, &mut self.layout_strategy);
+        self.root.insert(id, self.area, &mut self.strategy);
     }
 
     pub fn switch_subtree_orientations(&mut self, point: (i32, i32)) {
@@ -44,7 +39,7 @@ impl<T: Copy> AreaTree<T> {
     }
 
     pub fn remove(&mut self, point: (i32, i32)) {
-        self.root.remove(point, self.area);
+        self.root.remove(point, self.area, &mut self.strategy);
     }
 
     pub(crate) fn resize_ancestor(&mut self, orig_point1: (i32, i32), orig_point2: (i32, i32), grow_ratio: i32) {

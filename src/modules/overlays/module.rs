@@ -103,11 +103,11 @@ impl ModuleImpl for OverlaysModule {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, *pause),
             MondrianMessage::Configure => {
-                Module::enable(self, app_configs.overlays_enabled);
+                Module::enable(self, app_configs.modules.overlays.enabled);
                 self.configure(app_configs.into());
             }
             MondrianMessage::RefreshConfig => {
-                Module::enable(self, app_configs.overlays_enabled);
+                Module::enable(self, app_configs.modules.overlays.enabled);
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
