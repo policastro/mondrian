@@ -5,6 +5,7 @@ use crate::app::tiles_manager::config::TilesManagerConfig;
 use crate::app::tiles_manager::manager::TilesManager;
 use crate::app::tiles_manager::monitor_layout::MonitorLayout;
 use crate::app::tiles_manager::tm_command::TMCommand;
+use crate::app::win_events_handlers::maximize_event_handler::MaximizeEventHandler;
 use crate::modules::module::module_impl::ModuleImpl;
 use crate::modules::module::{ConfigurableModule, Module};
 use crate::win32::win_event_loop::next_win_event_loop_no_block;
@@ -58,10 +59,14 @@ impl CoreModule {
     }
 
     fn run_win_events_loop(&mut self, event_sender: Sender<TMCommand>) {
-        let wem_builder = WinEventManager::builder()
+        let mut wem_builder = WinEventManager::builder()
             .handler(PositionEventHandler::new(event_sender.clone()))
             .handler(OpenCloseEventHandler::new(event_sender.clone()))
             .handler(MinimizeEventHandler::new(event_sender.clone()));
+
+        if self.configs.detect_maximized_windows {
+            wem_builder = wem_builder.handler(MaximizeEventHandler::new(event_sender.clone()));
+        }
 
         let refresh_time = self.configs.refresh_time;
         let running = self.running.clone();
@@ -164,7 +169,7 @@ impl ModuleImpl for CoreModule {
 
     fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
         match event {
-            MondrianMessage::Pause(pause) => Module::pause(self, *pause),
+            MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
             MondrianMessage::Configure => {
                 self.configure(app_configs.into());
             }
@@ -177,6 +182,10 @@ impl ModuleImpl for CoreModule {
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
+    }
+
+    fn name(&self) -> String {
+        "core".to_string()
     }
 }
 
@@ -196,6 +205,14 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
         TMCommand::Focus(direction) => tm.focus_at(direction),
         TMCommand::Minimize => tm.minimize(),
         TMCommand::Move(direction) => tm.move_to(direction, true),
+        TMCommand::Resize(direction, size) => tm.resize_on(direction, size, true),
+        TMCommand::Invert => tm.invert_orientation(true),
+        TMCommand::Release(b) => tm.set_release(b),
+        TMCommand::ListManagedWindows => {
+            let windows = tm.get_managed_windows();
+            tx.send(MondrianMessage::UpdatedWindows(windows)).unwrap();
+            Ok(())
+        }
         TMCommand::Noop => return true,
         TMCommand::Quit => return false,
     };

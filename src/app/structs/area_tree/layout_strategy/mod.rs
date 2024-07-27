@@ -1,11 +1,13 @@
 pub mod golden_ratio;
 pub mod mono_axis;
+pub mod squared;
 pub mod two_step;
 
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 use enum_dispatch::enum_dispatch;
 use mono_axis::MonoAxisHorizontal;
 use mono_axis::MonoAxisVertical;
+use squared::Squared;
 
 use super::layout_strategy::golden_ratio::GoldenRatio;
 use super::layout_strategy::mono_axis::MonoAxis;
@@ -29,6 +31,7 @@ pub enum LayoutStrategyEnum {
     MonoAxisHorizontal,
     MonoAxisVertical,
     TwoStep,
+    Squared,
 }
 
 impl Default for LayoutStrategyEnum {

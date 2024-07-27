@@ -5,6 +5,7 @@ use crate::{
         self,
         golden_ratio::GoldenRatio,
         mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
+        squared::Squared,
         two_step::TwoStep,
         LayoutStrategyEnum,
     },
@@ -50,12 +51,15 @@ pub struct Layout {
     pub horizontal: layout_strategy::mono_axis::MonoAxisHorizontal,
     #[serde(default)]
     pub vertical: layout_strategy::mono_axis::MonoAxisVertical,
+    #[serde(default)]
+    pub squared: layout_strategy::squared::Squared,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Advanced {
     pub refresh_time: u64,
+    pub detect_maximized_windows: bool,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -75,7 +79,6 @@ pub struct RuleConfig {
 
 impl AppConfigs {
     pub fn get_filters(&self) -> Option<WinMatcher> {
-        // Needed to prevent the tray icon and overlay from being filtered
         let mut base_filters = vec![RuleConfig {
             exename: Some("mondrian.exe".to_owned()),
             classname: None,
@@ -90,6 +93,7 @@ impl AppConfigs {
             "horizontal" => self.layout.horizontal.into(),
             "vertical" => self.layout.vertical.into(),
             "twostep" => self.layout.twostep.into(),
+            "squared" => self.layout.squared.clone().into(),
             _ => self.layout.golden_ratio.into(),
         };
 
@@ -111,7 +115,10 @@ impl Default for AppConfigs {
 
 impl Default for Advanced {
     fn default() -> Self {
-        Advanced { refresh_time: 50 }
+        Advanced {
+            refresh_time: 50,
+            detect_maximized_windows: true,
+        }
     }
 }
 
@@ -125,6 +132,7 @@ impl Default for Layout {
             horizontal: MonoAxisHorizontal::default(),
             vertical: MonoAxisVertical::default(),
             twostep: TwoStep::default(),
+            squared: Squared::default(),
             insert_in_monitor: false,
         }
     }
@@ -181,7 +189,7 @@ pub mod deserializers {
     where
         D: Deserializer<'de>,
     {
-        let valid = ["golden_ratio", "horizontal", "vertical", "twostep"];
+        let valid = ["golden_ratio", "horizontal", "vertical", "twostep", "squared"];
         let s: String = String::deserialize(deserializer)?;
         match valid.contains(&s.to_lowercase().as_str()) {
             true => Ok(s.to_lowercase()),

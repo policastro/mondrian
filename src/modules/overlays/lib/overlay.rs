@@ -26,7 +26,7 @@ enum OverlayMessage {
     Quit,
     SetActive,
     SetInactive,
-    Reposition(Option<bool>),
+    Reposition(Option<bool>)
 }
 
 impl Overlay {
@@ -68,9 +68,9 @@ impl Overlay {
                         let activated = activated.unwrap_or(curr_activated);
                         let p = if activated { active } else { inactive };
                         if curr_activated != activated {
-                            curr_activated = activated;
                             post_message(hwnd, utils::overlay::WM_CHANGE_BORDER, Some(p));
                         }
+                        curr_activated = activated;
                         Self::move_overlay_to_target(hwnd, target, p.thickness, p.padding);
                     }
                     _ => {

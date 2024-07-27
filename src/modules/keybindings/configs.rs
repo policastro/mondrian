@@ -12,12 +12,14 @@ pub struct KeybindingsModuleConfigs {
 }
 
 impl KeybindingsModuleConfigs {
-    pub fn get_grouped_bindings(&self) -> HashMap<inputbot::KeybdKey, Vec<(Vec<inputbot::KeybdKey>, MondrianMessage)>> {
+    pub fn get_grouped_bindings(
+        &self,
+    ) -> HashMap<inputbot::KeybdKey, Vec<(Vec<inputbot::KeybdKey>, MondrianMessage, bool)>> {
         let mut bindings = self.bindings.clone();
         bindings.sort_by(|(m0, _, _), (m1, _, _)| m1.len().cmp(&m0.len()));
-
         bindings.iter().fold(HashMap::new(), |mut acc, (m, k, a)| {
-            acc.entry(*k).or_default().push((m.clone(), a.clone()));
+            let keep_alive = matches!(a, MondrianMessage::Pause(_) | MondrianMessage::PauseModule(_, _));
+            acc.entry(*k).or_default().push((m.clone(), a.clone(), keep_alive));
             acc
         })
     }
@@ -96,7 +98,6 @@ where
     Ok(res)
 }
 
-// TODO I can probably merge this with deserialize_modifier
 fn deserialize_modifier_opt<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
 where
     D: Deserializer<'de>,

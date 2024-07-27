@@ -1,6 +1,9 @@
 use serde::Deserialize;
 
-use crate::app::structs::{direction::Direction, orientation::Orientation};
+use crate::app::{
+    config::app_configs::deserializers,
+    structs::{direction::Direction, orientation::Orientation},
+};
 
 use super::LayoutStrategy;
 
@@ -11,8 +14,12 @@ pub struct TwoStep {
     first_dir: Direction,
     #[serde(rename = "second_step")]
     second_dir: Direction,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
+    ratio: u8,
     #[serde(skip)]
     current_dir: Direction,
+    #[serde(skip)]
+    count: u8,
 }
 
 impl Default for TwoStep {
@@ -21,6 +28,8 @@ impl Default for TwoStep {
             first_dir: Direction::Right,
             second_dir: Direction::Down,
             current_dir: Direction::Right,
+            ratio: 50,
+            count: 0,
         }
     }
 }
@@ -39,8 +48,15 @@ impl LayoutStrategy for TwoStep {
             Direction::Right | Direction::Left => Orientation::Vertical,
             Direction::Down | Direction::Up => Orientation::Horizontal,
         };
-        let result = (orientation, 50);
+        let result = (orientation, if self.count == 1 { self.ratio } else { 50 });
+        self.count += 1;
         self.current_dir = self.second_dir;
         result
+    }
+
+    fn remove_complete(&mut self, removed: bool) {
+        if removed {
+            self.count -= 1;
+        }
     }
 }

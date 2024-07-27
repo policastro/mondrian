@@ -19,26 +19,26 @@ impl TilesManagerConfig {
         }
     }
 
-    pub fn get_border_pad(&self) -> i8 {
-        self.border_padding - self.tiles_padding - 2 // TODO Note: 2 is a magic number
+    pub fn get_border_pad(&self) -> i16 {
+        i16::from(self.border_padding - self.tiles_padding) - 2 // TODO Note: 2 is a magic number
     }
 
-    pub fn get_tile_pady(&self) -> i8 {
-        self.tiles_padding - 5 // TODO Note: 5 is a magic number
+    pub fn get_tile_pady(&self) -> i16 {
+        i16::from(self.tiles_padding) - 5 // TODO Note: 5 is a magic number
     }
 
-    pub fn get_tile_padx(&self) -> i8 {
-        self.tiles_padding - 8 // TODO Note: 8 is a magic number
+    pub fn get_tile_padx(&self) -> i16 {
+        i16::from(self.tiles_padding) - 8 // TODO Note: 8 is a magic number
     }
 
-    pub fn get_tile_pad_xy(&self) -> (i8, i8) {
+    pub fn get_tile_pad_xy(&self) -> (i16, i16) {
         (self.get_tile_padx(), self.get_tile_pady())
     }
 
-    pub fn is_insert_in_monitor(&self, inverted: bool ) -> bool {
+    pub fn is_insert_in_monitor(&self, inverted: bool) -> bool {
         match inverted {
             true => !self.insert_in_monitor,
-            false => self.insert_in_monitor
+            false => self.insert_in_monitor,
         }
     }
 }

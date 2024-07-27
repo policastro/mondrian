@@ -1,26 +1,23 @@
-use super::managed_monitor::ManagedMonitor;
-use crate::{
+use crate::
     app::structs::{
         area::Area,
         area_tree::{layout_strategy::LayoutStrategyEnum, tree::WinTree},
-    },
-    win32::api::monitor::Monitor,
-};
+    }
+;
 
 #[derive(Debug)]
 pub(super) struct Container {
-    pub monitor: ManagedMonitor,
     pub tree: WinTree,
     pub workarea: Area,
+    pub orig_workarea: Area,
 }
 
 impl Container {
-    pub fn new(monitor: Monitor, layout: LayoutStrategyEnum, padding: i8) -> Self {
-        let managed_monitor = ManagedMonitor::from(&monitor);
+    pub fn new(workarea: Area, layout: LayoutStrategyEnum, padding: i16) -> Self {
         Container {
-            monitor: managed_monitor,
-            tree: WinTree::new(managed_monitor.workarea, layout),
-            workarea: managed_monitor.workarea.pad_full(padding),
+            tree: WinTree::new(workarea, layout.clone()),
+            workarea: workarea.pad_full(padding),
+            orig_workarea: workarea,
         }
     }
 

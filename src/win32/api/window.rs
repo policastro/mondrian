@@ -11,10 +11,10 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFOR
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowRect,
-    GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW,
-    SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, TITLEBARINFO, WM_GETMINMAXINFO,
-    WS_POPUP,
+    DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowPlacement,
+    GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW,
+    SendMessageW, SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE,
+    TITLEBARINFO, WINDOWPLACEMENT, WM_GETMINMAXINFO, WS_POPUP,
 };
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
@@ -108,14 +108,13 @@ pub fn is_window_visible(hwnd: HWND) -> bool {
     unsafe { IsWindowVisible(hwnd).as_bool() }
 }
 
-/// Returns true if the window is a managable by the user, i.e. if it is on its viewport
+/// Returns true if the window is a managable by the tiles manager
 pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic: bool) -> bool {
     if hwnd.0 == 0 {
         return false;
     }
 
     // TODO To exclude admin windows
-    // TODO Can I manage "mondrian.exe" in another way? It isn't managed even without this check (filters), but I see it in the logs when WindowClosed is fired.
     if get_executable_name(hwnd).is_none() || get_executable_name(hwnd).is_some_and(|s| s == "mondrian.exe") {
         return false;
     }
@@ -132,14 +131,10 @@ pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic
         return false;
     }
 
-    // TODO: Used to enable some windows applications (like microsoft store) to be managable by the user
-    // if EXPERIMENTAL_FEATURES { return !is_window_cloaked(hwnd); }
-
     if get_window_style(hwnd) & WS_POPUP.0 != 0 && is_window_cloaked(hwnd) {
         return false;
     }
 
-    // the following removes some task tray programs and "Program Manager"
     let titlebar_info = get_title_bar_info(hwnd);
     if (titlebar_info.rgstate[0] & STATE_SYSTEM_INVISIBLE.0) != 0 {
         return false;
@@ -152,7 +147,6 @@ pub fn enum_user_manageable_windows() -> Vec<WindowRef> {
     let mut windows: Vec<WindowRef> = Vec::new();
     let lparam = LPARAM(windows.as_mut() as *mut Vec<WindowRef> as isize);
 
-    // TODO Handle error
     unsafe {
         EnumWindows(Some(user_managed_windows), lparam).expect("EnumWindows failed");
     }
@@ -217,4 +211,16 @@ pub fn destroy_window(hwnd: HWND) {
     unsafe {
         let _ = DestroyWindow(hwnd);
     }
+}
+
+pub fn is_maximized(hwnd: HWND) -> bool {
+    unsafe {
+        let mut wp: WINDOWPLACEMENT = std::mem::zeroed();
+        wp.length = std::mem::size_of::<WINDOWPLACEMENT>() as u32;
+
+        if GetWindowPlacement(hwnd, &mut wp).is_ok() {
+            return wp.showCmd == SW_MAXIMIZE.0 as u32;
+        }
+    }
+    false
 }

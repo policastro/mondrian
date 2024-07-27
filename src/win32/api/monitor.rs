@@ -3,8 +3,7 @@ use windows::Win32::{
     Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HMONITOR, MONITORINFOEXW},
 };
 
-use crate::win32::callbacks::enum_monitors::enum_monitors_callback;
-
+use crate::{app::structs::area::Area, win32::callbacks::enum_monitors::enum_monitors_callback};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -39,3 +38,15 @@ pub fn enum_display_monitors() -> Vec<Monitor> {
     }
     monitors
 }
+
+impl From<Monitor> for Area {
+    fn from(val: Monitor) -> Self {
+        Area::new(
+            val.offset.0,
+            val.offset.1,
+            u16::try_from(val.workspace.0).expect("Failed to convert i32 to u16"),
+            u16::try_from(val.workspace.1).expect("Failed to convert i32 to u16"),
+        )
+    }
+}
+

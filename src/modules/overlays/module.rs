@@ -6,6 +6,7 @@ use crate::{
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},
+    mpsc::Sender,
     Arc, Mutex,
 };
 
@@ -17,6 +18,7 @@ use super::{
 };
 
 pub struct OverlaysModule {
+    bus: Sender<MondrianMessage>,
     running: Arc<AtomicBool>,
     configs: OverlaysModuleConfigs,
     enabled: bool,
@@ -25,13 +27,14 @@ pub struct OverlaysModule {
 }
 
 impl OverlaysModule {
-    pub fn new() -> OverlaysModule {
+    pub fn new(bus: Sender<MondrianMessage>) -> OverlaysModule {
         OverlaysModule {
             running: Arc::new(AtomicBool::new(false)),
             configs: OverlaysModuleConfigs::default(),
             enabled: true,
             overlays: None,
             main_thread: None,
+            bus,
         }
     }
 }
@@ -64,6 +67,7 @@ impl ModuleImpl for OverlaysModule {
         });
 
         self.main_thread = Some(main_thread);
+        self.bus.send(MondrianMessage::ListManagedWindows).unwrap();
     }
 
     fn stop(&mut self) {
@@ -101,7 +105,7 @@ impl ModuleImpl for OverlaysModule {
 
     fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
         match event {
-            MondrianMessage::Pause(pause) => Module::pause(self, *pause),
+            MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
             MondrianMessage::Configure => {
                 Module::enable(self, app_configs.modules.overlays.enabled);
                 self.configure(app_configs.into());
@@ -120,6 +124,10 @@ impl ModuleImpl for OverlaysModule {
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
+    }
+
+    fn name(&self) -> String {
+        "overlays".to_string()
     }
 }
 

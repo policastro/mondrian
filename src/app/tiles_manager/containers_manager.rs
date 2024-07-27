@@ -1,63 +1,77 @@
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
-use crate::app::structs::{area::Area, area_tree::tree::WinTree, direction::Direction};
+use crate::app::structs::{
+    area::Area,
+    area_tree::{leaf::AreaLeaf, tree::WinTree},
+    direction::Direction,
+};
 
 use super::container::Container;
 
-pub(super) struct ContainersManager {
-    containers: HashMap<isize, Container>,
+pub(super) struct ContainersManager<T: Clone + Copy + Eq + Hash> {
+    containers: HashMap<T, Container>,
 }
 
-impl ContainersManager {
-    pub fn new(containers: Vec<Container>) -> Self {
-        ContainersManager {
-            containers: containers.into_iter().map(|c| (c.monitor.id, c)).collect(),
-        }
+impl<T: Clone + Copy + Eq + Hash> ContainersManager<T> {
+    pub fn new(containers: HashMap<T, Container>) -> Self {
+        ContainersManager { containers }
     }
 
     pub fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool {
-        let c1 = self.which(point1);
-        let c2 = self.which(point2);
+        let id1 = self.which_id(point1);
+        let id2 = self.which_id(point2);
 
-        match (c1, c2) {
-            (Some(c1), Some(c2)) => c1.monitor.id == c2.monitor.id,
+        match (id1, id2) {
+            (Some(id1), Some(id2)) => id1 == id2,
             _ => false,
         }
     }
 
-    pub fn which(&self, point: (i32, i32)) -> Option<&Container> {
-        self.containers.values().find(|c| c.contains(point))
+    pub fn which_id(&self, point: (i32, i32)) -> Option<T> {
+        self.containers
+            .iter()
+            .find(|(_k, c)| c.contains(point))
+            .map(|(k, _)| *k)
     }
 
-    pub fn which_mut(&mut self, point: (i32, i32)) -> Option<&mut Container> {
+    pub fn which_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container> {
         self.containers.values_mut().find(|c| c.contains(point))
     }
 
-    pub fn which_tree(&mut self, point: (i32, i32)) -> Option<&mut WinTree> {
-        self.which_mut(point).map(|c| &mut c.tree)
+    pub fn which_mut(&mut self, hwnd: isize) -> Option<&mut Container> {
+        self.containers.values_mut().find(|c| (*c).tree.has_id(hwnd))
+    }
+
+    pub fn which_tree_at_mut(&mut self, point: (i32, i32)) -> Option<&mut WinTree> {
+        self.which_at_mut(point).map(|c| &mut c.tree)
+    }
+
+    pub fn which_tree_mut(&mut self, hwnd: isize) -> Option<&mut WinTree> {
+        self.which_mut(hwnd).map(|c| &mut c.tree)
     }
 
     pub fn which_nearest_mut(&mut self, ref_point: (i32, i32), direction: Direction) -> Option<&mut Container> {
-        let ref_m = self
-            .containers
-            .values()
-            .find(|c| c.contains(ref_point))
-            .map(|c| c.monitor)?;
+        let ref_id = self.which_id(ref_point)?;
+        let ref_c = self.which_by_id(ref_id)?;
 
         let point = match direction {
-            Direction::Right => ref_m.workarea.get_ne_corner(),
-            Direction::Down => ref_m.workarea.get_se_corner(),
-            Direction::Left => ref_m.workarea.get_sw_corner(),
-            Direction::Up => ref_m.workarea.get_nw_corner(),
+            Direction::Right => ref_c.orig_workarea.get_ne_corner(),
+            Direction::Down => ref_c.orig_workarea.get_se_corner(),
+            Direction::Left => ref_c.orig_workarea.get_sw_corner(),
+            Direction::Up => ref_c.orig_workarea.get_nw_corner(),
         };
 
         let nearest = self
             .containers
-            .values_mut()
-            .filter(|c| c.monitor.id != ref_m.id) // Filter out the same monitor
+            .iter_mut()
+            .filter(|(k, _c)| **k != ref_id) // Filter out the same monitor
+            .map(|(_k, c)| c)
             .filter(|c| {
                 // Filter out the ones that are not in the same direction
-                let area = c.monitor.workarea;
+                let area = c.orig_workarea;
                 match direction {
                     Direction::Right => area.x >= point.0,
                     Direction::Down => area.y >= point.1,
@@ -66,20 +80,42 @@ impl ContainersManager {
                 }
             })
             .min_by(|a, b| {
-                let dist1 = nearest_distance_area(point, a.monitor.workarea, direction);
-                let dist2 = nearest_distance_area(point, b.monitor.workarea, direction);
+                let dist1 = nearest_distance_area(point, a.orig_workarea, direction);
+                let dist2 = nearest_distance_area(point, b.orig_workarea, direction);
                 dist1.cmp(&dist2)
             });
 
         nearest
     }
 
-    pub fn get_containers_ids(&self) -> Vec<isize> {
+    pub fn get_containers_ids(&self) -> Vec<T> {
         self.containers.keys().cloned().collect()
     }
 
-    pub fn get_container(&self, id: isize) -> Option<&Container> {
+    pub fn which_by_id(&self, id: T) -> Option<&Container> {
         self.containers.get(&id)
+    }
+
+    pub fn which_by_id_mut(&mut self, id: T) -> Option<&mut Container> {
+        self.containers.get_mut(&id)
+    }
+
+    pub fn has_window(&self, hwnd: isize) -> bool {
+        self.containers.iter().any(|(_k, c)| c.tree.has_id(hwnd))
+    }
+
+    pub fn get_windows(&self) -> HashSet<isize> {
+        self.containers.iter().flat_map(|(_k, c)| c.tree.get_ids()).collect()
+    }
+
+    pub fn get_windows_len(&self) -> usize {
+        self.containers.iter().map(|(_k, c)| c.tree.len()).sum()
+    }
+
+    pub fn get_leaf(&self, hwnd: isize, padding: i16) -> Option<AreaLeaf<isize>> {
+        self.containers
+            .iter()
+            .find_map(|(_k, c)| c.tree.find_leaf(hwnd, padding))
     }
 }
 

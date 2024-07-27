@@ -7,6 +7,7 @@ pub trait Module {
     fn enable(&mut self, enabled: bool);
     fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs);
     fn pause(&mut self, is_paused: bool);
+    fn name(&self) -> String;
 }
 pub trait ConfigurableModule: Module {
     type Config;
@@ -26,6 +27,7 @@ pub(in crate::modules) mod module_impl {
         fn enabled(&self) -> bool;
         fn enable(&mut self, enabled: bool);
         fn pause(&mut self, is_paused: bool);
+        fn name(&self) -> String;
     }
 
     impl<T: ModuleImpl> Module for T {
@@ -60,6 +62,10 @@ pub(in crate::modules) mod module_impl {
 
         fn pause(&mut self, is_paused: bool) {
             ModuleImpl::pause(self, is_paused);
+        }
+
+        fn name(&self) -> String {
+            ModuleImpl::name(self)
         }
     }
 }

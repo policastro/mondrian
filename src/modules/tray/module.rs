@@ -12,7 +12,7 @@ use crate::{
 
 use std::{
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering},
         mpsc::Sender,
         Arc,
     },
@@ -25,9 +25,14 @@ pub struct TrayModule {
     running: Arc<AtomicBool>,
     enabled: bool,
     main_thread_id: Arc<AtomicU32>,
+    pause_flag: Arc<AtomicU8>,
 }
 
 impl TrayModule {
+    const PAUSE_UNSET: u8 = 0;
+    const PAUSE_DISABLED: u8 = 1;
+    const PAUSE_ENABLED: u8 = 2;
+    const PAUSE_TOGGLED: u8 = 3;
     pub fn new(bus: Sender<MondrianMessage>) -> Self {
         Self {
             bus,
@@ -35,6 +40,7 @@ impl TrayModule {
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
             main_thread_id: Arc::new(AtomicU32::new(0)),
+            pause_flag: Arc::new(AtomicU8::new(Self::PAUSE_UNSET)),
         }
     }
 }
@@ -47,6 +53,7 @@ impl ModuleImpl for TrayModule {
         let bus = self.bus.clone();
         self.running.store(true, Ordering::SeqCst);
         let running = self.running.clone();
+        let pause_flag = self.pause_flag.clone();
 
         let main_thread_id = self.main_thread_id.clone();
         let main_thread = thread::spawn(move || {
@@ -74,12 +81,21 @@ impl ModuleImpl for TrayModule {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
 
             while next_win_event_loop_iteration(None) && running.load(Ordering::SeqCst) {
+                let is_paused = pause_flag.load(Ordering::Relaxed);
+                match is_paused {
+                    Self::PAUSE_ENABLED => pause.set_checked(true),
+                    Self::PAUSE_DISABLED => pause.set_checked(false),
+                    Self::PAUSE_TOGGLED => pause.set_checked(!pause.is_checked()),
+                    _ => {}
+                }
+                pause_flag.store(Self::PAUSE_UNSET, Ordering::Relaxed);
+                
                 let event_id = MenuEvent::receiver()
                     .try_recv()
                     .map_or(None, |e| Some(e.id.0.to_owned()));
 
                 let app_event = match event_id.as_deref() {
-                    Some("PAUSE") => Some(MondrianMessage::Pause(pause.is_checked())),
+                    Some("PAUSE") => Some(MondrianMessage::Pause(Some(pause.is_checked()))),
                     Some("RETILE") => Some(MondrianMessage::Retile),
                     Some("REFRESH_CONFIG") => Some(MondrianMessage::RefreshConfig),
                     Some("OPEN_CONFIG") => Some(MondrianMessage::OpenConfig),
@@ -95,6 +111,7 @@ impl ModuleImpl for TrayModule {
                     Some(e) => bus.send(e).expect("TrayModule: Failed to send event"),
                     _ => {}
                 }
+                thread::sleep(std::time::Duration::from_millis(200));
             }
         });
         self.main_thread = Some(main_thread);
@@ -129,8 +146,26 @@ impl ModuleImpl for TrayModule {
     }
 
     fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
-        if let MondrianMessage::Quit = event {
-            Module::stop(self)
+        match event {
+            MondrianMessage::Pause(pause) => {
+                let pause = match pause {
+                    Some(p) => {
+                        if *p {
+                            Self::PAUSE_ENABLED
+                        } else {
+                            Self::PAUSE_DISABLED
+                        }
+                    }
+                    None => Self::PAUSE_TOGGLED,
+                };
+                self.pause_flag.store(pause, Ordering::Relaxed)
+            }
+            MondrianMessage::Quit => Module::stop(self),
+            _ => {}
         }
+    }
+
+    fn name(&self) -> String {
+        "tray".to_string()
     }
 }

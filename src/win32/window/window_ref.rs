@@ -1,7 +1,7 @@
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{
-        IsIconic, IsWindow, IsWindowVisible, SetWindowPos, HWND_TOP, SWP_NOSENDCHANGING, SWP_SHOWWINDOW, SW_MINIMIZE,
+        IsIconic, IsWindowVisible, SetWindowPos, SWP_NOSENDCHANGING, SWP_SHOWWINDOW, SW_MINIMIZE, SW_SHOWNORMAL,
     },
 };
 
@@ -70,7 +70,7 @@ impl WindowObjInfo for WindowRef {
     }
 
     fn get_window_box(&self) -> Option<Area> {
-        // TODO Some apps (like windows settings) have negative values (-8)
+        // Some apps (like windows settings) have negative values (-8)
         get_window_box(self.hwnd)
             .map(|b| Area::new(b[0], b[1], b[2].try_into().unwrap_or(0), b[3].try_into().unwrap_or(0)))
     }
@@ -105,17 +105,14 @@ impl WindowObjHandler for WindowRef {
         unsafe {
             let coord = (coordinates.0, coordinates.1);
             let size = (i32::from(size.0), i32::from(size.1));
-            let flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW; //TODO sometimes it block without this flag -> SWP_ASYNCWINDOWPOS;
+            let flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW; // FIXME sometimes it blocks without this flag -> SWP_ASYNCWINDOWPOS;
 
-            match SetWindowPos(self.hwnd, HWND_TOP, coord.0, coord.1, size.0, size.1, flags) {
+            show_window(self.hwnd, SW_SHOWNORMAL); // Remove maximized state
+            match SetWindowPos(self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
                 Ok(_) => Ok(()),
                 Err(_) => Err(()),
             }
         }
-    }
-
-    fn is_window(&self) -> bool {
-        unsafe { IsWindow(self.hwnd) }.as_bool()
     }
 
     fn minimize(&self) -> bool {

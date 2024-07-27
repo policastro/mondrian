@@ -1,4 +1,7 @@
 pub mod overlay {
+    use std::sync::Mutex;
+
+    use lazy_static::lazy_static;
     use windows::Win32::{
         Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM},
         Graphics::Gdi::{
@@ -6,8 +9,7 @@ pub mod overlay {
             COLOR_WINDOW, PAINTSTRUCT, PS_SOLID,
         },
         UI::WindowsAndMessaging::{
-            GetClientRect, GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA,
-            HTCAPTION, SW_SHOWNOACTIVATE, WM_CREATE, WM_DESTROY, WM_PAINT, WS_EX_NOACTIVATE,
+            GetClientRect, GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, HTCAPTION, SW_SHOWNOACTIVATE, WM_CREATE, WM_DESTROY, WM_PAINT, WS_EX_NOACTIVATE,
         },
     };
 
@@ -33,6 +35,10 @@ pub mod overlay {
             window::{get_window_box, show_window},
         },
     };
+
+    lazy_static! {
+        static ref CLASS_REGISTER_MUTEX: Mutex<()> = Mutex::new(());
+    }
 
     pub const WM_CHANGE_BORDER: u32 = WM_USER + 1;
     unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
@@ -63,6 +69,7 @@ pub mod overlay {
     }
 
     pub fn create(params: OverlayParams, target: Option<HWND>) -> HWND {
+        let _guard = CLASS_REGISTER_MUTEX.lock().unwrap();
         let color_white = Color::new(255, 255, 255);
         unsafe {
             let handle = GetModuleHandleW(None).unwrap();
@@ -88,9 +95,11 @@ pub mod overlay {
                 RegisterClassW(&wc);
                 let b = get_box_from_target(target.unwrap_or(HWND(0)), params.thickness, params.padding)
                     .unwrap_or_default();
+
                 hwnd = CreateWindowExW(
                     ex_style, class, None, style, b.0, b.1, b.2, b.3, parent, None, handle, data,
                 );
+
                 if hwnd.0 == 0 {
                     retry -= 1;
                     let error = GetLastError();

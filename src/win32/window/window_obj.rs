@@ -14,6 +14,5 @@ pub trait WindowObjInfo {
 pub trait WindowObjHandler {
     fn focus(&self);
     fn resize_and_move(&self, coordinates: (i32, i32), size: (u16, u16)) -> Result<(), ()>;
-    fn is_window(&self) -> bool;
     fn minimize(&self) -> bool;
 }

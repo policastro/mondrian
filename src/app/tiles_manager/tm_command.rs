@@ -14,7 +14,11 @@ pub enum TMCommand {
     WindowResized(HWND),
     Focus(Direction),
     Move(Direction),
-    Minimize
+    Resize(Direction, u8),
+    Release(Option<bool>),
+    Invert,
+    ListManagedWindows,
+    Minimize,
 }
 
 impl TMCommand {
@@ -60,6 +64,10 @@ impl From<&MondrianMessage> for TMCommand {
             MondrianMessage::Minimize => TMCommand::Minimize,
             MondrianMessage::Focus(direction) => TMCommand::Focus(*direction),
             MondrianMessage::Move(direction) => TMCommand::Move(*direction),
+            MondrianMessage::Release(b) => TMCommand::Release(*b),
+            MondrianMessage::Resize(d, s) => TMCommand::Resize(*d, *s),
+            MondrianMessage::Invert => TMCommand::Invert,
+            MondrianMessage::ListManagedWindows => TMCommand::ListManagedWindows,
             _ => TMCommand::Noop,
         }
     }

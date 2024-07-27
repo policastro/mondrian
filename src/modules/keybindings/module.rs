@@ -24,6 +24,7 @@ pub struct KeybindingsModule {
     configs: KeybindingsModuleConfigs,
     binded_keys: Vec<inputbot::KeybdKey>,
     main_thread_id: Arc<AtomicU32>,
+    paused: bool,
 }
 
 impl KeybindingsModule {
@@ -36,6 +37,7 @@ impl KeybindingsModule {
             binded_keys: vec![],
             bus,
             main_thread_id: Arc::new(AtomicU32::new(0)),
+            paused: false,
         }
     }
 }
@@ -49,11 +51,24 @@ impl ModuleImpl for KeybindingsModule {
 
         let bus = self.bus.clone();
         let main_thread_id = self.main_thread_id.clone();
-        let bindings = self.configs.get_grouped_bindings();
+        let mut bindings = self.configs.get_grouped_bindings();
+
+        // When paused, keeps only the bindings to unpause
+        if self.paused {
+            bindings.values_mut().for_each(|v| v.retain(|(_, _, p)| *p));
+            bindings.retain(|_, v| !v.is_empty());
+        }
+
+        self.binded_keys = bindings.clone().into_keys().collect();
+        if self.binded_keys.is_empty() {
+            self.running.store(false, Ordering::SeqCst);
+            return;
+        }
+
         for (key, list_mod_command) in bindings {
             let bus = bus.clone();
             key.blockable_bind(move || {
-                for (m, c) in list_mod_command.iter() {
+                for (m, c, _) in list_mod_command.iter() {
                     if m.iter().all(|m| m.is_pressed()) {
                         bus.send(c.clone()).expect("Failed to send command");
                         return BlockInput::Block;
@@ -62,11 +77,12 @@ impl ModuleImpl for KeybindingsModule {
                 BlockInput::DontBlock
             });
         }
-        self.binded_keys = self.configs.bindings.iter().map(|b| b.1).collect();
+
         let input_thread = thread::spawn(move || {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             inputbot::handle_input_events(false);
         });
+
         self.input_thread = Some(input_thread);
     }
 
@@ -78,7 +94,8 @@ impl ModuleImpl for KeybindingsModule {
 
         self.binded_keys.iter().for_each(|k| k.unbind());
         self.binded_keys.clear();
-        // Not sure why this is required, but without it the module crashes
+
+        // FIXME Not sure why this is required, but without it the module crashes
         post_empty_thread_message(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT);
         inputbot::stop_handling_input_events();
         if self.input_thread.is_some() {
@@ -92,10 +109,9 @@ impl ModuleImpl for KeybindingsModule {
     }
 
     fn pause(&mut self, is_paused: bool) {
-        match is_paused {
-            true => Module::stop(self),
-            false => Module::start(self),
-        }
+        Module::stop(self);
+        self.paused = is_paused;
+        Module::start(self);
     }
 
     fn enable(&mut self, enabled: bool) {
@@ -108,7 +124,7 @@ impl ModuleImpl for KeybindingsModule {
 
     fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
         match event {
-            MondrianMessage::Pause(pause) => Module::pause(self, *pause),
+            MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(!self.paused)),
             MondrianMessage::Configure => {
                 Module::enable(self, app_configs.modules.keybindings.enabled);
                 self.configure(app_configs.into());
@@ -121,6 +137,10 @@ impl ModuleImpl for KeybindingsModule {
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
+    }
+
+    fn name(&self) -> String {
+        "keybindings".to_string()
     }
 }
 

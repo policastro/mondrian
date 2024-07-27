@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 mod win32 {
     pub mod api {
         pub mod accessibility;
@@ -25,6 +25,7 @@ mod win32 {
 mod app {
     pub mod mondrian_command;
     pub mod win_events_handlers {
+        pub mod maximize_event_handler;
         pub mod minimize_event_handler;
         pub mod open_event_handler;
         pub mod position_event_handler;
@@ -33,8 +34,6 @@ mod app {
         pub mod config;
         pub(super) mod container;
         pub(super) mod containers_manager;
-        pub(super) mod managed_monitor;
-        pub(super) mod managed_window;
         pub mod manager;
         pub mod monitor_layout;
         pub mod tm_command;

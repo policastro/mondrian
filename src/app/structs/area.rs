@@ -105,7 +105,7 @@ impl Area {
         )
     }
 
-    pub fn pad(&self, padding_x: Option<(i8, i8)>, padding_y: Option<(i8, i8)>) -> Area {
+    pub fn pad(&self, padding_x: Option<(i16, i16)>, padding_y: Option<(i16, i16)>) -> Area {
         let padding_x = padding_x.unwrap_or((0, 0));
         let padding_y = padding_y.unwrap_or((0, 0));
 
@@ -120,23 +120,23 @@ impl Area {
         )
     }
 
-    pub fn pad_full(&self, padding: i8) -> Area {
+    pub fn pad_full(&self, padding: i16) -> Area {
         self.pad(Some((padding, padding)), Some((padding, padding)))
     }
 
-    pub fn pad_xy(&self, (px, py): (i8, i8)) -> Area {
+    pub fn pad_xy(&self, (px, py): (i16, i16)) -> Area {
         self.pad(Some((px, px)), Some((py, py)))
     }
 
     fn get_percent(value: u16, percent: u8) -> u16 {
-        assert!(percent <= 100); // TODO It shouldn't fail, because percent should be at most 100
+        assert!(percent <= 100);
         (f32::from(value) * (f32::from(percent) / 100.0)).round() as u16
     }
 
-    fn add_to_dimension(value: u16, delta: i8) -> u16 {
+    fn add_to_dimension(value: u16, delta: i16) -> u16 {
         match delta > 0 {
-            true => value.saturating_sub(delta.unsigned_abs() as u16),
-            false => value.saturating_add(delta.unsigned_abs() as u16),
+            true => value.saturating_sub(delta.unsigned_abs()),
+            false => value.saturating_add(delta.unsigned_abs()),
         }
     }
 }
