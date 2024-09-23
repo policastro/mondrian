@@ -28,8 +28,7 @@ impl OpenCloseEventHandler {
 
 impl OpenCloseEventHandler {
     fn send_open_event(&mut self, hwnd: HWND) {
-        let is_managed = is_user_managable_window(hwnd, false, true); // TODO Can I check visibility here?
-        let is_managed = is_managed && is_window_visible(hwnd);
+        let is_managed = is_user_managable_window(hwnd, true, true, true);
 
         if is_managed && self.windows.insert(hwnd.0) {
             self.sender

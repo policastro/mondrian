@@ -198,19 +198,25 @@ impl ConfigurableModule for CoreModule {
 
 fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
     let res = match event {
-        TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) => tm.add(WindowRef::new(hwnd), true),
-        TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) => tm.remove(hwnd, true),
-        TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.move_window(hwnd, coords, invert, switch, true),
-        TMCommand::WindowResized(hwnd) => tm.refresh_window_size(hwnd, true),
+        TMCommand::WindowOpened(hwnd) | TMCommand::WindowRestored(hwnd) | TMCommand::WindowUnmaximized(hwnd) => {
+            tm.add(WindowRef::new(hwnd), true)
+        }
+        TMCommand::WindowClosed(hwnd) | TMCommand::WindowMinimized(hwnd) | TMCommand::WindowMaximized(hwnd) => {
+            let minimized = matches!(event, TMCommand::WindowMinimized(_));
+            tm.remove(hwnd, minimized, true)
+        }
+        TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.on_move(hwnd, coords, invert, switch),
+        TMCommand::WindowResized(hwnd, p_area, c_area) => tm.on_resize(hwnd, c_area.get_shift(&p_area)),
         TMCommand::Focus(direction) => tm.focus_at(direction),
-        TMCommand::Minimize => tm.minimize(),
-        TMCommand::Move(direction) => tm.move_to(direction, true),
-        TMCommand::Resize(direction, size) => tm.resize_on(direction, size, true),
-        TMCommand::Invert => tm.invert_orientation(true),
-        TMCommand::Release(b) => tm.set_release(b),
+        TMCommand::Minimize => tm.minimize_focused(),
+        TMCommand::Move(direction) => tm.move_focused(direction),
+        TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
+        TMCommand::Invert => tm.invert_orientation(),
+        TMCommand::Release(b) => tm.release_focused(b, None),
+        TMCommand::Focalize => tm.focalize_focused(),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
-            tx.send(MondrianMessage::UpdatedWindows(windows)).unwrap();
+            tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
             Ok(())
         }
         TMCommand::Noop => return true,
@@ -229,7 +235,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
 
     if event.require_update() {
         let windows = tm.get_managed_windows();
-        tx.send(MondrianMessage::UpdatedWindows(windows)).unwrap();
+        tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
     }
 
     true
@@ -251,7 +257,7 @@ fn filter_events(
             event
         }
         command if command.can_be_filtered() => {
-            let hwnd = command.get_hwnd().unwrap();
+            let hwnd = command.get_hwnd().expect("Can't get the window handle");
             let info = match WindowRef::new(hwnd).snapshot() {
                 Some(win_info) => win_info,
                 None => return Ok(TMCommand::Noop),

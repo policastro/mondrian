@@ -13,6 +13,7 @@ pub struct CoreModuleConfigs {
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
     pub border_padding: u8,
+    pub focalized_padding: u8,
     pub insert_in_monitor: bool,
 }
 
@@ -25,6 +26,7 @@ impl Default for CoreModuleConfigs {
             layout_strategy: LayoutStrategyEnum::default(),
             tiles_padding: 0,
             border_padding: 0,
+            focalized_padding: 0,
             insert_in_monitor: false,
         }
     }
@@ -46,6 +48,7 @@ impl From<&AppConfigs> for CoreModuleConfigs {
             layout_strategy: app_configs.get_layout_strategy(),
             tiles_padding: app_configs.layout.tiles_padding,
             border_padding: app_configs.layout.border_padding,
+            focalized_padding: app_configs.layout.focalized_padding,
             insert_in_monitor: app_configs.layout.insert_in_monitor,
         }
     }

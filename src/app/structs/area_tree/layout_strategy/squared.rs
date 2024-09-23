@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 
-use super::LayoutStrategy;
+use super::{LayoutStrategy, TreeOperation};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
@@ -26,26 +26,22 @@ impl Default for Squared {
 }
 
 impl LayoutStrategy for Squared {
-    fn insert_next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
+    fn init(&mut self, curr_count: u8, _operation: TreeOperation) {
+        self.count = curr_count;
+        self.path = get_next_path(self.count);
+    }
+
+    fn next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
         self.current_dir = self.path.pop().unwrap_or(self.current_dir);
         (self.current_dir, None, None)
     }
 
-    fn insert_complete(&mut self) -> (Orientation, u8) {
+    fn complete(&mut self) -> (Orientation, u8) {
         let orientation = match (self.count + 1) % 3 == 2 {
             true => Orientation::Vertical,
             false => Orientation::Horizontal,
         };
-        self.count += 1;
-        self.path = get_next_path(self.count);
         (orientation, 50)
-    }
-
-    fn remove_complete(&mut self, removed: bool) {
-        if removed {
-            self.count -= 1;
-        }
-        self.path = get_next_path(self.count);
     }
 }
 
@@ -70,7 +66,6 @@ fn get_next_path(count: u8) -> Vec<Direction> {
         .skip(8 - (factor * 2) as usize)
         .map(map_char_to_dir)
         .collect::<Vec<Direction>>();
-    log::error!("PATH {:?}", path);
     path.reverse();
     path
 }

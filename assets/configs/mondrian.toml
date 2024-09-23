@@ -2,6 +2,7 @@
 tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
 tiles_padding = 4                # padding between tiles, it must be between 0 and 60
 border_padding = 4               # padding between border and tiles, it must be between 0 and 60
+focalized_padding = 8            # padding for the focalized window, it must be between 0 and 60
 insert_in_monitor = false        # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
 
 [layout.golden_ratio] # if tiling_strategy = "golden_ratio"
@@ -41,7 +42,7 @@ inactive.padding = 0         # padding between the border and the tiles
 
 # Other settings
 [advanced]
-refresh_time = 50 # in milliseconds, set the time between each refresh. Values below 30 are not recommended, and probably there is no benefit with such a low value
+refresh_time = 50               # in milliseconds, set the time between each refresh. Values below 30 are not recommended, and probably there is no benefit with such a low value
 detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine. WARNING: it will increase the CPU usage
 
 [core]

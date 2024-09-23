@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Deserializer};
 
-use super::structs::direction::Direction;
+use super::{structs::direction::Direction, tiles_manager::tm_command::TMCommand};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MondrianMessage {
@@ -17,7 +17,8 @@ pub enum MondrianMessage {
     Invert,
     Pause(Option<bool>),
     PauseModule(String, Option<bool>),
-    UpdatedWindows(HashSet<isize>),
+    UpdatedWindows(HashSet<isize>, TMCommand),
+    Focalize,
     Minimize,
     ListManagedWindows,
     Quit,
@@ -35,6 +36,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "resize <left|right|up|down> <40-250> ",
             "invert",
             "release [on|off|toggle]",
+            "focalize",
             "pause [on|off|toggle]",
             "module <keybindings|overlays> [on|off|toggle]",
             "quit",
@@ -53,6 +55,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "resize" => parts.len() == 3,
             "invert" => parts.len() == 1,
             "release" => parts.len() <= 2,
+            "focalize" => parts.len() == 1,
             "pause" => parts.len() <= 2,
             "module" => parts.len() > 1 && parts.len() <= 3,
             "quit" => parts.len() == 1,
@@ -109,6 +112,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
                 Ok(MondrianMessage::Resize(dir, size))
             }
             "invert" => Ok(MondrianMessage::Invert),
+            "focalize" => Ok(MondrianMessage::Focalize),
             "release" => {
                 let param = match parts.get(1).to_owned() {
                     Some(&"on") => Some(true),

@@ -1,11 +1,7 @@
-use std::{ffi::OsStr, os::windows::ffi::OsStrExt};
-use windows::{
-    core::PCWSTR,
-    Win32::{
-        Foundation::{HWND, LPARAM, WPARAM},
-        System::Threading::GetCurrentThreadId,
-        UI::WindowsAndMessaging::{PostMessageW, PostThreadMessageW},
-    },
+use windows::Win32::{
+    Foundation::{HWND, LPARAM, WPARAM},
+    System::Threading::GetCurrentThreadId,
+    UI::WindowsAndMessaging::{PostMessageW, PostThreadMessageW},
 };
 
 pub fn get_current_thread_id() -> u32 {
@@ -26,9 +22,4 @@ pub fn post_message<L>(hwnd: HWND, msg: u32, data: Option<L>) {
         None => LPARAM(0),
     };
     let _ = unsafe { PostMessageW(hwnd, msg, WPARAM(0), lparam) };
-}
-
-pub fn str_to_pcwstr(s: &str) -> PCWSTR {
-    let wide: Vec<u16> = OsStr::new(s).encode_wide().chain(Some(0)).collect();
-    PCWSTR(wide.as_ptr())
 }

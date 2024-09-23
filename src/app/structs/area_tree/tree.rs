@@ -1,13 +1,17 @@
 use crate::app::structs::{area::Area, orientation::Orientation};
 
-use super::{layout_strategy::LayoutStrategyEnum, leaf::AreaLeaf, node::AreaNode};
+use super::{
+    layout_strategy::{LayoutStrategy, LayoutStrategyEnum, TreeOperation},
+    leaf::AreaLeaf,
+    node::AreaNode,
+};
 use std::{fmt::Debug, hash::Hash};
 
 pub type WinTree = AreaTree<isize>;
 
 pub struct AreaTree<T: Copy + Eq + Hash> {
     root: AreaNode<T>,
-    area: Area,
+    pub area: Area,
     strategy: LayoutStrategyEnum,
     ids_map: std::collections::HashMap<T, AreaLeaf<T>>,
 }
@@ -26,6 +30,7 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
         if self.ids_map.contains_key(&id) {
             return;
         }
+        self.strategy.init(self.ids_map.len() as u8, TreeOperation::Insert);
         self.root.insert(id, self.area, &mut self.strategy);
         self.update_map();
     }
@@ -47,11 +52,11 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
             None => return None,
         };
         if padding == 0 {
-            return Some(leaf.clone());
+            return Some(*leaf);
         }
-        return self
-            .root
-            .find_leaf(leaf.viewbox.get_center(), self.area.pad_full(padding));
+
+        self.root
+            .find_leaf(leaf.viewbox.get_center(), self.area.pad_full(padding))
     }
 
     pub fn find_leaf_at(&self, point: (i32, i32), padding: i16) -> Option<AreaLeaf<T>> {
@@ -60,7 +65,9 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
 
     pub fn remove(&mut self, id: T) {
         if let Some(leaf) = self.ids_map.remove(&id) {
-            self.root.remove(leaf.viewbox.get_center(), self.area, &mut self.strategy);
+            self.strategy.init(self.ids_map.len() as u8, TreeOperation::Remove);
+            self.root
+                .remove(leaf.viewbox.get_center(), self.area, &mut self.strategy);
             self.update_map();
         }
     }
@@ -94,14 +101,12 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
             };
 
             let real_grow_ratio = (grow_ratio as f32 * ratio_to_consider as f32) / 100f32;
-
             ancestor.ratio = match real_grow_ratio < 0f32 {
                 true => ancestor.ratio.saturating_sub(real_grow_ratio.abs() as u8),
                 false => ancestor.ratio.saturating_add(real_grow_ratio as u8),
             };
 
             ancestor.ratio = ancestor.ratio.clamp(clamp_values.0, clamp_values.1);
-
             self.update_map();
         }
     }
@@ -119,17 +124,16 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
             return;
         }
         self.root.set_id(id2.unwrap(), point1, self.area);
-
         self.update_map();
     }
 
-    pub fn replace_id(&mut self, point: (i32, i32), id: T) -> Option<T> {
+    pub fn replace_id_at(&mut self, point: (i32, i32), id: T) -> Option<T> {
         let v = self.root.set_id(id, point, self.area);
         self.update_map();
         v
     }
 
-    pub fn has_id(&self, id: T) -> bool {
+    pub fn has(&self, id: T) -> bool {
         self.ids_map.contains_key(&id)
     }
 
@@ -137,8 +141,9 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
         self.ids_map.keys().cloned().collect()
     }
 
-    pub fn len(&self) -> usize {
-        self.ids_map.len()
+    pub fn clear(&mut self) {
+        self.ids_map.clear();
+        self.root = AreaNode::new(None, Orientation::Horizontal, 50);
     }
 
     fn update_map(&mut self) {

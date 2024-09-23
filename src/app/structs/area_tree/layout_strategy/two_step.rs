@@ -5,7 +5,7 @@ use crate::app::{
     structs::{direction::Direction, orientation::Orientation},
 };
 
-use super::LayoutStrategy;
+use super::{LayoutStrategy, TreeOperation};
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(default)]
@@ -35,7 +35,12 @@ impl Default for TwoStep {
 }
 
 impl LayoutStrategy for TwoStep {
-    fn insert_next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
+    fn init(&mut self, curr_count: u8, _operation: TreeOperation) {
+        self.current_dir = self.second_dir;
+        self.count = curr_count;
+    }
+
+    fn next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
         self.current_dir = match self.current_dir == self.first_dir {
             true => self.second_dir,
             false => self.first_dir,
@@ -43,20 +48,11 @@ impl LayoutStrategy for TwoStep {
         (self.current_dir, None, None)
     }
 
-    fn insert_complete(&mut self) -> (Orientation, u8) {
+    fn complete(&mut self) -> (Orientation, u8) {
         let orientation = match self.current_dir {
             Direction::Right | Direction::Left => Orientation::Vertical,
             Direction::Down | Direction::Up => Orientation::Horizontal,
         };
-        let result = (orientation, if self.count == 1 { self.ratio } else { 50 });
-        self.count += 1;
-        self.current_dir = self.second_dir;
-        result
-    }
-
-    fn remove_complete(&mut self, removed: bool) {
-        if removed {
-            self.count -= 1;
-        }
+        (orientation, if self.count == 1 { self.ratio } else { 50 })
     }
 }

@@ -2,14 +2,14 @@ use serde::Deserialize;
 
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 
-use super::LayoutStrategy;
+use super::{LayoutStrategy, TreeOperation};
 
 #[derive(Clone, Copy, Debug)]
 pub struct MonoAxis {
     axis: Orientation,
-    current_direction: Direction,
-    count: u8,
+    curr_direction: Direction,
     curr_count: u8,
+    curr_operation: Option<TreeOperation>,
 }
 
 impl MonoAxis {
@@ -20,15 +20,15 @@ impl MonoAxis {
         }
         MonoAxis {
             axis: axis.opposite(),
-            current_direction: direction,
-            count: 0,
+            curr_direction: direction,
             curr_count: 0,
+            curr_operation: None,
         }
     }
 
     fn get_current_ratio(&self, divisor: u8) -> u8 {
         let ratio = 100 / divisor;
-        match self.current_direction {
+        match self.curr_direction {
             Direction::Right | Direction::Down => ratio,
             Direction::Left | Direction::Up => 100 - ratio,
         }
@@ -36,29 +36,23 @@ impl MonoAxis {
 }
 
 impl LayoutStrategy for MonoAxis {
-    fn insert_next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
-        let ratio = self.get_current_ratio(self.curr_count + 1);
-        self.curr_count -= u8::min(1, self.count);
-        (self.current_direction, None, Some(ratio))
+    fn init(&mut self, curr_count: u8, operation: TreeOperation) {
+        self.curr_count = curr_count;
+        self.curr_operation = Some(operation);
     }
 
-    fn insert_complete(&mut self) -> (Orientation, u8) {
-        self.count += 1;
-        self.curr_count = self.count;
+    fn next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
+        self.curr_count -= u8::min(1, self.curr_count);
+        let coeff = match self.curr_operation.expect("Init should have been called") {
+            TreeOperation::Insert => 2,
+            TreeOperation::Remove => 1,
+        };
+        let ratio = self.get_current_ratio(self.curr_count + coeff);
+        (Direction::Right, None, Some(ratio))
+    }
+
+    fn complete(&mut self) -> (Orientation, u8) {
         (self.axis, 50)
-    }
-
-    fn remove_next(&mut self) -> (Option<Orientation>, Option<u8>) {
-        self.curr_count -= u8::min(1, self.count);
-        let ratio = self.get_current_ratio(self.curr_count);
-        (None, Some(ratio))
-    }
-
-    fn remove_complete(&mut self, removed: bool) {
-        if removed {
-            self.count -= 1;
-        }
-        self.curr_count = self.count;
     }
 }
 
@@ -66,9 +60,9 @@ impl Default for MonoAxis {
     fn default() -> Self {
         MonoAxis {
             axis: Orientation::Vertical,
-            current_direction: Direction::Down,
-            count: 0,
+            curr_direction: Direction::Down,
             curr_count: 0,
+            curr_operation: None,
         }
     }
 }
@@ -94,20 +88,16 @@ impl MonoAxisVertical {
 }
 
 impl LayoutStrategy for MonoAxisVertical {
-    fn insert_next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
-        self.layout.insert_next()
+    fn init(&mut self, curr_count: u8, operation: TreeOperation) {
+        self.layout.init(curr_count, operation);
     }
 
-    fn insert_complete(&mut self) -> (Orientation, u8) {
-        self.layout.insert_complete()
+    fn next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
+        self.layout.next()
     }
 
-    fn remove_next(&mut self) -> (Option<Orientation>, Option<u8>) {
-        self.layout.remove_next()
-    }
-
-    fn remove_complete(&mut self, removed: bool) {
-        self.layout.remove_complete(removed);
+    fn complete(&mut self) -> (Orientation, u8) {
+        self.layout.complete()
     }
 }
 
@@ -138,20 +128,16 @@ impl MonoAxisHorizontal {
 }
 
 impl LayoutStrategy for MonoAxisHorizontal {
-    fn insert_next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
-        self.layout.insert_next()
+    fn init(&mut self, curr_count: u8, operation: TreeOperation) {
+        self.layout.init(curr_count, operation);
     }
 
-    fn insert_complete(&mut self) -> (Orientation, u8) {
-        self.layout.insert_complete()
+    fn next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
+        self.layout.next()
     }
 
-    fn remove_next(&mut self) -> (Option<Orientation>, Option<u8>) {
-        self.layout.remove_next()
-    }
-
-    fn remove_complete(&mut self, removed: bool) {
-        self.layout.remove_complete(removed);
+    fn complete(&mut self) -> (Orientation, u8) {
+        self.layout.complete()
     }
 }
 

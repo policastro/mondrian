@@ -21,7 +21,7 @@ impl WinEventHandler for MinimizeEventHandler {
     fn init(&mut self) {}
 
     fn handle(&mut self, event: &WinEvent) {
-        if !is_user_managable_window(event.hwnd, false, false) {
+        if !is_user_managable_window(event.hwnd, false, false, true) {
             return;
         }
 

@@ -1,19 +1,20 @@
-use crate::app::structs::area::Area;
 use crate::app::structs::area_tree::leaf::AreaLeaf;
+use crate::app::structs::area_tree::tree::WinTree;
 use crate::app::structs::direction::Direction;
+use crate::app::structs::point::Point;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
-use ::windows::Win32::Foundation::HWND;
 use std::collections::{HashMap, HashSet};
+use windows::Win32::Foundation::HWND;
 
 use super::config::TilesManagerConfig;
-use super::container::Container;
-use super::containers_manager::ContainersManager;
+use super::container::{Animator, Container, ContainerLayer};
+use super::containers_manager::Containers;
 use super::monitor_layout::MonitorLayout;
 
 pub struct TilesManager {
-    containers: ContainersManager<isize>,
+    containers: HashMap<isize, Container<String>>,
     unmanaged_wins: HashSet<isize>,
     config: TilesManagerConfig,
 }
@@ -22,205 +23,122 @@ impl TilesManager {
     /// Creates a new [`TilesManager`].
     pub fn new(monitors_layout: Vec<MonitorLayout>, config: Option<TilesManagerConfig>) -> Self {
         let config = config.unwrap_or_default();
-
-        let cointainers: HashMap<isize, Container> = monitors_layout
+        let containers = monitors_layout
             .into_iter()
             .map(|m| (m.monitor.id, m.monitor.into(), m.layout))
-            .map(|(id, w, l)| (id, Container::new(w, l, config.get_border_pad())))
+            .map(|(id, w, l)| {
+                let mut c = Container::<String>::new();
+                c.add(ContainerType::Normal.into(), WinTree::new(w, l.clone()));
+                c.add(ContainerType::Focalized.into(), WinTree::new(w, l));
+                let _ = c.set_active(ContainerType::Normal.into());
+                (id, c)
+            })
             .collect();
-
-        let containers_manager = ContainersManager::new(cointainers);
 
         TilesManager {
             unmanaged_wins: HashSet::new(),
-            containers: containers_manager,
+            containers,
             config,
         }
     }
 
+    // TODO ok
     pub fn add(&mut self, win: WindowRef, update: bool) -> Result<(), Error> {
         if self.unmanaged_wins.contains(&win.hwnd.0) {
             return Ok(());
         }
 
-        if self.has_window(win.hwnd) {
-            return Err(Error::WindowAlreadyAdded);
+        if let Some(c) = self.containers.find_mut(win.hwnd.0, false) {
+            match c.is_focalized() && !c.has(win.hwnd.0) {
+                true => c.unfocalize(),
+                false => return Err(Error::WindowAlreadyAdded),
+            }
         }
 
-        let snapshot = win.snapshot().ok_or(Error::NoWindowsInfo)?;
-        let viewarea = snapshot.viewarea.ok_or(Error::NoWindowsInfo)?;
-        let tree = self.containers.which_tree_at_mut(viewarea.get_center());
-        let tree = tree.ok_or(Error::NoWindowsInfo)?;
+        let center = win.get_window_box().map(|a| a.get_center());
+        let center = center.ok_or(Error::NoWindowsInfo)?;
+        let tree = self.containers.find_at_mut(center).and_then(|c| c.get_active_mut());
+        tree.ok_or(Error::NoWindowsInfo)?.insert(win.hwnd.0);
 
-        tree.insert(win.hwnd.0);
-
-        if update {
-            self.update();
-        }
-
+        self.update_if(update);
         Ok(())
     }
 
-    pub fn find_at(&mut self, direction: Direction) -> Option<AreaLeaf<isize>> {
-        let current = get_foreground_window()?;
-
-        if !self.has_window(current) || self.containers.get_windows_len() < 2 {
-            return None;
+    pub fn remove(&mut self, hwnd: HWND, skip_focalized: bool, update: bool) -> Result<(), Error> {
+        if self.unmanaged_wins.contains(&hwnd.0) {
+            return Ok(());
         }
+
+        if !self.has_window(hwnd) {
+            return Err(Error::NoWindowFound);
+        }
+
+        let c = self.containers.find_mut(hwnd.0, false); //TODO tutti
+        if skip_focalized && c.is_some_and(|c| c.is_focalized()) {
+            return Ok(());
+        }
+
+        let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindowFound)?; //TODO tutti
+        c.iter_mut().for_each(|(_, t)| t.remove(hwnd.0));
+
+        if get_foreground_window().is_none() {
+            self.focus_next();
+        }
+
+        self.update_if(update);
+        Ok(())
+    }
+
+    fn find_at(&self, direction: Direction, same_monitor: bool) -> Option<AreaLeaf<isize>> {
+        let current = get_foreground_window()?;
+        let orig_c = self.containers.find(current.0, true)?;
 
         let padxy = self.config.get_tile_pad_xy();
         let area = WindowRef::new(current).get_window_box()?.pad_xy((-padxy.0, -padxy.1));
-
-        let selection_point = match direction {
+        let point = match direction {
             Direction::Right => area.get_ne_corner().with_offset(20, 5), // TODO Prefer up
             Direction::Down => area.get_se_corner().with_offset(-5, 20), // TODO Prefer left
             Direction::Left => area.get_sw_corner().with_offset(-20, -5), // TODO Prefer up
             Direction::Up => area.get_nw_corner().with_offset(5, -20),   // TODO Prefer left
         };
 
-        if let Some(tree) = self.containers.which_tree_at_mut(selection_point) {
+        let params = if let Some(c) = self.containers.find_at(point) {
             // If the point is in a tree
-            return tree.find_leaf_at(selection_point, self.config.get_border_pad());
-        } else if let Some(container) = self.containers.which_nearest_mut(area.get_center(), direction) {
+            Some((c, point))
+        } else if let Some(c) = self.containers.find_nearest(area.get_center(), direction) {
             // Otherwise, find the nearest container
-            let area = container.workarea;
-            let selection_point = match direction {
+            let area = c.get_active()?.area;
+            let point = match direction {
                 Direction::Right => area.get_nw_corner(),
                 Direction::Down => area.get_ne_corner(),
                 Direction::Left => area.get_se_corner(),
                 Direction::Up => area.get_sw_corner(),
             };
-            return container
-                .tree
-                .find_leaf_at(selection_point, self.config.get_border_pad());
-        }
+            Some((c as &Container<String>, point))
+        } else {
+            None
+        };
 
-        None
+        let t = match same_monitor {
+            true => orig_c.get_active()?,
+            false => params?.0.get_active()?,
+        };
+
+        t.find_leaf_at(params?.1, 0).filter(|w| w.id != current.0)
     }
 
     pub fn focus_at(&mut self, direction: Direction) -> Result<(), Error> {
-        let leaf = self.find_at(direction).ok_or(Error::NoWindowFound)?;
-        self.focus_window(leaf.id);
-
+        let leaf = self.find_at(direction, false).ok_or(Error::NoWindowFound)?;
+        WindowRef::new(HWND(leaf.id)).focus();
         Ok(())
     }
 
-    pub fn focus_next(&mut self) {
-        let current = match get_foreground_window() {
-            Some(hwnd) => hwnd,
-            None => return,
-        };
-
-        if !self.has_window(current) || self.containers.get_windows_len() < 2 {
-            return;
-        }
-
-        let mut directions = vec![Direction::Right, Direction::Down, Direction::Left, Direction::Up];
-
-        let mut leaf = None;
-        while leaf.is_none() && !directions.is_empty() {
-            leaf = self.find_at(directions.pop().unwrap());
-        }
-
-        if let Some(leaf) = leaf {
-            self.focus_window(leaf.id);
-        }
-    }
-
-    pub fn remove(&mut self, hwnd: HWND, update: bool) -> Result<(), Error> {
-        if self.unmanaged_wins.contains(&hwnd.0) {
-            return Ok(());
-        }
-
-        if !self.containers.has_window(hwnd.0) {
-            return Err(Error::NoWindowFound);
-        }
-
-        let tree = self.containers.which_tree_mut(hwnd.0).ok_or(Error::Generic)?;
-        tree.remove(hwnd.0);
-
-        if get_foreground_window().is_none() {
-            self.focus_next();
-        }
-
-        if update {
-            self.update();
-        }
-
-        Ok(())
-    }
-
-    pub fn refresh_window_size(&mut self, hwnd: HWND, update: bool) -> Result<(), Error> {
-        let win = WindowRef::new(hwnd);
-        let wb = win.get_window_box().ok_or(Error::NoWindowsInfo)?;
-        self.resize(hwnd, wb, update)?;
-
-        Ok(())
-    }
-
-    pub(crate) fn move_to(&mut self, direction: Direction, update: bool) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
-
-        let src_center = self.get_stored_area(curr, true).ok_or(Error::Generic)?.get_center();
-        let w = self.find_at(direction).ok_or(Error::NoWindowFound)?;
-        let target_center = w.viewbox.get_center();
-
-        let containers = &mut self.containers;
-        if containers.is_same_container(src_center, target_center) {
-            let tree = containers.which_tree_at_mut(src_center).ok_or(Error::Generic)?;
-            tree.swap_ids_at(src_center, target_center);
-        } else {
-            let replaced_id = containers
-                .which_tree_at_mut(target_center)
-                .map(|t| t.replace_id(target_center, curr.0))
-                .ok_or(Error::Generic)?
-                .ok_or(Error::Generic)?;
-
-            let tree = containers.which_tree_at_mut(src_center).ok_or(Error::Generic)?;
-            tree.replace_id(src_center, replaced_id);
-        };
-
-        if update {
-            self.update();
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn resize_on(&mut self, direction: Direction, size: u8, update: bool) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
-        let area = self.get_stored_area(curr, true).ok_or(Error::NoWindowsInfo)?;
-        let size = size as i16;
-        let padding = match direction {
-            Direction::Right => (Some((0, -size)), None),
-            Direction::Down => (None, Some((0, -size))),
-            Direction::Left => (Some((-size, 0)), None),
-            Direction::Up => (None, Some((-size, 0))),
-        };
-        self.resize(curr, area.pad(padding.0, padding.1), update)
-    }
-
-    pub(crate) fn invert_orientation(&mut self, update: bool) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
-        let area = self.get_stored_area(curr, true).ok_or(Error::Generic)?;
-        let center = area.get_center();
-        let tree = self.containers.which_tree_at_mut(center).ok_or(Error::Generic)?;
-        tree.switch_subtree_orientations(center);
-
-        if update {
-            self.update();
-        }
-
-        Ok(())
-    }
-
-    pub fn move_window(
+    pub fn on_move(
         &mut self,
         hwnd: HWND,
-        new_point: (i32, i32),
+        target: (i32, i32),
         invert_monitor_op: bool,
         switch_orient: bool,
-        update: bool,
     ) -> Result<(), Error> {
         if self.unmanaged_wins.contains(&hwnd.0) {
             return Ok(());
@@ -230,81 +148,180 @@ impl TilesManager {
             return Err(Error::NoWindow);
         }
 
-        let area = self.get_stored_area(hwnd, true).ok_or(Error::Generic)?;
-        let center = area.get_center();
+        let c = self.containers.find(hwnd.0, false).and_then(|c| c.get_active());
+        let leaf = c.and_then(|t| t.find_leaf(hwnd.0, 0)).ok_or(Error::Generic)?;
+        let center = leaf.viewbox.get_center();
 
         let cs = &mut self.containers;
-        let not_found_err = Error::ContainerNotFound { refresh: true };
-        if cs.is_same_container(center, new_point) {
+        let c_err = Error::ContainerNotFound { refresh: true };
+
+        if cs.is_same_container(center, target) {
             // If it is in the same monitor
-            let tree = cs.which_tree_at_mut(center).ok_or(Error::Generic)?;
-            tree.swap_ids_at(center, new_point);
+            let tree = cs.find_at_mut(center).and_then(|c| c.get_active_mut());
+            tree.ok_or(Error::Generic)?.swap_ids_at(center, target);
         } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient {
             // If it is in another monitor and insert
-            {
-                let tree = cs.which_tree_at_mut(new_point).ok_or(not_found_err)?;
-                tree.insert(hwnd.0);
-            }
-            {
-                let tree = cs.which_tree_at_mut(center).ok_or(not_found_err)?;
-                tree.remove_at(center);
-            }
+            let c = cs.find_at_mut(target).ok_or(c_err)?;
+            c.unfocalize();
+            c.get_active_mut().ok_or(c_err)?.insert(hwnd.0);
+
+            let c = cs.find_at_mut(center).ok_or(c_err)?;
+            c.unfocalize();
+            c.get_active_mut().ok_or(c_err)?.remove_at(center);
         } else {
             // If it is in another monitor and swap
-            let replaced_id = cs
-                .which_tree_at_mut(new_point)
-                .map(|t| t.replace_id(new_point, hwnd.0))
-                .ok_or(not_found_err)?;
+            let tree = cs.find_at_mut(target).and_then(|c| c.get_active_mut());
+            let replaced_id = tree.ok_or(c_err)?.replace_id_at(target, hwnd.0);
 
-            let tree = cs.which_tree_at_mut(center).ok_or(not_found_err)?;
+            let tree = cs.find_at_mut(center).and_then(|c| c.get_active_mut());
+            let tree = tree.ok_or(c_err)?;
             match replaced_id {
-                Some(id) => drop(tree.replace_id(center, id)),
+                Some(id) => drop(tree.replace_id_at(center, id)),
                 None => tree.remove_at(center),
             };
         };
 
         if switch_orient {
-            let tree = cs.which_tree_at_mut(new_point).ok_or(not_found_err)?;
-            tree.switch_subtree_orientations(new_point);
+            let tree = cs.find_at_mut(target).and_then(|c| c.get_active_mut());
+            tree.ok_or(c_err)?.switch_subtree_orientations(target);
         }
 
-        if update {
-            self.update();
-        }
-
+        self.update();
         Ok(())
     }
 
-    pub fn update(&mut self) {
-        let ids = self.containers.get_containers_ids();
-        ids.into_iter().for_each(|c| {
-            let _ = self.update_container(c);
-        });
+    pub(crate) fn move_focused(&mut self, direction: Direction) -> Result<(), Error> {
+        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+
+        let c = self.containers.find(curr.0, true).and_then(|c| c.get_active());
+        let leaf = c.and_then(|t| t.find_leaf(curr.0, 0)).ok_or(Error::Generic)?;
+        let src_center = leaf.viewbox.get_center();
+        let w = self.find_at(direction, false).ok_or(Error::NoWindowFound)?;
+        let trg_center = w.viewbox.get_center();
+
+        let cs = &mut self.containers;
+        if cs.is_same_container(src_center, trg_center) {
+            let c = cs.find_at_mut(src_center).ok_or(Error::Generic)?;
+            c.iter_mut().for_each(|(_, t)| t.swap_ids_at(src_center, trg_center));
+        } else {
+            let tree = cs.find_at_mut(trg_center).and_then(|c| c.get_active_mut());
+            let replaced_id = tree.and_then(|t| t.replace_id_at(trg_center, curr.0));
+
+            if let Some(id) = replaced_id {
+                let src_tree = cs.find_at_mut(src_center).and_then(|c| c.get_active_mut());
+                src_tree.ok_or(Error::Generic)?.replace_id_at(src_center, id);
+            }
+        };
+
+        self.update();
+        Ok(())
     }
 
-    pub fn get_managed_windows(&self) -> HashSet<isize> {
-        self.containers.get_windows()
-    }
-
-    pub fn focus_window(&mut self, id: isize) {
-        if !get_foreground_window().is_some_and(|hwnd| hwnd.0 == id) {
-            WindowRef::new(HWND(id)).focus()
+    pub(crate) fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error> {
+        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+        if !self.has_window(curr) {
+            return Err(Error::NoWindow);
         }
+
+        let orig_area = WindowRef::new(curr).get_window_box().ok_or(Error::NoWindowsInfo)?;
+        let size = size as i16;
+        let has_neigh1 = self.find_at(direction, true).is_some();
+        let has_neigh2 = self.find_at(direction.opposite(), true).is_some();
+
+        let get_pad = |neigh1: bool, neigh2: bool, v1: (i16, i16), v2: (i16, i16)| match (neigh1, neigh2) {
+            (true, _) => v1,
+            (false, true) => v2,
+            _ => (0, 0),
+        };
+        let padding = match direction {
+            Direction::Left => (get_pad(has_neigh1, has_neigh2, (size, 0), (0, -size)), (0, 0)),
+            Direction::Right => (get_pad(has_neigh1, has_neigh2, (0, size), (-size, 0)), (0, 0)),
+            Direction::Up => ((0, 0), get_pad(has_neigh1, has_neigh2, (size, 0), (0, -size))),
+            Direction::Down => ((0, 0), get_pad(has_neigh1, has_neigh2, (0, size), (-size, 0))),
+        };
+
+        let area = orig_area.pad(Some(padding.0), Some(padding.1));
+        self.on_resize(curr, orig_area.get_shift(&area))
     }
 
-    pub fn has_window(&self, hwnd: HWND) -> bool {
-        self.containers.has_window(hwnd.0)
+    pub(crate) fn invert_orientation(&mut self) -> Result<(), Error> {
+        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+        let c = self.containers.find_mut(curr.0, true).and_then(|c| c.get_active_mut());
+        let center = WindowRef::new(curr).get_window_box().map(|a| a.get_center());
+        let center = center.ok_or(Error::NoWindowsInfo)?;
+        c.ok_or(Error::Generic)?.switch_subtree_orientations(center);
+
+        self.update();
+        Ok(())
     }
 
-    pub fn minimize(&mut self) -> Result<(), Error> {
+    pub(crate) fn on_resize(&mut self, hwnd: HWND, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
+        if self.unmanaged_wins.contains(&hwnd.0) {
+            return Ok(());
+        }
+
+        let c = self.containers.find_mut(hwnd.0, true).ok_or(Error::NoWindow)?;
+        let t = c.get_active_mut().ok_or(Error::NoWindowFound)?;
+        let area = t.find_leaf(hwnd.0, 0).ok_or(Error::Generic)?.viewbox;
+        let center = area.get_center();
+
+        let clamp_values = Some((10, 90));
+        if delta.2 != 0 {
+            let growth = (delta.2 as f32 / area.width as f32) * 100f32;
+            let (x, growth_perc) = match delta.0.abs() > 10 {
+                true => (area.get_left_center().0.saturating_sub(20), -growth),
+                false => (area.get_right_center().0.saturating_add(20), growth),
+            };
+            t.resize_ancestor(center, (x, center.1), growth_perc as i32, clamp_values);
+        }
+
+        if delta.3 != 0 {
+            let growth = (delta.3 as f32 / area.height as f32) * 100f32;
+            let (y, growth_perc) = match delta.1.abs() > 10 {
+                true => (area.get_top_center().1.saturating_sub(20), -growth),
+                false => (area.get_bottom_center().1.saturating_add(20), growth),
+            };
+            t.resize_ancestor(center, (center.0, y), growth_perc as i32, clamp_values);
+        }
+
+        self.update();
+        Ok(())
+    }
+
+    pub fn minimize_focused(&mut self) -> Result<(), Error> {
         let win_ref = WindowRef::new(get_foreground_window().ok_or(Error::NoWindow)?);
         win_ref.minimize();
         self.focus_next();
         Ok(())
     }
 
-    pub(crate) fn set_release(&mut self, release: Option<bool>) -> Result<(), Error> {
+    pub(crate) fn focalize_focused(&mut self) -> Result<(), Error> {
         let hwnd = get_foreground_window().ok_or(Error::NoWindow)?;
+        let area = WindowRef::new(hwnd).get_window_box();
+        let center = area.ok_or(Error::NoWindowsInfo)?.get_center();
+        let c = self.containers.find_at_mut(center).ok_or(Error::NoWindowFound)?;
+
+        if c.is_focalized() {
+            match c.get_active_mut().ok_or(Error::Generic)?.has(hwnd.0) {
+                true => c.unfocalize(),
+                false => c.focalize(hwnd.0),
+            }
+        } else {
+            let wins = c.get_active().ok_or(Error::Generic)?.get_ids();
+            let wins = wins.iter().filter(|h| **h != hwnd.0).map(|h| WindowRef::new(HWND(*h)));
+            wins.for_each(|w| {
+                w.minimize();
+            });
+            c.focalize(hwnd.0);
+            let _ = self.release_focused(Some(false), Some(hwnd));
+        }
+
+        self.update();
+        Ok(())
+    }
+
+    pub(crate) fn release_focused(&mut self, release: Option<bool>, window: Option<HWND>) -> Result<(), Error> {
+        let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
         let is_managed = self.has_window(hwnd);
         let is_unmanaged = self.unmanaged_wins.contains(&hwnd.0);
 
@@ -314,113 +331,58 @@ impl TilesManager {
 
         let release = release.unwrap_or(!is_unmanaged);
         if release {
-            self.remove(hwnd, false)?;
+            self.remove(hwnd, false, false)?;
             self.unmanaged_wins.insert(hwnd.0);
-            self.update();
         } else {
             self.unmanaged_wins.remove(&hwnd.0);
-            match self.add(WindowRef::new(hwnd), false) {
-                Ok(_) => {}
-                Err(e) => {
-                    self.unmanaged_wins.insert(hwnd.0);
-                    return Err(e);
-                }
-            }
-            self.update();
+            self.add(WindowRef::new(hwnd), false)?;
         }
+
+        self.update();
         Ok(())
     }
 
-    fn resize(&mut self, hwnd: HWND, new_area: Area, update: bool) -> Result<(), Error> {
-        if self.unmanaged_wins.contains(&hwnd.0) {
-            return Ok(());
-        }
-
-        if !self.has_window(hwnd) {
-            return Err(Error::NoWindow);
-        }
-
-        let win = WindowRef::new(hwnd);
-        let area = self.get_stored_area(win.hwnd, true).ok_or(Error::NoWindowsInfo)?;
-        let center = area.get_center();
-
-        let win_tree = self.containers.which_tree_at_mut(center).ok_or(Error::Generic)?;
-        let area_shift = new_area.get_shift(&area);
-        let clamp_values = Some((10, 90));
-
-        if area_shift.2 != 0 {
-            let growth = (area_shift.2 as f32 / area.width as f32) * 100f32;
-            let (x, growth) = match area_shift.0.abs() > 10 {
-                true => (area.get_left_center().0.saturating_sub(20), -growth),
-                false => (area.get_right_center().0.saturating_add(20), growth),
-            };
-            win_tree.resize_ancestor(center, (x, center.1), growth as i32, clamp_values);
-        }
-
-        if area_shift.3 != 0 {
-            let growth = (area_shift.3 as f32 / area.height as f32) * 100f32;
-            let (y, grow_perc) = match area_shift.1.abs() > 10 {
-                true => (area.get_top_center().1.saturating_sub(20), -growth),
-                false => (area.get_bottom_center().1.saturating_add(20), growth),
+    pub fn update(&mut self) {
+        self.containers.values_mut().for_each(|c| {
+            let border_pad = match c.is_focalized() {
+                true => self.config.get_focalized_pad(),
+                false => self.config.get_border_pad(),
             };
 
-            win_tree.resize_ancestor(center, (center.0, y), grow_perc as i32, clamp_values);
-        }
+            if let Some(c) = c.get_active_mut() {
+                let mut anim = Animator {};
+                let _ = c.update(border_pad, self.config.get_tile_pad_xy(), &mut anim);
+            }
+        });
+    }
 
-        if update {
+    fn focus_next(&mut self) {
+        let directions = [Direction::Right, Direction::Down, Direction::Left, Direction::Up];
+        if let Some(leaf) = directions.iter().find_map(|d| self.find_at(*d, false)) {
+            WindowRef::new(HWND(leaf.id)).focus();
+        }
+    }
+
+    fn update_if(&mut self, condition: bool) {
+        if condition {
             self.update();
         }
-
-        Ok(())
     }
 
-    fn update_container(&mut self, container_id: isize) -> Result<(), Error> {
-        let container = self.containers.which_by_id_mut(container_id);
-        let tree = container
-            .map(|c| &mut c.tree)
-            .ok_or(Error::ContainerNotFound { refresh: false })?;
-
-        let leaves: Vec<AreaLeaf<isize>> = tree.leaves(self.config.get_border_pad());
-        let mut errors = vec![];
-        for leaf in &leaves {
-            let win_ref = WindowRef::from(leaf.id);
-            let area = leaf.viewbox.pad_xy(self.config.get_tile_pad_xy());
-            let res = win_ref.resize_and_move(area.get_origin(), area.get_size());
-
-            if res.is_err() {
-                log::warn!("Failed to resize window: {}", win_ref.hwnd.0);
-                errors.push(win_ref.hwnd.0);
-            }
-        }
-
-        if !errors.is_empty() {
-            errors.iter().for_each(|e| tree.remove(*e));
-            return self.update_container(container_id);
-        }
-
-        Ok(())
+    pub fn get_managed_windows(&self) -> HashSet<isize> {
+        let cs = self.containers.values();
+        cs.flat_map(|c| c.iter().flat_map(|(_, t)| t.get_ids())).collect()
     }
 
-    fn get_stored_area(&self, hwnd: HWND, with_padding: bool) -> Option<Area> {
-        let border_pad = if with_padding { self.config.get_border_pad() } else { 0 };
-        let tile_pad = match with_padding {
-            true => self.config.get_tile_pad_xy(),
-            false => (0, 0),
-        };
-        self.containers
-            .get_leaf(hwnd.0, border_pad)
-            .map(|l| l.viewbox.pad_xy(tile_pad))
+    pub fn has_window(&self, hwnd: HWND) -> bool {
+        let mut cs = self.containers.values();
+        cs.any(|c| c.get(ContainerType::Normal.into()).unwrap().has(hwnd.0))
     }
 }
 
-trait Point {
-    fn with_offset(&self, offset_x: i32, offset_y: i32) -> (i32, i32);
-}
-
-impl Point for (i32, i32) {
-    fn with_offset(&self, offset_x: i32, offset_y: i32) -> (i32, i32) {
-        (self.0.saturating_add(offset_x), self.1.saturating_add(offset_y))
-    }
+enum ContainerType {
+    Normal,
+    Focalized,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -431,6 +393,42 @@ pub enum Error {
     ContainerNotFound { refresh: bool },
     NoWindow,
     NoWindowFound,
+}
+
+trait FocalizableContainer {
+    fn focalize(&mut self, win: isize);
+    fn unfocalize(&mut self);
+    fn is_focalized(&self) -> bool;
+}
+
+impl FocalizableContainer for Container<String> {
+    fn focalize(&mut self, win: isize) {
+        let _ = self.set_active(ContainerType::Focalized.into());
+        if let Some(c) = self.get_active_mut() {
+            c.clear();
+            c.insert(win);
+        }
+    }
+
+    fn unfocalize(&mut self) {
+        if self.is_focalized() {
+            self.get_active_mut().expect("Active should be Some").clear();
+            let _ = self.set_active(ContainerType::Normal.into());
+        }
+    }
+
+    fn is_focalized(&self) -> bool {
+        self.is_active(ContainerType::Focalized.into())
+    }
+}
+
+impl From<ContainerType> for String {
+    fn from(val: ContainerType) -> Self {
+        match val {
+            ContainerType::Normal => String::from("Normal"),
+            ContainerType::Focalized => String::from("Focalized"),
+        }
+    }
 }
 
 impl Error {

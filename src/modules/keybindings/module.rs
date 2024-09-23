@@ -15,6 +15,8 @@ use std::{
     thread,
 };
 
+use inputbot::KeybdKey::*;
+
 use super::configs::KeybindingsModuleConfigs;
 pub struct KeybindingsModule {
     bus: Sender<MondrianMessage>,
@@ -69,7 +71,21 @@ impl ModuleImpl for KeybindingsModule {
             let bus = bus.clone();
             key.blockable_bind(move || {
                 for (m, c, _) in list_mod_command.iter() {
-                    if m.iter().all(|m| m.is_pressed()) {
+                    let skip = [
+                        LAltKey,
+                        LControlKey,
+                        LShiftKey,
+                        LSuper,
+                        RAltKey,
+                        RControlKey,
+                        RShiftKey,
+                        RSuper,
+                    ]
+                    .iter()
+                    .filter(|k| !m.contains(k))
+                    .any(|m| m.is_pressed()); // TODO To be improved
+
+                    if m.iter().all(|m| m.is_pressed()) && !skip {
                         bus.send(c.clone()).expect("Failed to send command");
                         return BlockInput::Block;
                     }

@@ -2,6 +2,11 @@
 name = "mondrian"
 version = "1.0.0"
 edition = "2021"
+default-run = "mondrian"
+
+[[bin]]
+name = "noconsole"
+path = "src/main_nc.rs"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

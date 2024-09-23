@@ -64,7 +64,7 @@ impl PositionEventHandler {
                 if !curr_area.contains(dest_point) && is_minsize {
                     TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation)
                 } else {
-                    TMCommand::WindowResized(hwnd)
+                    TMCommand::WindowResized(hwnd, area, curr_area)
                 }
             }
             false => TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation),
@@ -80,7 +80,7 @@ impl WinEventHandler for PositionEventHandler {
     fn init(&mut self) {}
 
     fn handle(&mut self, event: &WinEvent) {
-        if !is_user_managable_window(event.hwnd, true, true) {
+        if !is_user_managable_window(event.hwnd, true, true, true) {
             return;
         }
         match event.event {

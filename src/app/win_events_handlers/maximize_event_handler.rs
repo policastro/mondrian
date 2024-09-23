@@ -4,7 +4,7 @@ use std::sync::mpsc::Sender;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE;
 
 use crate::app::tiles_manager::tm_command::TMCommand;
-use crate::win32::api::window::{is_maximized, is_user_managable_window, is_window_visible};
+use crate::win32::api::window::{has_child_window_style, is_fullscreen, is_maximized, is_user_managable_window};
 use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
 
 pub struct MaximizeEventHandler {
@@ -25,20 +25,30 @@ impl WinEventHandler for MaximizeEventHandler {
     fn init(&mut self) {}
 
     fn handle(&mut self, event: &WinEvent) {
+        if event.hwnd.0 == 0 {
+            return;
+        }
+
         let contained = self.maximized_wins.contains(&event.hwnd.0);
-        if !contained && is_maximized(event.hwnd) {
-            let is_managed = is_user_managable_window(event.hwnd, false, true); // TODO Can I check visibility here?
-            let is_managed = is_managed && is_window_visible(event.hwnd);
+        let is_maximized = is_maximized(event.hwnd);
+        let is_fullscreen = if is_maximized { false } else { is_fullscreen(event.hwnd) };
+        let is_max_full = is_maximized || is_fullscreen;
+        if !contained && is_max_full {
+            let is_managed = is_user_managable_window(event.hwnd, true, true, !is_fullscreen);
+            let is_managed = match is_fullscreen {
+                false => is_managed,
+                true => is_managed && !has_child_window_style(event.hwnd),
+            };
             if is_managed {
                 self.maximized_wins.insert(event.hwnd.0);
                 self.sender
-                    .send(TMCommand::WindowClosed(event.hwnd))
+                    .send(TMCommand::WindowMaximized(event.hwnd))
                     .expect("Failed to send event close");
             }
-        } else if contained && !is_maximized(event.hwnd) {
+        } else if contained && !is_max_full {
             self.maximized_wins.remove(&event.hwnd.0);
             self.sender
-                .send(TMCommand::WindowOpened(event.hwnd))
+                .send(TMCommand::WindowUnmaximized(event.hwnd))
                 .expect("Failed to send event close");
         }
     }

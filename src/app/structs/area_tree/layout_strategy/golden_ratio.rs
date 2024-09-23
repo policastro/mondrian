@@ -5,7 +5,7 @@ use crate::app::{
     structs::{direction::Direction, orientation::Orientation},
 };
 
-use super::LayoutStrategy;
+use super::{LayoutStrategy, TreeOperation};
 use serde::Deserializer;
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -45,7 +45,12 @@ impl Default for GoldenRatio {
 }
 
 impl LayoutStrategy for GoldenRatio {
-    fn insert_next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
+    fn init(&mut self, curr_count: u8, _operation: TreeOperation) {
+        self.count = curr_count;
+        self.reset();
+    }
+
+    fn next(&mut self) -> (Direction, Option<Orientation>, Option<u8>) {
         self.current_direction = match self.current_direction {
             Direction::Right => Direction::Down,
             Direction::Down => Direction::Left,
@@ -60,21 +65,13 @@ impl LayoutStrategy for GoldenRatio {
         (self.current_direction, None, None)
     }
 
-    fn insert_complete(&mut self) -> (Orientation, u8) {
+    fn complete(&mut self) -> (Orientation, u8) {
         let orientation = match self.current_direction {
             Direction::Right | Direction::Left => Orientation::Vertical,
             Direction::Up | Direction::Down => Orientation::Horizontal,
         };
-        let result = (orientation, if self.count == 1 { self.get_first_ratio() } else { 50 });
-        self.count += 1;
-        self.reset();
-        result
-    }
 
-    fn remove_complete(&mut self, removed: bool) {
-        if removed {
-            self.count -= 1;
-        }
+        (orientation, if self.count == 1 { self.get_first_ratio() } else { 50 })
     }
 }
 

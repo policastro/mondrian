@@ -28,12 +28,12 @@ impl<T: Copy> AreaNode<T> {
 
     pub fn insert(&mut self, id: T, area: Area, strategy: &mut LayoutStrategyEnum) {
         if self.id.is_none() && self.is_leaf() {
-            let _ = strategy.insert_complete();
+            strategy.complete();
             self.id = Some(id);
             return;
         }
 
-        let (direction, orientation, ratio) = strategy.insert_next();
+        let (direction, orientation, ratio) = strategy.next();
 
         let (min_area, max_area) = area.split(self.ratio, self.orientation);
         let (main_tree, cross_tree, area) = match direction {
@@ -45,7 +45,7 @@ impl<T: Copy> AreaNode<T> {
         self.ratio = ratio.unwrap_or(self.ratio);
 
         if main_tree.is_none() {
-            let (orientation, ratio) = strategy.insert_complete();
+            let (orientation, ratio) = strategy.complete();
             *main_tree = Some(Box::new(AreaNode::new(Some(id), orientation, ratio)));
             *cross_tree = Some(Box::new(AreaNode::new(self.id, orientation, ratio)));
             (self.orientation, self.ratio, self.id) = (orientation, ratio, None);
@@ -111,7 +111,7 @@ impl<T: Copy> AreaNode<T> {
 
     pub fn remove(&mut self, point: (i32, i32), area: Area, strategy: &mut LayoutStrategyEnum) {
         if self.is_leaf() {
-            strategy.remove_complete(self.id.is_some());
+            strategy.complete();
             self.id = None;
             return;
         }
@@ -124,7 +124,7 @@ impl<T: Copy> AreaNode<T> {
             false => (&mut self.right, &mut self.left, max_area),
         };
 
-        let (orientation, ratio) = strategy.remove_next();
+        let (_, orientation, ratio) = strategy.next();
         self.orientation = orientation.unwrap_or(self.orientation);
         self.ratio = ratio.unwrap_or(self.ratio);
 
@@ -137,7 +137,7 @@ impl<T: Copy> AreaNode<T> {
             if temp_node.as_mut().is_some() {
                 std::mem::swap(self, temp_node.as_mut().unwrap());
             }
-            strategy.remove_complete(true);
+            strategy.complete();
             return;
         }
 

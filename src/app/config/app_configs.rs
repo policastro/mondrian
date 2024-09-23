@@ -42,6 +42,8 @@ pub struct Layout {
     pub tiles_padding: u8,
     #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
     pub border_padding: u8,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
+    pub focalized_padding: u8,
     pub insert_in_monitor: bool,
     #[serde(default)]
     pub golden_ratio: layout_strategy::golden_ratio::GoldenRatio,
@@ -128,6 +130,7 @@ impl Default for Layout {
             tiling_strategy: "golden_ratio".to_string(),
             tiles_padding: 4,
             border_padding: 4,
+            focalized_padding: 8,
             golden_ratio: GoldenRatio::default(),
             horizontal: MonoAxisHorizontal::default(),
             vertical: MonoAxisVertical::default(),

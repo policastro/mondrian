@@ -1,26 +1,27 @@
 pub mod overlay {
-    use std::sync::Mutex;
+    use std::{ffi::OsStr, os::windows::ffi::OsStrExt, sync::Mutex};
 
     use lazy_static::lazy_static;
-    use windows::Win32::{
-        Foundation::{COLORREF, HWND, LPARAM, LRESULT, RECT, WPARAM},
-        Graphics::Gdi::{
-            BeginPaint, CreatePen, DeleteObject, EndPaint, FillRect, GetSysColorBrush, Rectangle, SelectObject,
-            COLOR_WINDOW, PAINTSTRUCT, PS_SOLID,
-        },
-        UI::WindowsAndMessaging::{
-            GetClientRect, GetWindowLongPtrW, PostQuitMessage, SetWindowLongPtrW, CREATESTRUCTW, GWLP_USERDATA, HTCAPTION, SW_SHOWNOACTIVATE, WM_CREATE, WM_DESTROY, WM_PAINT, WS_EX_NOACTIVATE,
+    use windows::{
+        core::PCWSTR,
+        Win32::{
+            Foundation::{COLORREF, HMODULE, HWND, LPARAM, LRESULT, RECT, WPARAM},
+            Graphics::Gdi::{
+                BeginPaint, CreatePen, DeleteObject, EndPaint, FillRect, GetSysColorBrush, Rectangle, SelectObject,
+                COLOR_WINDOW, PAINTSTRUCT, PS_SOLID,
+            },
+            System::LibraryLoader::GetModuleHandleExW,
+            UI::WindowsAndMessaging::{
+                GetClientRect, GetWindowLongPtrW, PostQuitMessage, RegisterClassExW, SetWindowLongPtrW, CREATESTRUCTW,
+                GWLP_USERDATA, HTCAPTION, SW_SHOWNOACTIVATE, WM_CREATE, WM_DESTROY, WM_PAINT, WNDCLASSEXW,
+                WS_EX_NOACTIVATE,
+            },
         },
     };
 
-    use windows::Win32::{System::LibraryLoader::GetModuleHandleW, UI::WindowsAndMessaging::WNDCLASSW};
-
-    use windows::Win32::{
-        Foundation::GetLastError,
-        UI::WindowsAndMessaging::{
-            CreateWindowExW, RegisterClassW, SetLayeredWindowAttributes, CS_HREDRAW, CS_VREDRAW, LWA_COLORKEY,
-            WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
-        },
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, SetLayeredWindowAttributes, CS_HREDRAW, CS_VREDRAW, LWA_COLORKEY, WS_EX_LAYERED,
+        WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
     };
 
     use windows::Win32::{
@@ -30,17 +31,16 @@ pub mod overlay {
 
     use crate::{
         modules::overlays::lib::{color::Color, overlay::OverlayParams},
-        win32::api::{
-            misc::str_to_pcwstr,
-            window::{get_window_box, show_window},
-        },
+        win32::api::window::{get_window_box, show_window},
     };
 
     lazy_static! {
         static ref CLASS_REGISTER_MUTEX: Mutex<()> = Mutex::new(());
     }
 
+    const OVERLAY_CLASS_NAME: &str = "mondrian:overlay";
     pub const WM_CHANGE_BORDER: u32 = WM_USER + 1;
+    
     unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
             WM_CREATE => {
@@ -69,47 +69,45 @@ pub mod overlay {
     }
 
     pub fn create(params: OverlayParams, target: Option<HWND>) -> HWND {
-        let _guard = CLASS_REGISTER_MUTEX.lock().unwrap();
+        let _lock = CLASS_REGISTER_MUTEX.lock().unwrap();
         let color_white = Color::new(255, 255, 255);
+
+        let mut hmod: HMODULE = unsafe { std::mem::zeroed() };
+        unsafe { GetModuleHandleExW(0, None, &mut hmod).unwrap() };
+
+        let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+        let style = WS_POPUP;
+
+        let data = Some(Box::into_raw(Box::new(params)) as *mut _ as _);
+        let parent = target.unwrap_or(HWND(0));
+
+        let cs_w: Vec<u16> = OsStr::new(OVERLAY_CLASS_NAME).encode_wide().chain(Some(0)).collect();
+        let cs_ptr = PCWSTR(cs_w.as_ptr());
+
+        let wc = WNDCLASSEXW {
+            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+            hInstance: hmod.into(),
+            lpszClassName: cs_ptr,
+            lpfnWndProc: Some(window_proc),
+            style: CS_HREDRAW | CS_VREDRAW,
+            ..Default::default()
+        };
+
+        unsafe { RegisterClassExW(&wc) };
+        let b = get_box_from_target(target.unwrap_or(HWND(0)), params.thickness, params.padding);
+        let b = b.unwrap_or_default();
+
+        let hwnd = unsafe {
+            CreateWindowExW(
+                ex_style, cs_ptr, None, style, b.0, b.1, b.2, b.3, parent, None, hmod, data,
+            )
+        };
+
+        show_window(hwnd, SW_SHOWNOACTIVATE);
         unsafe {
-            let handle = GetModuleHandleW(None).unwrap();
-            let class = str_to_pcwstr("Mondrian:BorderFrame");
-
-            let wc = WNDCLASSW {
-                hInstance: handle.into(),
-                lpszClassName: class,
-                lpfnWndProc: Some(window_proc),
-                style: CS_HREDRAW | CS_VREDRAW,
-                ..Default::default()
-            };
-
-            let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
-            let style = WS_POPUP;
-
-            let data = Some(Box::into_raw(Box::new(params)) as *mut _ as _);
-            let parent = target.unwrap_or(HWND(0));
-
-            let mut hwnd = HWND(0);
-            let mut retry = 5;
-            while retry > 0 && hwnd.0 == 0 {
-                RegisterClassW(&wc);
-                let b = get_box_from_target(target.unwrap_or(HWND(0)), params.thickness, params.padding)
-                    .unwrap_or_default();
-
-                hwnd = CreateWindowExW(
-                    ex_style, class, None, style, b.0, b.1, b.2, b.3, parent, None, handle, data,
-                );
-
-                if hwnd.0 == 0 {
-                    retry -= 1;
-                    let error = GetLastError();
-                    log::warn!("Overlay window creation failed ({:?}). Retry: {}.", error, retry);
-                }
-            }
-            show_window(hwnd, SW_SHOWNOACTIVATE);
             let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_white.into()), 0, LWA_COLORKEY);
-            hwnd
         }
+        hwnd
     }
 
     pub fn get_box_from_target(target: HWND, thickness: u8, padding: u8) -> Option<(i32, i32, i32, i32)> {

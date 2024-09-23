@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 mod win32 {
     pub mod api {
         pub mod accessibility;

@@ -1,6 +1,9 @@
 use windows::Win32::Foundation::HWND;
 
-use crate::app::{mondrian_command::MondrianMessage, structs::direction::Direction};
+use crate::app::{
+    mondrian_command::MondrianMessage,
+    structs::{area::Area, direction::Direction},
+};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TMCommand {
@@ -10,12 +13,15 @@ pub enum TMCommand {
     WindowClosed(HWND),
     WindowMinimized(HWND),
     WindowRestored(HWND),
+    WindowMaximized(HWND),
+    WindowUnmaximized(HWND),
     WindowMoved(HWND, (i32, i32), bool, bool),
-    WindowResized(HWND),
+    WindowResized(HWND, Area, Area),
     Focus(Direction),
     Move(Direction),
     Resize(Direction, u8),
     Release(Option<bool>),
+    Focalize,
     Invert,
     ListManagedWindows,
     Minimize,
@@ -32,8 +38,10 @@ impl TMCommand {
             TMCommand::WindowOpened(_)
                 | TMCommand::WindowMinimized(_)
                 | TMCommand::WindowRestored(_)
-                | TMCommand::WindowResized(_)
+                | TMCommand::WindowResized(_, _, _)
                 | TMCommand::WindowMoved(_, _, _, _)
+                | TMCommand::WindowMaximized(_)
+                | TMCommand::WindowUnmaximized(_)
         )
     }
 
@@ -44,7 +52,9 @@ impl TMCommand {
             | TMCommand::WindowMinimized(hwnd)
             | TMCommand::WindowRestored(hwnd)
             | TMCommand::WindowMoved(hwnd, _, _, _)
-            | TMCommand::WindowResized(hwnd) => Some(*hwnd),
+            | TMCommand::WindowResized(hwnd, _, _)
+            | TMCommand::WindowMaximized(hwnd)
+            | TMCommand::WindowUnmaximized(hwnd) => Some(*hwnd),
             _ => None,
         }
     }
@@ -66,6 +76,7 @@ impl From<&MondrianMessage> for TMCommand {
             MondrianMessage::Move(direction) => TMCommand::Move(*direction),
             MondrianMessage::Release(b) => TMCommand::Release(*b),
             MondrianMessage::Resize(d, s) => TMCommand::Resize(*d, *s),
+            MondrianMessage::Focalize => TMCommand::Focalize,
             MondrianMessage::Invert => TMCommand::Invert,
             MondrianMessage::ListManagedWindows => TMCommand::ListManagedWindows,
             _ => TMCommand::Noop,

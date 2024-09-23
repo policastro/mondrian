@@ -2,10 +2,12 @@ use std::ffi::OsString;
 use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 
+use crate::win32::api::monitor::get_monitor_info;
 use crate::win32::callbacks::enum_windows::user_managed_windows;
 use crate::win32::window::window_ref::WindowRef;
 use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
 use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
@@ -14,7 +16,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowPlacement,
     GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW,
     SendMessageW, SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE,
-    TITLEBARINFO, WINDOWPLACEMENT, WM_GETMINMAXINFO, WS_POPUP,
+    TITLEBARINFO, WINDOWPLACEMENT, WM_GETMINMAXINFO, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
 };
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
@@ -109,12 +111,12 @@ pub fn is_window_visible(hwnd: HWND) -> bool {
 }
 
 /// Returns true if the window is a managable by the tiles manager
-pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic: bool) -> bool {
+pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic: bool, check_title_bar: bool) -> bool {
     if hwnd.0 == 0 {
         return false;
     }
 
-    // TODO To exclude admin windows
+    // To exclude admin windows
     if get_executable_name(hwnd).is_none() || get_executable_name(hwnd).is_some_and(|s| s == "mondrian.exe") {
         return false;
     }
@@ -136,7 +138,7 @@ pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic
     }
 
     let titlebar_info = get_title_bar_info(hwnd);
-    if (titlebar_info.rgstate[0] & STATE_SYSTEM_INVISIBLE.0) != 0 {
+    if check_title_bar && ((titlebar_info.rgstate[0] & STATE_SYSTEM_INVISIBLE.0) != 0) {
         return false;
     }
 
@@ -203,7 +205,7 @@ pub fn get_window_minmax_size(hwnd: HWND) -> ((i32, i32), (i32, i32)) {
         let max_width = min_max_info.ptMaxTrackSize.x;
         let max_height = min_max_info.ptMaxTrackSize.y;
 
-        ((min_width - 8, min_height - 8), (max_width - 8, max_height - 8)) // TODO -8 to remove the border
+        ((min_width - 8, min_height - 8), (max_width - 8, max_height - 8)) // Note: -8 to remove the border
     }
 }
 
@@ -223,4 +225,24 @@ pub fn is_maximized(hwnd: HWND) -> bool {
         }
     }
     false
+}
+
+pub fn is_fullscreen(hwnd: HWND) -> bool {
+    let win_size = match get_window_rect(hwnd) {
+        Some(w) => w,
+        None => return false,
+    };
+
+    let monitorinfo = unsafe { get_monitor_info(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) };
+    let desktop_size = monitorinfo.monitorInfo.rcMonitor;
+
+    win_size[0] == desktop_size.left
+        && win_size[1] == desktop_size.top
+        && win_size[2] == desktop_size.right
+        && win_size[3] == desktop_size.bottom
+}
+
+pub fn has_child_window_style(hwnd: HWND) -> bool {
+    let ws = get_window_style(hwnd);
+    ws & WS_CHILD.0 != 0 || ws & WS_CHILDWINDOW.0 != 0
 }

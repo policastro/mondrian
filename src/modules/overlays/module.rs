@@ -115,7 +115,7 @@ impl ModuleImpl for OverlaysModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianMessage::UpdatedWindows(windows) => {
+            MondrianMessage::UpdatedWindows(windows, _) => {
                 if self.running.load(Ordering::SeqCst) {
                     let overlays = self.overlays.as_mut().expect("Overlays not initialized");
                     overlays.lock().unwrap().rebuild(windows);
