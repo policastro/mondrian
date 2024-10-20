@@ -9,7 +9,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::win32::api::window::{enum_user_manageable_windows, is_user_managable_window, is_window_visible};
-use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
+use crate::win32::callbacks::win_event_hook::WinEvent;
+use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 
 pub struct OpenCloseEventHandler {
@@ -40,7 +41,7 @@ impl OpenCloseEventHandler {
 
 impl WinEventHandler for OpenCloseEventHandler {
     fn init(&mut self) {
-        // Bigger windows first
+        // INFO: Bigger windows first
         let mut wins: Vec<(u32, HWND)> = enum_user_manageable_windows()
             .into_iter()
             .map(|w| (w.get_window_box().unwrap_or_default().get_area(), w.hwnd))

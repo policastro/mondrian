@@ -70,7 +70,7 @@ pub mod overlay {
 
     pub fn create(params: OverlayParams, target: Option<HWND>) -> HWND {
         let _lock = CLASS_REGISTER_MUTEX.lock().unwrap();
-        let color_white = Color::new(255, 255, 255);
+        let color_alpha = Color::new(255, 255, 255); // WARNING: only works with white background
 
         let mut hmod: HMODULE = unsafe { std::mem::zeroed() };
         unsafe { GetModuleHandleExW(0, None, &mut hmod).unwrap() };
@@ -105,7 +105,7 @@ pub mod overlay {
 
         show_window(hwnd, SW_SHOWNOACTIVATE);
         unsafe {
-            let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_white.into()), 0, LWA_COLORKEY);
+            let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_alpha.into()), 0, LWA_COLORKEY);
         }
         hwnd
     }

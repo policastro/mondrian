@@ -13,6 +13,14 @@ pub trait WindowObjInfo {
 
 pub trait WindowObjHandler {
     fn focus(&self);
-    fn resize_and_move(&self, coordinates: (i32, i32), size: (u16, u16)) -> Result<(), ()>;
+    fn resize_and_move(
+        &self,
+        coordinates: (i32, i32),
+        size: (u16, u16),
+        async_op: bool,
+        redraw: bool,
+    ) -> Result<(), ()>;
+    fn redraw(&self) -> Result<(), ()>;
     fn minimize(&self) -> bool;
+    fn restore(&self) -> bool;
 }

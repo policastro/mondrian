@@ -37,6 +37,7 @@ mod app {
         pub mod manager;
         pub mod monitor_layout;
         pub mod tm_command;
+        pub mod window_animator;
     }
     pub mod structs {
         pub mod area_tree {

@@ -1,24 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::{
-    Accessibility::{UnhookWinEvent, HWINEVENTHOOK},
-    WindowsAndMessaging::{EVENT_MAX, EVENT_MIN},
+use super::{
+    callbacks::win_event_hook::{WinEvent, EVENT_MANAGER},
+    win_event_loop::start_win_event_loop,
 };
-
-use super::api::accessibility::set_global_win_event_hook;
-use super::callbacks::win_event_hook::WINEVENT_CHANNEL;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct WinEvent {
-    pub h_win_event_hook: HWINEVENTHOOK,
-    pub event: u32,
-    pub hwnd: HWND,
-    pub id_object: i32,
-    pub id_child: i32,
-    pub id_event_thread: u32,
-    pub dwms_event_time: u32,
-}
 
 pub trait WinEventHandler {
     fn init(&mut self);
@@ -28,106 +11,33 @@ pub trait WinEventHandler {
 }
 
 pub struct WinEventManager {
-    pub hooks_ids: Vec<HWINEVENTHOOK>,
-    pub handlers: Vec<Box<dyn WinEventHandler + Send>>,
-    pub events_map: HashMap<u32, HashSet<usize>>,
+    handlers_key: Vec<u32>,
 }
 
 impl WinEventManager {
-    pub fn new(handlers: Vec<Box<dyn WinEventHandler + Send>>) -> WinEventManager {
-        let events_map = WinEventManager::build_events_map(&handlers);
-
-        let hooks_ids = match events_map.contains_key(&0) {
-            false => events_map.keys().map(|e| set_global_win_event_hook(*e, *e)).collect(),
-            true => vec![set_global_win_event_hook(EVENT_MIN, EVENT_MAX)],
-        };
-
-        let mut wem = WinEventManager {
-            handlers,
-            events_map,
-            hooks_ids,
-        };
-        wem.init_handlers();
-        wem
+    pub fn new() -> WinEventManager {
+        WinEventManager { handlers_key: vec![] }
     }
 
-    pub fn check_for_last_event(&mut self) -> bool {
-        if let Ok(event) = WINEVENT_CHANNEL.with(|channel| channel.lock().unwrap().1.try_recv()) {
-            self.execute_hooks(&event);
-            return true;
-        }
-        false
+    pub fn hook(&mut self, handler: impl WinEventHandler + Send + 'static) {
+        let handler_key = EVENT_MANAGER.with(|manager| manager.lock().unwrap().add(handler));
+        self.handlers_key.push(handler_key);
     }
 
-    pub fn check_for_events(&mut self) {
-        while self.check_for_last_event() {}
+    pub fn unhook_all(&mut self) {
+        self.handlers_key
+            .iter()
+            .for_each(|i| EVENT_MANAGER.with(|manager| manager.lock().unwrap().remove(*i)));
+        self.handlers_key.clear();
     }
 
-    fn execute_hooks(&mut self, event: &WinEvent) {
-        if let Some(handlers) = self.events_map.get(&event.event) {
-            handlers.iter().for_each(|i| {
-                self.handlers[*i].as_mut().handle(event);
-            })
-        }
-
-        if let Some(handlers) = self.events_map.get(&0) {
-            handlers.iter().for_each(|i| {
-                self.handlers[*i].as_mut().handle(event);
-            })
-        }
-    }
-
-    pub fn builder() -> WinEventManagerBuilder {
-        WinEventManagerBuilder::new()
-    }
-
-    fn init_handlers(&mut self) {
-        self.handlers.iter_mut().for_each(|h| h.as_mut().init());
-    }
-
-    fn build_events_map(handlers: &[Box<dyn WinEventHandler + Send>]) -> HashMap<u32, HashSet<usize>> {
-        let mut events_map: HashMap<u32, HashSet<usize>> = HashMap::new();
-        for (i, h) in handlers.iter().enumerate() {
-            if let Some(events) = h.get_managed_events() {
-                events.iter().for_each(|e| {
-                    events_map.entry(*e).or_default().insert(i);
-                })
-            } else {
-                events_map.entry(0).or_default().insert(i);
-            }
-        }
-
-        events_map
-    }
-
-    pub fn disconnect(&mut self) {
-        self.hooks_ids.iter().for_each(|h| unsafe {
-            let _ = UnhookWinEvent(*h);
-        });
+    pub(crate) fn start_event_loop(&self) {
+        start_win_event_loop();
     }
 }
 
 impl Drop for WinEventManager {
     fn drop(&mut self) {
-        self.disconnect();
-    }
-}
-
-pub struct WinEventManagerBuilder {
-    handlers: Vec<Box<dyn WinEventHandler + Send>>,
-}
-
-impl WinEventManagerBuilder {
-    pub fn new() -> WinEventManagerBuilder {
-        WinEventManagerBuilder { handlers: vec![] }
-    }
-
-    pub fn handler(mut self, handler: impl WinEventHandler + Send + 'static) -> Self {
-        self.handlers.push(Box::new(handler));
-        self
-    }
-
-    pub fn build(self) -> WinEventManager {
-        WinEventManager::new(self.handlers)
+        self.unhook_all();
     }
 }

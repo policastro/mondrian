@@ -1,13 +1,16 @@
 use serde::Deserialize;
 
 use crate::{
-    app::structs::area_tree::layout_strategy::{
-        self,
-        golden_ratio::GoldenRatio,
-        mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
-        squared::Squared,
-        two_step::TwoStep,
-        LayoutStrategyEnum,
+    app::{
+        structs::area_tree::layout_strategy::{
+            self,
+            golden_ratio::GoldenRatio,
+            mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
+            squared::Squared,
+            two_step::TwoStep,
+            LayoutStrategyEnum,
+        },
+        tiles_manager::window_animator::WindowAnimation,
     },
     modules::{keybindings::configs::KeybindingsModuleConfigs, overlays::configs::OverlaysModuleConfigs},
 };
@@ -38,6 +41,13 @@ pub struct Core {
 pub struct Layout {
     #[serde(deserialize_with = "deserializers::to_tiling_strategy")]
     pub tiling_strategy: String,
+    pub animations_enabled: bool,
+    #[serde(deserialize_with = "deserializers::to_u32_minmax::<100,10000,_>")]
+    pub animations_duration: u32,
+    #[serde(deserialize_with = "deserializers::to_u8_min::<10,_>")]
+    pub animations_framerate: u8,
+    #[serde(default)]
+    pub animation_type: Option<WindowAnimation>,
     #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
     pub tiles_padding: u8,
     #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
@@ -60,7 +70,6 @@ pub struct Layout {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Advanced {
-    pub refresh_time: u64,
     pub detect_maximized_windows: bool,
 }
 
@@ -118,7 +127,6 @@ impl Default for AppConfigs {
 impl Default for Advanced {
     fn default() -> Self {
         Advanced {
-            refresh_time: 50,
             detect_maximized_windows: true,
         }
     }
@@ -129,6 +137,10 @@ impl Default for Layout {
         Layout {
             tiling_strategy: "golden_ratio".to_string(),
             tiles_padding: 4,
+            animations_enabled: true,
+            animations_duration: 600,
+            animations_framerate: 60,
+            animation_type: Some(WindowAnimation::default()),
             border_padding: 4,
             focalized_padding: 8,
             golden_ratio: GoldenRatio::default(),
@@ -177,14 +189,43 @@ impl From<&Vec<RuleConfig>> for WinMatcher {
 pub mod deserializers {
     use serde::{de::Error, Deserialize, Deserializer};
 
-    pub fn to_u8_max<'de, const L: u8, D>(deserializer: D) -> Result<u8, D::Error>
+    pub fn to_u8_min<'de, const MIN: u8, D>(deserializer: D) -> Result<u8, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        to_u8_minmax::<'de, MIN, { u8::MAX }, D>(deserializer)
+    }
+
+    pub fn to_u8_max<'de, const MAX: u8, D>(deserializer: D) -> Result<u8, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        to_u8_minmax::<'de, { u8::MIN }, MAX, D>(deserializer)
+    }
+
+    pub fn to_u8_minmax<'de, const MIN: u8, const MAX: u8, D>(deserializer: D) -> Result<u8, D::Error>
     where
         D: Deserializer<'de>,
     {
         let v: u8 = u8::deserialize(deserializer)?;
-        match v <= L {
+        match v >= MIN && v <= MAX {
             true => Ok(v),
-            false => Err(D::Error::custom(format!("value must be less than {L}"))),
+            false => Err(D::Error::custom(format!(
+                "value must be between {MIN} and {MAX} (inclusive)"
+            ))),
+        }
+    }
+
+    pub fn to_u32_minmax<'de, const MIN: u32, const MAX: u32, D>(deserializer: D) -> Result<u32, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let v: u32 = u32::deserialize(deserializer)?;
+        match v >= MIN && v <= MAX {
+            true => Ok(v),
+            false => Err(D::Error::custom(format!(
+                "value must be between {MIN} and {MAX} (inclusive)"
+            ))),
         }
     }
 

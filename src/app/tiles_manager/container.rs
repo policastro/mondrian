@@ -1,53 +1,30 @@
-use std::{collections::HashMap, thread};
-
-use crate::{
-    app::structs::area_tree::{leaf::AreaLeaf, tree::WinTree},
-    win32::window::{window_obj::WindowObjHandler, window_ref::WindowRef},
-};
-
+use crate::app::structs::area_tree::leaf::AreaLeaf;
+use crate::app::structs::area_tree::tree::WinTree;
+use crate::win32::window::window_obj::WindowObjInfo;
+use crate::win32::window::window_ref::WindowRef;
+use std::collections::HashMap;
 use std::hash::Hash;
 
-pub trait WindowAnimator {
-    fn queue(&mut self, window: WindowRef, new_pos: (i32, i32), new_size: (u16, u16));
-    fn start(&self);
-}
-
-pub struct Animator;
-impl WindowAnimator for Animator {
-    fn queue(&mut self, window: WindowRef, new_pos: (i32, i32), new_size: (u16, u16)) {
-        let _ = window.resize_and_move(new_pos, new_size);
-    }
-
-    fn start(&self) {}
-}
+use super::window_animator::WindowAnimator;
 
 pub trait ContainerLayer {
-    fn update(&mut self, border_pad: i16, tile_pad: (i16, i16), animator: &mut dyn WindowAnimator) -> Result<(), ()>;
+    fn update(&mut self, border_pad: i16, tile_pad: (i16, i16), animator: &mut WindowAnimator) -> Result<(), ()>;
     fn contains(&self, point: (i32, i32)) -> bool;
 }
 
 impl ContainerLayer for WinTree {
-    fn update(&mut self, border_pad: i16, tile_pad: (i16, i16), animator: &mut dyn WindowAnimator) -> Result<(), ()> {
+    fn update(&mut self, border_pad: i16, tile_pad: (i16, i16), animator: &mut WindowAnimator) -> Result<(), ()> {
         let leaves: Vec<AreaLeaf<isize>> = self.leaves(border_pad);
-        let mut errors = vec![];
+
         for leaf in &leaves {
             let win_ref = WindowRef::from(leaf.id);
+            if !win_ref.is_visible() {
+                self.remove(win_ref.hwnd.0);
+                return self.update(border_pad, tile_pad, animator);
+            };
             let area = leaf.viewbox.pad_xy(tile_pad);
-            // let res = win_ref.resize_and_move(area.get_origin(), area.get_size());
-            animator.queue(win_ref, area.get_origin(), area.get_size());
-            let res: Result<(), ()> = Ok(());
-
-            if res.is_err() {
-                log::warn!("Failed to resize window: {}", win_ref.hwnd.0);
-                errors.push(win_ref.hwnd.0);
-            }
+            animator.queue(win_ref, area);
         }
-
-        if !errors.is_empty() {
-            errors.iter().for_each(|e| self.remove(*e));
-            return self.update(border_pad, tile_pad, animator);
-        }
-
         Ok(())
     }
 

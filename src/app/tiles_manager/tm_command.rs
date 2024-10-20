@@ -15,6 +15,7 @@ pub enum TMCommand {
     WindowRestored(HWND),
     WindowMaximized(HWND),
     WindowUnmaximized(HWND),
+    WindowStartMoveSize(HWND),
     WindowMoved(HWND, (i32, i32), bool, bool),
     WindowResized(HWND, Area, Area),
     Focus(Direction),
@@ -38,6 +39,7 @@ impl TMCommand {
             TMCommand::WindowOpened(_)
                 | TMCommand::WindowMinimized(_)
                 | TMCommand::WindowRestored(_)
+                | TMCommand::WindowStartMoveSize(_)
                 | TMCommand::WindowResized(_, _, _)
                 | TMCommand::WindowMoved(_, _, _, _)
                 | TMCommand::WindowMaximized(_)
@@ -51,6 +53,7 @@ impl TMCommand {
             | TMCommand::WindowClosed(hwnd)
             | TMCommand::WindowMinimized(hwnd)
             | TMCommand::WindowRestored(hwnd)
+            | TMCommand::WindowStartMoveSize(hwnd)
             | TMCommand::WindowMoved(hwnd, _, _, _)
             | TMCommand::WindowResized(hwnd, _, _)
             | TMCommand::WindowMaximized(hwnd)

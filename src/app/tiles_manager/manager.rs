@@ -6,17 +6,21 @@ use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 use windows::Win32::Foundation::HWND;
 
 use super::config::TilesManagerConfig;
-use super::container::{Animator, Container, ContainerLayer};
+use super::container::Container;
+use super::container::ContainerLayer;
 use super::containers_manager::Containers;
 use super::monitor_layout::MonitorLayout;
+use super::window_animator::WindowAnimator;
 
 pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,
     unmanaged_wins: HashSet<isize>,
     config: TilesManagerConfig,
+    animator: WindowAnimator,
 }
 
 impl TilesManager {
@@ -35,14 +39,16 @@ impl TilesManager {
             })
             .collect();
 
+        let animation_duration = Duration::from_millis(config.get_animation_duration().into());
+        let animator = WindowAnimator::new(animation_duration, config.get_framerate());
         TilesManager {
             unmanaged_wins: HashSet::new(),
             containers,
             config,
+            animator,
         }
     }
 
-    // TODO ok
     pub fn add(&mut self, win: WindowRef, update: bool) -> Result<(), Error> {
         if self.unmanaged_wins.contains(&win.hwnd.0) {
             return Ok(());
@@ -57,8 +63,9 @@ impl TilesManager {
 
         let center = win.get_window_box().map(|a| a.get_center());
         let center = center.ok_or(Error::NoWindowsInfo)?;
-        let tree = self.containers.find_at_mut(center).and_then(|c| c.get_active_mut());
-        tree.ok_or(Error::NoWindowsInfo)?.insert(win.hwnd.0);
+        let c = self.containers.find_at_mut(center).ok_or(Error::NoWindowsInfo)?;
+        c.unfocalize();
+        c.get_active_mut().ok_or(Error::NoWindowsInfo)?.insert(win.hwnd.0);
 
         self.update_if(update);
         Ok(())
@@ -73,12 +80,12 @@ impl TilesManager {
             return Err(Error::NoWindowFound);
         }
 
-        let c = self.containers.find_mut(hwnd.0, false); //TODO tutti
+        let c = self.containers.find_mut(hwnd.0, false);
         if skip_focalized && c.is_some_and(|c| c.is_focalized()) {
             return Ok(());
         }
 
-        let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindowFound)?; //TODO tutti
+        let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindowFound)?;
         c.iter_mut().for_each(|(_, t)| t.remove(hwnd.0));
 
         if get_foreground_window().is_none() {
@@ -91,21 +98,19 @@ impl TilesManager {
 
     fn find_at(&self, direction: Direction, same_monitor: bool) -> Option<AreaLeaf<isize>> {
         let current = get_foreground_window()?;
-        let orig_c = self.containers.find(current.0, true)?;
-
-        let padxy = self.config.get_tile_pad_xy();
-        let area = WindowRef::new(current).get_window_box()?.pad_xy((-padxy.0, -padxy.1));
+        let src_c = self.containers.find(current.0, true)?;
+        let src_area = src_c.get_active()?.find_leaf(current.0, 0)?.viewbox;
         let point = match direction {
-            Direction::Right => area.get_ne_corner().with_offset(20, 5), // TODO Prefer up
-            Direction::Down => area.get_se_corner().with_offset(-5, 20), // TODO Prefer left
-            Direction::Left => area.get_sw_corner().with_offset(-20, -5), // TODO Prefer up
-            Direction::Up => area.get_nw_corner().with_offset(5, -20),   // TODO Prefer left
+            Direction::Right => src_area.get_ne_corner().with_offset(1, 1), // INFO: Prefer up
+            Direction::Down => src_area.get_se_corner().with_offset(-1, 1), // INFO: Prefer right
+            Direction::Left => src_area.get_sw_corner().with_offset(-1, -1), // INFO: Prefer down
+            Direction::Up => src_area.get_nw_corner().with_offset(1, -1),   // INFO: Prefer left
         };
 
         let params = if let Some(c) = self.containers.find_at(point) {
             // If the point is in a tree
             Some((c, point))
-        } else if let Some(c) = self.containers.find_nearest(area.get_center(), direction) {
+        } else if let Some(c) = self.containers.find_nearest(src_area.get_center(), direction) {
             // Otherwise, find the nearest container
             let area = c.get_active()?.area;
             let point = match direction {
@@ -120,7 +125,7 @@ impl TilesManager {
         };
 
         let t = match same_monitor {
-            true => orig_c.get_active()?,
+            true => src_c.get_active()?,
             false => params?.0.get_active()?,
         };
 
@@ -148,36 +153,45 @@ impl TilesManager {
             return Err(Error::NoWindow);
         }
 
-        let c = self.containers.find(hwnd.0, false).and_then(|c| c.get_active());
-        let leaf = c.and_then(|t| t.find_leaf(hwnd.0, 0)).ok_or(Error::Generic)?;
-        let center = leaf.viewbox.get_center();
-
         let cs = &mut self.containers;
         let c_err = Error::ContainerNotFound { refresh: true };
 
-        if cs.is_same_container(center, target) {
+        let src_leaf = cs.find(hwnd.0, true).and_then(|c| c.get_active());
+        let src_leaf = src_leaf.and_then(|t| t.find_leaf(hwnd.0, 0)).ok_or(Error::Generic)?;
+        let trg_leaf = cs.find_at(target).and_then(|c| c.get_active());
+        let trg_leaf = trg_leaf.and_then(|t| t.find_leaf_at(target, 0));
+
+        if cs.is_same_container(src_leaf.viewbox.get_center(), target) {
             // If it is in the same monitor
-            let tree = cs.find_at_mut(center).and_then(|c| c.get_active_mut());
-            tree.ok_or(Error::Generic)?.swap_ids_at(center, target);
-        } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient {
+            if let Some(leaf) = trg_leaf {
+                let c = cs.find_mut(hwnd.0, true).ok_or(c_err)?;
+                c.iter_mut().for_each(|(_, t)| t.swap_ids(src_leaf.id, leaf.id));
+            }
+        } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient || trg_leaf.is_none() {
             // If it is in another monitor and insert
+            let c = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;
+            c.unfocalize();
+            c.get_active_mut().ok_or(c_err)?.remove(src_leaf.id);
+
             let c = cs.find_at_mut(target).ok_or(c_err)?;
             c.unfocalize();
-            c.get_active_mut().ok_or(c_err)?.insert(hwnd.0);
-
-            let c = cs.find_at_mut(center).ok_or(c_err)?;
-            c.unfocalize();
-            c.get_active_mut().ok_or(c_err)?.remove_at(center);
+            c.get_active_mut().ok_or(c_err)?.insert(src_leaf.id);
         } else {
             // If it is in another monitor and swap
-            let tree = cs.find_at_mut(target).and_then(|c| c.get_active_mut());
-            let replaced_id = tree.ok_or(c_err)?.replace_id_at(target, hwnd.0);
+            let src_trees = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;
+            match trg_leaf {
+                Some(leaf) => src_trees.iter_mut().for_each(|(_, t)| {
+                    t.replace_id(src_leaf.id, leaf.id);
+                }),
+                None => src_trees.iter_mut().for_each(|(_, t)| t.remove(src_leaf.id)),
+            };
 
-            let tree = cs.find_at_mut(center).and_then(|c| c.get_active_mut());
-            let tree = tree.ok_or(c_err)?;
-            match replaced_id {
-                Some(id) => drop(tree.replace_id_at(center, id)),
-                None => tree.remove_at(center),
+            let trg_trees = cs.find_at_mut(target).ok_or(c_err)?;
+            match trg_leaf {
+                Some(trg) => trg_trees.iter_mut().for_each(|(_, t)| {
+                    t.replace_id(trg.id, src_leaf.id);
+                }),
+                None => trg_trees.get_active_mut().ok_or(c_err)?.insert(src_leaf.id),
             };
         };
 
@@ -186,34 +200,33 @@ impl TilesManager {
             tree.ok_or(c_err)?.switch_subtree_orientations(target);
         }
 
-        self.update();
+        self.update(true);
         Ok(())
     }
 
     pub(crate) fn move_focused(&mut self, direction: Direction) -> Result<(), Error> {
         let curr = get_foreground_window().ok_or(Error::NoWindow)?;
-
         let c = self.containers.find(curr.0, true).and_then(|c| c.get_active());
-        let leaf = c.and_then(|t| t.find_leaf(curr.0, 0)).ok_or(Error::Generic)?;
-        let src_center = leaf.viewbox.get_center();
-        let w = self.find_at(direction, false).ok_or(Error::NoWindowFound)?;
-        let trg_center = w.viewbox.get_center();
+        let src_leaf = c.and_then(|t| t.find_leaf(curr.0, 0)).ok_or(Error::Generic)?;
+        let trg_leaf = self.find_at(direction, false).ok_or(Error::NoWindowFound)?;
 
         let cs = &mut self.containers;
-        if cs.is_same_container(src_center, trg_center) {
-            let c = cs.find_at_mut(src_center).ok_or(Error::Generic)?;
-            c.iter_mut().for_each(|(_, t)| t.swap_ids_at(src_center, trg_center));
+        if cs.is_same_container(src_leaf.viewbox.get_center(), trg_leaf.viewbox.get_center()) {
+            let c = cs.find_mut(src_leaf.id, true).ok_or(Error::Generic)?;
+            c.iter_mut().for_each(|(_, t)| t.swap_ids(src_leaf.id, trg_leaf.id));
         } else {
-            let tree = cs.find_at_mut(trg_center).and_then(|c| c.get_active_mut());
-            let replaced_id = tree.and_then(|t| t.replace_id_at(trg_center, curr.0));
+            let trees = cs.find_mut(trg_leaf.id, true).ok_or(Error::Generic)?;
+            trees.iter_mut().for_each(|(_, t)| {
+                t.replace_id(trg_leaf.id, src_leaf.id);
+            });
 
-            if let Some(id) = replaced_id {
-                let src_tree = cs.find_at_mut(src_center).and_then(|c| c.get_active_mut());
-                src_tree.ok_or(Error::Generic)?.replace_id_at(src_center, id);
-            }
+            let trees = cs.find_at_mut(src_leaf.viewbox.get_center()).ok_or(Error::Generic)?;
+            trees.iter_mut().for_each(|(_, t)| {
+                t.replace_id(src_leaf.id, trg_leaf.id);
+            });
         };
 
-        self.update();
+        self.update(true);
         Ok(())
     }
 
@@ -241,7 +254,7 @@ impl TilesManager {
         };
 
         let area = orig_area.pad(Some(padding.0), Some(padding.1));
-        self.on_resize(curr, orig_area.get_shift(&area))
+        self.on_resize(curr, orig_area.get_shift(&area), false)
     }
 
     pub(crate) fn invert_orientation(&mut self) -> Result<(), Error> {
@@ -251,14 +264,25 @@ impl TilesManager {
         let center = center.ok_or(Error::NoWindowsInfo)?;
         c.ok_or(Error::Generic)?.switch_subtree_orientations(center);
 
-        self.update();
+        self.update(true);
         Ok(())
     }
 
-    pub(crate) fn on_resize(&mut self, hwnd: HWND, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
+    pub(crate) fn on_resize(&mut self, hwnd: HWND, delta: (i32, i32, i32, i32), animate: bool) -> Result<(), Error> {
         if self.unmanaged_wins.contains(&hwnd.0) {
             return Ok(());
         }
+
+        let (resize_w, resize_h) = (delta.2 != 0, delta.3 != 0);
+        let (resize_left, resize_up) = (delta.0.abs() > 10, delta.1.abs() > 10);
+        let has_w_neigh = match resize_w {
+            true => self.find_at(if resize_left { Direction::Left } else { Direction::Right }, true),
+            false => None,
+        };
+        let has_h_neigh = match resize_h {
+            true => self.find_at(if resize_up { Direction::Up } else { Direction::Down }, true),
+            false => None,
+        };
 
         let c = self.containers.find_mut(hwnd.0, true).ok_or(Error::NoWindow)?;
         let t = c.get_active_mut().ok_or(Error::NoWindowFound)?;
@@ -266,25 +290,26 @@ impl TilesManager {
         let center = area.get_center();
 
         let clamp_values = Some((10, 90));
-        if delta.2 != 0 {
-            let growth = (delta.2 as f32 / area.width as f32) * 100f32;
-            let (x, growth_perc) = match delta.0.abs() > 10 {
+        let padding = self.config.get_tile_pad_xy();
+        if resize_w && has_w_neigh.is_some() {
+            let growth = (delta.2.saturating_add(padding.0.into()) as f32 / area.width as f32) * 100f32;
+            let (x, growth_perc) = match resize_left {
                 true => (area.get_left_center().0.saturating_sub(20), -growth),
                 false => (area.get_right_center().0.saturating_add(20), growth),
             };
-            t.resize_ancestor(center, (x, center.1), growth_perc as i32, clamp_values);
+            t.resize_ancestor(center, (x, center.1), growth_perc, clamp_values);
         }
 
-        if delta.3 != 0 {
+        if resize_h && has_h_neigh.is_some() {
             let growth = (delta.3 as f32 / area.height as f32) * 100f32;
-            let (y, growth_perc) = match delta.1.abs() > 10 {
+            let (y, growth_perc) = match resize_up {
                 true => (area.get_top_center().1.saturating_sub(20), -growth),
                 false => (area.get_bottom_center().1.saturating_add(20), growth),
             };
-            t.resize_ancestor(center, (center.0, y), growth_perc as i32, clamp_values);
+            t.resize_ancestor(center, (center.0, y), growth_perc, clamp_values);
         }
 
-        self.update();
+        self.update(animate);
         Ok(())
     }
 
@@ -301,11 +326,8 @@ impl TilesManager {
         let center = area.ok_or(Error::NoWindowsInfo)?.get_center();
         let c = self.containers.find_at_mut(center).ok_or(Error::NoWindowFound)?;
 
-        if c.is_focalized() {
-            match c.get_active_mut().ok_or(Error::Generic)?.has(hwnd.0) {
-                true => c.unfocalize(),
-                false => c.focalize(hwnd.0),
-            }
+        if c.is_focalized() && c.get_active_mut().ok_or(Error::Generic)?.has(hwnd.0) {
+            c.unfocalize();
         } else {
             let wins = c.get_active().ok_or(Error::Generic)?.get_ids();
             let wins = wins.iter().filter(|h| **h != hwnd.0).map(|h| WindowRef::new(HWND(*h)));
@@ -313,14 +335,14 @@ impl TilesManager {
                 w.minimize();
             });
             c.focalize(hwnd.0);
-            let _ = self.release_focused(Some(false), Some(hwnd));
+            let _ = self.release(Some(false), Some(hwnd));
         }
 
-        self.update();
+        self.update(false);
         Ok(())
     }
 
-    pub(crate) fn release_focused(&mut self, release: Option<bool>, window: Option<HWND>) -> Result<(), Error> {
+    pub(crate) fn release(&mut self, release: Option<bool>, window: Option<HWND>) -> Result<(), Error> {
         let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
         let is_managed = self.has_window(hwnd);
         let is_unmanaged = self.unmanaged_wins.contains(&hwnd.0);
@@ -338,22 +360,29 @@ impl TilesManager {
             self.add(WindowRef::new(hwnd), false)?;
         }
 
-        self.update();
+        self.update(true);
         Ok(())
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, animate: bool) {
+        let animator = &mut self.animator;
+        animator.cancel();
         self.containers.values_mut().for_each(|c| {
-            let border_pad = match c.is_focalized() {
-                true => self.config.get_focalized_pad(),
-                false => self.config.get_border_pad(),
+            let (border_pad, tile_pad) = match c.is_focalized() {
+                true => (self.config.get_focalized_pad(), (0, 0)),
+                false => (self.config.get_border_pad(), self.config.get_tile_pad_xy()),
             };
 
             if let Some(c) = c.get_active_mut() {
-                let mut anim = Animator {};
-                let _ = c.update(border_pad, self.config.get_tile_pad_xy(), &mut anim);
+                let _ = c.update(border_pad, tile_pad, animator);
             }
         });
+        let animation = self.config.get_animations().filter(|_| animate);
+        animator.start(animation);
+    }
+
+    pub fn cancel_animation(&mut self) {
+        self.animator.cancel();
     }
 
     fn focus_next(&mut self) {
@@ -365,7 +394,7 @@ impl TilesManager {
 
     fn update_if(&mut self, condition: bool) {
         if condition {
-            self.update();
+            self.update(true);
         }
     }
 

@@ -8,13 +8,13 @@ use windows::Win32::{
     },
 };
 
-use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::is_user_managable_window;
-use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
+use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use crate::win32::window::window_snapshot::WindowSnapshot;
+use crate::win32::{api::cursor::get_cursor_pos, callbacks::win_event_hook::WinEvent};
 use crate::{app::tiles_manager::tm_command::TMCommand, win32::api::window::get_window_minmax_size};
 
 pub struct PositionEventHandler {
@@ -32,6 +32,10 @@ impl PositionEventHandler {
 
     fn start_movesize(&mut self, hwnd: HWND) {
         let info = WindowRef::new(hwnd).snapshot();
+        if info.is_some() {
+            let event = TMCommand::WindowStartMoveSize(hwnd);
+            self.sender.send(event).expect("Failed to send event");
+        }
         info.and_then(|info| self.windows.insert(hwnd.0, info));
     }
 
@@ -59,7 +63,7 @@ impl PositionEventHandler {
         let event: TMCommand = match area_shift.2 != 0 || area_shift.3 != 0 {
             true => {
                 let ((min_width, min_height), _) = get_window_minmax_size(hwnd);
-                // FIXME Used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
+                // BUG: Used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
                 let is_minsize = (curr_area.width as i32 == min_width) || (curr_area.height as i32 == min_height);
                 if !curr_area.contains(dest_point) && is_minsize {
                     TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation)

@@ -1,3 +1,5 @@
+use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
+
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::win_matcher;
 use crate::app::mondrian_command::MondrianMessage;
@@ -8,7 +10,7 @@ use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::app::win_events_handlers::maximize_event_handler::MaximizeEventHandler;
 use crate::modules::module::module_impl::ModuleImpl;
 use crate::modules::module::{ConfigurableModule, Module};
-use crate::win32::win_event_loop::next_win_event_loop_no_block;
+use crate::win32::api::misc::{get_current_thread_id, post_empty_thread_message};
 
 use crate::app::win_events_handlers::position_event_handler::PositionEventHandler;
 use crate::app::win_events_handlers::{
@@ -17,17 +19,17 @@ use crate::app::win_events_handlers::{
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::win_events_manager::WinEventManager;
 use crate::win32::window::window_ref::WindowRef;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::mpsc::{RecvError, Sender};
 use std::sync::Arc;
-use std::thread::{self, sleep};
-use std::time::Duration;
+use std::thread::{self};
 
 use super::config::CoreModuleConfigs;
 
 pub struct CoreModule {
     tm_command_tx: Option<Sender<TMCommand>>,
+    win_events_thread_id: Arc<AtomicU32>,
     win_events_thread: Option<thread::JoinHandle<()>>,
     tiles_manager_thread: Option<thread::JoinHandle<()>>,
     configs: CoreModuleConfigs,
@@ -42,6 +44,7 @@ impl CoreModule {
             configs: CoreModuleConfigs::default(),
             tm_command_tx: None,
             win_events_thread: None,
+            win_events_thread_id: Arc::new(AtomicU32::new(0)),
             tiles_manager_thread: None,
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
@@ -59,25 +62,18 @@ impl CoreModule {
     }
 
     fn run_win_events_loop(&mut self, event_sender: Sender<TMCommand>) {
-        let mut wem_builder = WinEventManager::builder()
-            .handler(PositionEventHandler::new(event_sender.clone()))
-            .handler(OpenCloseEventHandler::new(event_sender.clone()))
-            .handler(MinimizeEventHandler::new(event_sender.clone()));
-
-        if self.configs.detect_maximized_windows {
-            wem_builder = wem_builder.handler(MaximizeEventHandler::new(event_sender.clone()));
-        }
-
-        let refresh_time = self.configs.refresh_time;
-        let running = self.running.clone();
+        let detect_maximized_windows = self.configs.detect_maximized_windows;
+        let win_events_thread_id = self.win_events_thread_id.clone();
         self.win_events_thread = Some(thread::spawn(move || {
-            let mut wem = wem_builder.build();
-            while running.load(Ordering::SeqCst) {
-                next_win_event_loop_no_block(None);
-                wem.check_for_events();
-                sleep(Duration::from_millis(refresh_time));
+            win_events_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
+            let mut wem = WinEventManager::new();
+            wem.hook(PositionEventHandler::new(event_sender.clone()));
+            wem.hook(OpenCloseEventHandler::new(event_sender.clone()));
+            wem.hook(MinimizeEventHandler::new(event_sender.clone()));
+            if detect_maximized_windows {
+                wem.hook(MaximizeEventHandler::new(event_sender.clone()));
             }
-            log::trace!("WinEventsLoop exit!");
+            wem.start_event_loop();
         }));
     }
 
@@ -137,6 +133,7 @@ impl ModuleImpl for CoreModule {
         self.tm_command_tx.as_ref().unwrap().send(TMCommand::Quit).unwrap();
 
         if let Some(thread) = self.win_events_thread.take() {
+            post_empty_thread_message(self.win_events_thread_id.load(Ordering::SeqCst), WM_QUIT);
             thread.join().unwrap();
         };
 
@@ -205,14 +202,18 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
             let minimized = matches!(event, TMCommand::WindowMinimized(_));
             tm.remove(hwnd, minimized, true)
         }
+        TMCommand::WindowStartMoveSize(_) => {
+            tm.cancel_animation();
+            Ok(())
+        }
         TMCommand::WindowMoved(hwnd, coords, invert, switch) => tm.on_move(hwnd, coords, invert, switch),
-        TMCommand::WindowResized(hwnd, p_area, c_area) => tm.on_resize(hwnd, c_area.get_shift(&p_area)),
+        TMCommand::WindowResized(hwnd, p_area, c_area) => tm.on_resize(hwnd, c_area.get_shift(&p_area), true),
         TMCommand::Focus(direction) => tm.focus_at(direction),
         TMCommand::Minimize => tm.minimize_focused(),
         TMCommand::Move(direction) => tm.move_focused(direction),
         TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
         TMCommand::Invert => tm.invert_orientation(),
-        TMCommand::Release(b) => tm.release_focused(b, None),
+        TMCommand::Release(b) => tm.release(b, None),
         TMCommand::Focalize => tm.focalize_focused(),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
@@ -225,7 +226,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
 
     match res {
         Err(error) if error.require_refresh() => {
-            tm.update();
+            tm.update(true);
             log::error!("{:?}", error)
         }
         Err(error) if error.is_warn() => log::warn!("{:?}", error),

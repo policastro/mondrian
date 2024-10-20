@@ -1,7 +1,9 @@
 use windows::Win32::{
     Foundation::HWND,
+    Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
-        IsIconic, IsWindowVisible, SetWindowPos, SWP_NOSENDCHANGING, SWP_SHOWWINDOW, SW_MINIMIZE, SW_SHOWNORMAL,
+        IsIconic, IsWindowVisible, SetWindowPos, SWP_ASYNCWINDOWPOS, SWP_NOREDRAW, SWP_NOSENDCHANGING, SWP_SHOWWINDOW,
+        SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL,
     },
 };
 
@@ -70,7 +72,7 @@ impl WindowObjInfo for WindowRef {
     }
 
     fn get_window_box(&self) -> Option<Area> {
-        // Some apps (like windows settings) have negative values (-8)
+        // INFO: Some apps (like Windows settings) have negative values (-8)
         get_window_box(self.hwnd)
             .map(|b| Area::new(b[0], b[1], b[2].try_into().unwrap_or(0), b[3].try_into().unwrap_or(0)))
     }
@@ -101,13 +103,24 @@ impl WindowObjHandler for WindowRef {
         focus(self.hwnd);
     }
 
-    fn resize_and_move(&self, coordinates: (i32, i32), size: (u16, u16)) -> Result<(), ()> {
+    fn resize_and_move(
+        &self,
+        coordinates: (i32, i32),
+        size: (u16, u16),
+        async_op: bool,
+        redraw: bool,
+    ) -> Result<(), ()> {
         unsafe {
             let coord = (coordinates.0, coordinates.1);
             let size = (i32::from(size.0), i32::from(size.1));
-            let flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW; // FIXME sometimes it blocks without this flag -> SWP_ASYNCWINDOWPOS;
-
-            show_window(self.hwnd, SW_SHOWNORMAL); // Remove maximized state
+            let mut flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW;
+            if !redraw {
+                flags |= SWP_NOREDRAW;
+            }
+            if async_op {
+                flags |= SWP_ASYNCWINDOWPOS;
+            }
+            show_window(self.hwnd, SW_SHOWNORMAL); // INFO: Remove maximized state
             match SetWindowPos(self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
                 Ok(_) => Ok(()),
                 Err(_) => Err(()),
@@ -115,7 +128,23 @@ impl WindowObjHandler for WindowRef {
         }
     }
 
+    fn redraw(&self) -> Result<(), ()> {
+        unsafe {
+            let _ = RedrawWindow(
+                self.hwnd,
+                None,
+                None,
+                RDW_INTERNALPAINT | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN,
+            );
+        }
+        Ok(())
+    }
+
     fn minimize(&self) -> bool {
         show_window(self.hwnd, SW_MINIMIZE)
+    }
+
+    fn restore(&self) -> bool {
+        show_window(self.hwnd, SW_RESTORE)
     }
 }

@@ -12,7 +12,6 @@ pub struct OverlaysModuleConfigs {
     pub active: OverlayParams,
     #[serde(default = "OverlayParams::default_inactive")]
     pub inactive: OverlayParams,
-    pub follow_movements: bool,
 }
 
 impl Default for OverlaysModuleConfigs {
@@ -21,7 +20,6 @@ impl Default for OverlaysModuleConfigs {
             enabled: true,
             active: OverlayParams::default_active(),
             inactive: OverlayParams::default_inactive(),
-            follow_movements: true,
         }
     }
 }
@@ -55,10 +53,6 @@ impl OverlaysModuleConfigs {
 
     pub(crate) fn get_inactive_enabled(&self) -> bool {
         self.inactive.enabled
-    }
-
-    pub(crate) fn get_follow_movements(&self) -> bool {
-        self.follow_movements && self.active.enabled
     }
 
     pub(crate) fn is_enabled(&self) -> bool {

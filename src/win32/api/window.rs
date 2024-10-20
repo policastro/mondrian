@@ -110,13 +110,13 @@ pub fn is_window_visible(hwnd: HWND) -> bool {
     unsafe { IsWindowVisible(hwnd).as_bool() }
 }
 
-/// Returns true if the window is a managable by the tiles manager
+/// Returns true if the window is manageable by the tiles manager
 pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic: bool, check_title_bar: bool) -> bool {
     if hwnd.0 == 0 {
         return false;
     }
 
-    // To exclude admin windows
+    // INFO: To exclude admin windows
     if get_executable_name(hwnd).is_none() || get_executable_name(hwnd).is_some_and(|s| s == "mondrian.exe") {
         return false;
     }
@@ -205,7 +205,7 @@ pub fn get_window_minmax_size(hwnd: HWND) -> ((i32, i32), (i32, i32)) {
         let max_width = min_max_info.ptMaxTrackSize.x;
         let max_height = min_max_info.ptMaxTrackSize.y;
 
-        ((min_width - 8, min_height - 8), (max_width - 8, max_height - 8)) // Note: -8 to remove the border
+        ((min_width - 8, min_height - 8), (max_width - 8, max_height - 8)) // NOTE: -8 to remove the border
     }
 }
 

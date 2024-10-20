@@ -45,7 +45,7 @@ impl<'de> Deserialize<'de> for Color {
             type Value = Color;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a tuple (u8, u8, u8) or a hex string")
+                formatter.write_str("a tuple (u8, u8, u8) or a hex string (#rrggbb)")
             }
 
             fn visit_seq<V>(self, mut seq: V) -> Result<Color, V::Error>

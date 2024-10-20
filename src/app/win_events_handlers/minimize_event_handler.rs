@@ -5,7 +5,8 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZESTART;
 
 use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::win32::api::window::is_user_managable_window;
-use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
+use crate::win32::callbacks::win_event_hook::WinEvent;
+use crate::win32::win_events_manager::WinEventHandler;
 
 pub struct MinimizeEventHandler {
     sender: Sender<TMCommand>,

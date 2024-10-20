@@ -2,12 +2,15 @@ use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
     Icon, TrayIconBuilder,
 };
-use windows::Win32::UI::WindowsAndMessaging::{PostThreadMessageW, WM_QUIT};
+use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 use crate::{
     app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage},
     modules::module::{module_impl::ModuleImpl, Module},
-    win32::{api::misc::get_current_thread_id, win_event_loop::next_win_event_loop_iteration},
+    win32::{
+        api::misc::{get_current_thread_id, post_empty_thread_message},
+        win_event_loop::next_win_event_loop_iteration,
+    },
 };
 
 use std::{
@@ -89,7 +92,7 @@ impl ModuleImpl for TrayModule {
                     _ => {}
                 }
                 pause_flag.store(Self::PAUSE_UNSET, Ordering::Relaxed);
-                
+
                 let event_id = MenuEvent::receiver()
                     .try_recv()
                     .map_or(None, |e| Some(e.id.0.to_owned()));
@@ -120,7 +123,7 @@ impl ModuleImpl for TrayModule {
     fn stop(&mut self) {
         self.running.store(false, Ordering::SeqCst);
         if let Some(main_thread) = self.main_thread.take() {
-            let _ = unsafe { PostThreadMessageW(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT, None, None) };
+            post_empty_thread_message(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT);
             let _ = main_thread.join();
         }
     }

@@ -5,7 +5,8 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE;
 
 use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::win32::api::window::{has_child_window_style, is_fullscreen, is_maximized, is_user_managable_window};
-use crate::win32::win_events_manager::{WinEvent, WinEventHandler};
+use crate::win32::callbacks::win_event_hook::WinEvent;
+use crate::win32::win_events_manager::WinEventHandler;
 
 pub struct MaximizeEventHandler {
     sender: Sender<TMCommand>,

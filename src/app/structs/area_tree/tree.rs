@@ -71,16 +71,12 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
             self.update_map();
         }
     }
-    pub fn remove_at(&mut self, point: (i32, i32)) {
-        self.root.remove(point, self.area, &mut self.strategy);
-        self.update_map();
-    }
 
     pub(crate) fn resize_ancestor(
         &mut self,
         orig_point1: (i32, i32),
         orig_point2: (i32, i32),
-        grow_ratio: i32,
+        grow_ratio: f32,
         clamp_values: Option<(u8, u8)>,
     ) {
         let clamp_values = clamp_values.unwrap_or((0, 100));
@@ -100,14 +96,21 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
                 (Orientation::Horizontal, (_, false)) => 100u8.saturating_sub(ancestor.ratio),
             };
 
-            let real_grow_ratio = (grow_ratio as f32 * ratio_to_consider as f32) / 100f32;
+            let real_grow_ratio = (grow_ratio * ratio_to_consider as f32) / 100f32;
             ancestor.ratio = match real_grow_ratio < 0f32 {
-                true => ancestor.ratio.saturating_sub(real_grow_ratio.abs() as u8),
-                false => ancestor.ratio.saturating_add(real_grow_ratio as u8),
+                true => ancestor.ratio.saturating_sub(real_grow_ratio.abs().round() as u8),
+                false => ancestor.ratio.saturating_add(real_grow_ratio.round() as u8),
             };
 
             ancestor.ratio = ancestor.ratio.clamp(clamp_values.0, clamp_values.1);
             self.update_map();
+        }
+    }
+
+    pub(crate) fn swap_ids(&mut self, id1: T, id2: T) {
+        let (p1, p2) = (self.ids_map.get(&id1), self.ids_map.get(&id2));
+        if let (Some(l1), Some(l2)) = (p1, p2) {
+            self.swap_ids_at(l1.viewbox.get_center(), l2.viewbox.get_center());
         }
     }
 
@@ -123,8 +126,14 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
             self.update_map();
             return;
         }
+
         self.root.set_id(id2.unwrap(), point1, self.area);
         self.update_map();
+    }
+
+    pub fn replace_id(&mut self, id: T, new_id: T) -> Option<T> {
+        let point = self.ids_map.get(&id)?.viewbox.get_center();
+        self.replace_id_at(point, new_id)
     }
 
     pub fn replace_id_at(&mut self, point: (i32, i32), id: T) -> Option<T> {

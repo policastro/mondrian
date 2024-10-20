@@ -9,7 +9,7 @@ pub fn get_current_thread_id() -> u32 {
 }
 
 pub fn post_empty_thread_message(thread_id: u32, msg: u32) {
-    let _ = unsafe { PostThreadMessageW(thread_id, msg, WPARAM(0), LPARAM(0)) };
+    let _ = unsafe { PostThreadMessageW(thread_id, msg, None, None) };
 }
 
 pub fn post_empyt_message(hwnd: HWND, msg: u32) {

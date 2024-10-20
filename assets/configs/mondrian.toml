@@ -3,12 +3,16 @@ tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal", "vertica
 tiles_padding = 4                # padding between tiles, it must be between 0 and 60
 border_padding = 4               # padding between border and tiles, it must be between 0 and 60
 focalized_padding = 8            # padding for the focalized window, it must be between 0 and 60
-insert_in_monitor = false        # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
+insert_in_monitor = true         # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
+animations_enabled = true        # if true, the animations will be enabled
+animation_type = "ease_out_back" # can be "Linear" or "Quadratic"
+animations_duration = 400        # duration of the animation in milliseconds
+animations_framerate = 60        # animations framerate
 
 [layout.golden_ratio] # if tiling_strategy = "golden_ratio"
 clockwise = true # true = clockwise, false = counterclockwise
 vertical = false # if true, the first split will be vertical
-ratio = 50       # ratio of the first split
+ratio = 65       # ratio of the first split
 
 [layout.horizontal] # if tiling_strategy = "horizontal"
 grow_right = true # direction of the first split
@@ -19,18 +23,40 @@ grow_down = true # direction of the first split
 [layout.twostep] # if tiling_strategy = "twostep"
 first_step = "right" # first insertion direction, can be "right", "left", "up" or "down"
 second_step = "down" # second insertion direction, can be "right", "left", "up" or "down"
+ratio = 65           # ratio of the first split
 
 [modules.keybindings]
 enabled = true # if true, the keybindings will be shown
 default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
 bindings = [
-    { key = "X", action = "quit" },                              # e.g. when pressing <default_modifier>+X, the action will be "quit"
-    { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
+    # { key = "X", action = "quit" },                              # e.g. when pressing <default_modifier>+X, the action will be "quit"
+    # { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
+    # Navigation
+    { modifier = "CTRL+ALT", key = "left", action = "focus left" },
+    { modifier = "CTRL+ALT", key = "right", action = "focus right" },
+    { modifier = "CTRL+ALT", key = "up", action = "focus up" },
+    { modifier = "CTRL+ALT", key = "down", action = "focus down" },
+    # Movement
+    { modifier = "CTRL+ALT+SHIFT", key = "left", action = "move left" },
+    { modifier = "CTRL+ALT+SHIFT", key = "right", action = "move right" },
+    { modifier = "CTRL+ALT+SHIFT", key = "up", action = "move up" },
+    { modifier = "CTRL+ALT+SHIFT", key = "down", action = "move down" },
+    # Resize
+    { modifier = "CTRL+SHIFT", key = "left", action = "resize left 150" },
+    { modifier = "CTRL+SHIFT", key = "right", action = "resize right 150" },
+    { modifier = "CTRL+SHIFT", key = "up", action = "resize up 150" },
+    { modifier = "CTRL+SHIFT", key = "down", action = "resize down 150" },
+    # Commands
+    { key = "r", action = "release" },
+    { key = "f", action = "focalize" },
+    { key = "m", action = "minimize" },
+    { key = "v", action = "invert" },
+    { modifier = "ALT+SHIFT", key = "p", action = "pause" },
+    { modifier = "ALT+SHIFT", key = "r", action = "refresh-config" },
 ]
 
 [modules.overlays]
 enabled = true               # if true, the overlays will be shown
-follow_movements = true      # if true, the overlay will follow the window movements
 active.enabled = true        # if true, the active overlay will be shown
 active.thickness = 4         # thickness of the border
 active.color = [0, 200, 0]   # color of the border
@@ -42,7 +68,6 @@ inactive.padding = 0         # padding between the border and the tiles
 
 # Other settings
 [advanced]
-refresh_time = 50               # in milliseconds, set the time between each refresh. Values below 30 are not recommended, and probably there is no benefit with such a low value
 detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine. WARNING: it will increase the CPU usage
 
 [core]
@@ -50,4 +75,7 @@ rules = [
     # { title = "Title", exename = "app.exe", classname ="ApplicationWindow" }, # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
     # { title = "Title" }, # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
     # { title = "/Title[0-9]/" }, # match any window with a title that matches the regex "/Title[0-9]/" (you can use regex in title, exename and classname by enclosing them in slashes)
+    { exename = "OpenWith.exe" },                                                                    # "Open with" dialog 
+    { classname = "OperationStatusWindow" },                                                         # Explorer operation status 
+    { title = "/[Pp]icture.in.[Pp]icture/", classname = "/Chrome_WidgetWin_1|MozillaDialogClass/" }, # PIP Firefox/Chrome
 ]
