@@ -1,5 +1,5 @@
-use crate::app::structs::area_tree::leaf::AreaLeaf;
-use crate::app::structs::area_tree::tree::WinTree;
+use crate::app::area_tree::leaf::AreaLeaf;
+use crate::app::area_tree::tree::WinTree;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;

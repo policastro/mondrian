@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::{
     app::{
-        structs::area_tree::layout_strategy::{
+        area_tree::layout_strategy::{
             self,
             golden_ratio::GoldenRatio,
             mono_axis::{MonoAxisHorizontal, MonoAxisVertical},

@@ -20,18 +20,18 @@ impl WinEventManager {
     }
 
     pub fn hook(&mut self, handler: impl WinEventHandler + Send + 'static) {
-        let handler_key = EVENT_MANAGER.with(|manager| manager.lock().unwrap().add(handler));
+        let handler_key = EVENT_MANAGER.lock().unwrap().add(handler);
         self.handlers_key.push(handler_key);
     }
 
     pub fn unhook_all(&mut self) {
         self.handlers_key
             .iter()
-            .for_each(|i| EVENT_MANAGER.with(|manager| manager.lock().unwrap().remove(*i)));
+            .for_each(|i| EVENT_MANAGER.lock().unwrap().remove(*i));
         self.handlers_key.clear();
     }
 
-    pub(crate) fn start_event_loop(&self) {
+    pub fn start_event_loop(&self) {
         start_win_event_loop();
     }
 }

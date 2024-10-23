@@ -1,4 +1,5 @@
-use crate::{app::structs::area_tree::layout_strategy::LayoutStrategyEnum, win32::api::monitor::Monitor};
+use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::win32::api::monitor::Monitor;
 
 #[derive(Debug, Clone)]
 pub struct MonitorLayout {

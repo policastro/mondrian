@@ -1,11 +1,7 @@
-use crate::app::{
-    config::{
-        app_configs::AppConfigs,
-        win_matcher::{self},
-    },
-    structs::area_tree::layout_strategy::LayoutStrategyEnum,
-    tiles_manager::window_animator::WindowAnimation,
-};
+use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::app::config::app_configs::AppConfigs;
+use crate::app::config::win_matcher;
+use crate::app::tiles_manager::window_animator::WindowAnimation;
 
 pub struct CoreModuleConfigs {
     pub detect_maximized_windows: bool,

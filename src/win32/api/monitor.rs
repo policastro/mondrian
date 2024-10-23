@@ -1,9 +1,10 @@
-use windows::Win32::{
-    Foundation::LPARAM,
-    Graphics::Gdi::{EnumDisplayMonitors, GetMonitorInfoW, HMONITOR, MONITORINFOEXW},
-};
-
-use crate::{app::structs::area::Area, win32::callbacks::enum_monitors::enum_monitors_callback};
+use crate::app::structs::area::Area;
+use crate::win32::callbacks::enum_monitors::enum_monitors_callback;
+use windows::Win32::Foundation::LPARAM;
+use windows::Win32::Graphics::Gdi::EnumDisplayMonitors;
+use windows::Win32::Graphics::Gdi::GetMonitorInfoW;
+use windows::Win32::Graphics::Gdi::HMONITOR;
+use windows::Win32::Graphics::Gdi::MONITORINFOEXW;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -49,4 +50,3 @@ impl From<Monitor> for Area {
         )
     }
 }
-

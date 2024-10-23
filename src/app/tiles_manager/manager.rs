@@ -1,20 +1,20 @@
-use crate::app::structs::area_tree::leaf::AreaLeaf;
-use crate::app::structs::area_tree::tree::WinTree;
-use crate::app::structs::direction::Direction;
-use crate::app::structs::point::Point;
-use crate::win32::api::window::get_foreground_window;
-use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
-use crate::win32::window::window_ref::WindowRef;
-use std::collections::{HashMap, HashSet};
-use std::time::Duration;
-use windows::Win32::Foundation::HWND;
-
 use super::config::TilesManagerConfig;
 use super::container::Container;
 use super::container::ContainerLayer;
 use super::containers_manager::Containers;
 use super::monitor_layout::MonitorLayout;
 use super::window_animator::WindowAnimator;
+use crate::app::area_tree::leaf::AreaLeaf;
+use crate::app::area_tree::tree::WinTree;
+use crate::app::structs::direction::Direction;
+use crate::app::structs::point::Point;
+use crate::win32::api::window::get_foreground_window;
+use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
+use crate::win32::window::window_ref::WindowRef;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::time::Duration;
+use windows::Win32::Foundation::HWND;
 
 pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,

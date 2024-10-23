@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use lazy_static::lazy_static;
 use windows::Win32::{
     Foundation::HWND,
     UI::{
@@ -107,8 +108,9 @@ impl WinEventDispatcher {
     }
 }
 
-thread_local! {
-    pub(crate) static EVENT_MANAGER: Arc<Mutex<WinEventDispatcher>> = Arc::new(Mutex::new(WinEventDispatcher::new()));
+lazy_static! {
+    pub(crate) static ref EVENT_MANAGER: Arc<Mutex<WinEventDispatcher>> =
+        Arc::new(Mutex::new(WinEventDispatcher::new()));
 }
 
 pub(crate) unsafe extern "system" fn win_event_hook(
@@ -129,5 +131,5 @@ pub(crate) unsafe extern "system" fn win_event_hook(
         id_event_thread,
         dwms_event_time,
     };
-    EVENT_MANAGER.with(|event_manager| event_manager.lock().unwrap().dispatch(&event));
+    EVENT_MANAGER.lock().unwrap().dispatch(&event);
 }

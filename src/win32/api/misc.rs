@@ -1,8 +1,9 @@
-use windows::Win32::{
-    Foundation::{HWND, LPARAM, WPARAM},
-    System::Threading::GetCurrentThreadId,
-    UI::WindowsAndMessaging::{PostMessageW, PostThreadMessageW},
-};
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::LPARAM;
+use windows::Win32::Foundation::WPARAM;
+use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
+use windows::Win32::UI::WindowsAndMessaging::PostThreadMessageW;
 
 pub fn get_current_thread_id() -> u32 {
     unsafe { GetCurrentThreadId() }

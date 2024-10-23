@@ -1,8 +1,3 @@
-use clap::Parser;
-use log4rs::config::RawConfig;
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
 use crate::app::mondrian_command::MondrianMessage;
@@ -11,6 +6,10 @@ use crate::modules::keybindings::module::KeybindingsModule;
 use crate::modules::module::Module;
 use crate::modules::overlays::module::OverlaysModule;
 use crate::modules::tray::module::TrayModule;
+use clap::Parser;
+use log4rs::config::RawConfig;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 pub fn main() {
     let args = CliArgs::parse();
