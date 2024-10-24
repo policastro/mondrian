@@ -1,38 +1,58 @@
 pub mod overlay {
-    use std::{ffi::OsStr, os::windows::ffi::OsStrExt, sync::Mutex};
-
+    use crate::modules::overlays::lib::color::Color;
+    use crate::modules::overlays::lib::overlay::OverlayParams;
+    use crate::win32::api::window::create_window;
+    use crate::win32::api::window::get_window_box;
+    use crate::win32::api::window::show_window;
     use lazy_static::lazy_static;
-    use windows::{
-        core::PCWSTR,
-        Win32::{
-            Foundation::{COLORREF, HMODULE, HWND, LPARAM, LRESULT, RECT, WPARAM},
-            Graphics::Gdi::{
-                BeginPaint, CreatePen, DeleteObject, EndPaint, FillRect, GetSysColorBrush, Rectangle, SelectObject,
-                COLOR_WINDOW, PAINTSTRUCT, PS_SOLID,
-            },
-            System::LibraryLoader::GetModuleHandleExW,
-            UI::WindowsAndMessaging::{
-                GetClientRect, GetWindowLongPtrW, PostQuitMessage, RegisterClassExW, SetWindowLongPtrW, CREATESTRUCTW,
-                GWLP_USERDATA, HTCAPTION, SW_SHOWNOACTIVATE, WM_CREATE, WM_DESTROY, WM_PAINT, WNDCLASSEXW,
-                WS_EX_NOACTIVATE,
-            },
-        },
-    };
-
-    use windows::Win32::UI::WindowsAndMessaging::{
-        SetLayeredWindowAttributes, CS_HREDRAW, CS_VREDRAW, LWA_COLORKEY, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
-        WS_EX_TRANSPARENT, WS_POPUP,
-    };
-
-    use windows::Win32::{
-        Graphics::Gdi::InvalidateRect,
-        UI::WindowsAndMessaging::{WM_QUIT, WM_USER},
-    };
-
-    use crate::{
-        modules::overlays::lib::{color::Color, overlay::OverlayParams},
-        win32::api::window::{create_window, get_window_box, show_window},
-    };
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use std::sync::Mutex;
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::COLORREF;
+    use windows::Win32::Foundation::HMODULE;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Foundation::LPARAM;
+    use windows::Win32::Foundation::LRESULT;
+    use windows::Win32::Foundation::RECT;
+    use windows::Win32::Foundation::WPARAM;
+    use windows::Win32::Graphics::Gdi::BeginPaint;
+    use windows::Win32::Graphics::Gdi::CreatePen;
+    use windows::Win32::Graphics::Gdi::DeleteObject;
+    use windows::Win32::Graphics::Gdi::EndPaint;
+    use windows::Win32::Graphics::Gdi::FillRect;
+    use windows::Win32::Graphics::Gdi::GetSysColorBrush;
+    use windows::Win32::Graphics::Gdi::InvalidateRect;
+    use windows::Win32::Graphics::Gdi::Rectangle;
+    use windows::Win32::Graphics::Gdi::SelectObject;
+    use windows::Win32::Graphics::Gdi::COLOR_WINDOW;
+    use windows::Win32::Graphics::Gdi::PAINTSTRUCT;
+    use windows::Win32::Graphics::Gdi::PS_SOLID;
+    use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
+    use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
+    use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
+    use windows::Win32::UI::WindowsAndMessaging::RegisterClassExW;
+    use windows::Win32::UI::WindowsAndMessaging::SetLayeredWindowAttributes;
+    use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
+    use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
+    use windows::Win32::UI::WindowsAndMessaging::CS_HREDRAW;
+    use windows::Win32::UI::WindowsAndMessaging::CS_VREDRAW;
+    use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
+    use windows::Win32::UI::WindowsAndMessaging::HTCAPTION;
+    use windows::Win32::UI::WindowsAndMessaging::LWA_COLORKEY;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE;
+    use windows::Win32::UI::WindowsAndMessaging::WM_CREATE;
+    use windows::Win32::UI::WindowsAndMessaging::WM_DESTROY;
+    use windows::Win32::UI::WindowsAndMessaging::WM_PAINT;
+    use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
+    use windows::Win32::UI::WindowsAndMessaging::WM_USER;
+    use windows::Win32::UI::WindowsAndMessaging::WNDCLASSEXW;
+    use windows::Win32::UI::WindowsAndMessaging::WS_EX_LAYERED;
+    use windows::Win32::UI::WindowsAndMessaging::WS_EX_NOACTIVATE;
+    use windows::Win32::UI::WindowsAndMessaging::WS_EX_TOOLWINDOW;
+    use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
+    use windows::Win32::UI::WindowsAndMessaging::WS_POPUP;
 
     lazy_static! {
         static ref CLASS_REGISTER_MUTEX: Mutex<()> = Mutex::new(());
