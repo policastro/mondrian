@@ -59,10 +59,11 @@ impl ModuleImpl for OverlaysModule {
 
         let overlay_manager = self.overlays.clone().unwrap();
         let main_thread_id = self.main_thread_id.clone();
+        let update_while_resizing = self.configs.update_while_resizing;
         let main_thread = thread::spawn(move || {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             let mut wem = WinEventManager::new();
-            wem.hook(OverlayEventHandler::new(overlay_manager));
+            wem.hook(OverlayEventHandler::new(overlay_manager, update_while_resizing));
             wem.start_event_loop();
         });
 

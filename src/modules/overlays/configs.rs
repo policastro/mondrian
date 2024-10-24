@@ -8,6 +8,8 @@ use super::lib::overlay::OverlayParams;
 pub struct OverlaysModuleConfigs {
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub update_while_resizing: bool,
     #[serde(default = "OverlayParams::default_active")]
     pub active: OverlayParams,
     #[serde(default = "OverlayParams::default_inactive")]
@@ -18,6 +20,7 @@ impl Default for OverlaysModuleConfigs {
     fn default() -> Self {
         OverlaysModuleConfigs {
             enabled: true,
+            update_while_resizing: true,
             active: OverlayParams::default_active(),
             inactive: OverlayParams::default_inactive(),
         }

@@ -57,6 +57,7 @@ bindings = [
 
 [modules.overlays]
 enabled = true               # if true, the overlays will be shown
+update_while_resizing = true # if true, the overlays will be updated while resizing
 active.enabled = true        # if true, the active overlay will be shown
 active.thickness = 4         # thickness of the border
 active.color = [0, 200, 0]   # color of the border
