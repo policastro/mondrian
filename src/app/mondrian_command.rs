@@ -8,6 +8,7 @@ use super::{structs::direction::Direction, tiles_manager::tm_command::TMCommand}
 pub enum MondrianMessage {
     RefreshConfig,
     OpenConfig,
+    MonitorsLayoutChanged,
     Retile,
     Configure,
     Focus(Direction),

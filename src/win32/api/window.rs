@@ -1,10 +1,10 @@
-use std::ffi::OsString;
-use std::mem::size_of;
-use std::os::windows::ffi::OsStringExt;
-
 use crate::win32::api::monitor::get_monitor_info;
 use crate::win32::callbacks::enum_windows::user_managed_windows;
 use crate::win32::window::window_ref::WindowRef;
+use std::ffi::OsString;
+use std::mem::size_of;
+use std::os::windows::ffi::OsStringExt;
+use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
@@ -13,10 +13,11 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFOR
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowPlacement,
-    GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW,
-    SendMessageW, SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE,
-    TITLEBARINFO, WINDOWPLACEMENT, WM_GETMINMAXINFO, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
+    CreateWindowExW, DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA,
+    GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+    RealGetWindowClassW, SendMessageW, SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO,
+    SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT, WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO,
+    WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
 };
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
@@ -245,4 +246,22 @@ pub fn is_fullscreen(hwnd: HWND) -> bool {
 pub fn has_child_window_style(hwnd: HWND) -> bool {
     let ws = get_window_style(hwnd);
     ws & WS_CHILD.0 != 0 || ws & WS_CHILDWINDOW.0 != 0
+}
+
+pub fn create_window<T>(
+    ex_style: WINDOW_EX_STYLE,
+    cs_ptr: PCWSTR,
+    style: WINDOW_STYLE,
+    (x, y, w, h): (i32, i32, i32, i32),
+    parent: Option<HWND>,
+    hmod: HMODULE,
+    data: T,
+) -> Option<HWND> {
+    let data = Some(Box::into_raw(Box::new(data)) as *mut _ as _);
+    let parent = parent.unwrap_or(HWND(0));
+    let hwnd = unsafe { CreateWindowExW(ex_style, cs_ptr, None, style, x, y, w, h, parent, None, hmod, data) };
+    match hwnd == HWND(0) {
+        true => None,
+        false => Some(hwnd),
+    }
 }

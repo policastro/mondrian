@@ -20,8 +20,8 @@ pub mod overlay {
     };
 
     use windows::Win32::UI::WindowsAndMessaging::{
-        CreateWindowExW, SetLayeredWindowAttributes, CS_HREDRAW, CS_VREDRAW, LWA_COLORKEY, WS_EX_LAYERED,
-        WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_POPUP,
+        SetLayeredWindowAttributes, CS_HREDRAW, CS_VREDRAW, LWA_COLORKEY, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
+        WS_EX_TRANSPARENT, WS_POPUP,
     };
 
     use windows::Win32::{
@@ -31,7 +31,7 @@ pub mod overlay {
 
     use crate::{
         modules::overlays::lib::{color::Color, overlay::OverlayParams},
-        win32::api::window::{get_window_box, show_window},
+        win32::api::window::{create_window, get_window_box, show_window},
     };
 
     lazy_static! {
@@ -78,9 +78,6 @@ pub mod overlay {
         let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
         let style = WS_POPUP;
 
-        let data = Some(Box::into_raw(Box::new(params)) as *mut _ as _);
-        let parent = target.unwrap_or(HWND(0));
-
         let cs_w: Vec<u16> = OsStr::new(OVERLAY_CLASS_NAME).encode_wide().chain(Some(0)).collect();
         let cs_ptr = PCWSTR(cs_w.as_ptr());
 
@@ -95,15 +92,10 @@ pub mod overlay {
 
         unsafe { RegisterClassExW(&wc) };
         let b = get_box_from_target(target.unwrap_or(HWND(0)), params.thickness, params.padding);
-        let b = b.unwrap_or_default();
-
-        let hwnd = unsafe {
-            CreateWindowExW(
-                ex_style, cs_ptr, None, style, b.0, b.1, b.2, b.3, parent, None, hmod, data,
-            )
-        };
-
+        let hwnd = create_window(ex_style, cs_ptr, style, b.unwrap_or_default(), target, hmod, params);
+        let hwnd = hwnd.unwrap_or(HWND(0));
         show_window(hwnd, SW_SHOWNOACTIVATE);
+
         unsafe {
             let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_alpha.into()), 0, LWA_COLORKEY);
         }

@@ -3,6 +3,9 @@ pub mod module;
 pub mod core {
     pub mod config;
     pub mod module;
+    pub(crate) mod lib {
+        pub mod display_change_detector;
+    }
 }
 
 pub mod keybindings {
@@ -13,7 +16,7 @@ pub mod keybindings {
 pub mod overlays {
     pub mod configs;
     pub mod module;
-    pub mod lib {
+    pub(crate) mod lib {
         pub mod color;
         pub mod overlay;
         pub mod overlay_manager;

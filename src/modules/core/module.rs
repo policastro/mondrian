@@ -1,5 +1,5 @@
-use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
-
+use super::config::CoreModuleConfigs;
+use super::lib::display_change_detector;
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::win_matcher;
 use crate::app::mondrian_command::MondrianMessage;
@@ -8,24 +8,21 @@ use crate::app::tiles_manager::manager::TilesManager;
 use crate::app::tiles_manager::monitor_layout::MonitorLayout;
 use crate::app::tiles_manager::tm_command::TMCommand;
 use crate::app::win_events_handlers::maximize_event_handler::MaximizeEventHandler;
+use crate::app::win_events_handlers::minimize_event_handler::MinimizeEventHandler;
+use crate::app::win_events_handlers::open_event_handler::OpenCloseEventHandler;
+use crate::app::win_events_handlers::position_event_handler::PositionEventHandler;
 use crate::modules::module::module_impl::ModuleImpl;
 use crate::modules::module::{ConfigurableModule, Module};
 use crate::win32::api::misc::{get_current_thread_id, post_empty_thread_message};
-
-use crate::app::win_events_handlers::position_event_handler::PositionEventHandler;
-use crate::app::win_events_handlers::{
-    minimize_event_handler::MinimizeEventHandler, open_event_handler::OpenCloseEventHandler,
-};
 use crate::win32::api::monitor::enum_display_monitors;
+use crate::win32::api::window::destroy_window;
 use crate::win32::win_events_manager::WinEventManager;
 use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::mpsc::{channel, Receiver};
-use std::sync::mpsc::{RecvError, Sender};
+use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
 use std::sync::Arc;
-use std::thread::{self};
-
-use super::config::CoreModuleConfigs;
+use std::thread;
+use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 pub struct CoreModule {
     tm_command_tx: Option<Sender<TMCommand>>,
@@ -64,7 +61,13 @@ impl CoreModule {
     fn run_win_events_loop(&mut self, event_sender: Sender<TMCommand>) {
         let detect_maximized_windows = self.configs.detect_maximized_windows;
         let win_events_thread_id = self.win_events_thread_id.clone();
+        let bus_tx = self.bus_tx.clone();
         self.win_events_thread = Some(thread::spawn(move || {
+            let hwnd = display_change_detector::create(bus_tx.clone());
+            if hwnd.is_none() {
+                log::warn!("Failure while trying to create the monitor events detector window");
+            }
+
             win_events_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             let mut wem = WinEventManager::new();
             wem.hook(PositionEventHandler::new(event_sender.clone()));
@@ -74,6 +77,10 @@ impl CoreModule {
                 wem.hook(MaximizeEventHandler::new(event_sender.clone()));
             }
             wem.start_event_loop();
+
+            if let Some(hwnd) = hwnd {
+                destroy_window(hwnd);
+            }
         }));
     }
 
@@ -115,8 +122,9 @@ impl ModuleImpl for CoreModule {
 
         self.running.store(true, Ordering::SeqCst);
         let (event_sender, event_receiver) = channel();
-        self.run_win_events_loop(event_sender.clone());
         self.tm_command_tx = Some(event_sender.clone());
+
+        self.run_win_events_loop(event_sender.clone());
         self.run_tiles_manager(event_receiver);
 
         log::trace!("App::run() done");
@@ -130,6 +138,7 @@ impl ModuleImpl for CoreModule {
         self.running.store(false, Ordering::SeqCst);
 
         log::trace!("Start App::stop()");
+
         self.tm_command_tx.as_ref().unwrap().send(TMCommand::Quit).unwrap();
 
         if let Some(thread) = self.win_events_thread.take() {
@@ -175,8 +184,11 @@ impl ModuleImpl for CoreModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            msg if TMCommand::from(msg).is_op() => self.send_to_tm(msg.into()),
+            MondrianMessage::MonitorsLayoutChanged => {
+                Module::restart(self);
+            }
             MondrianMessage::Quit => Module::stop(self),
+            msg if TMCommand::from(msg).is_op() => self.send_to_tm(msg.into()),
             _ => {}
         }
     }
