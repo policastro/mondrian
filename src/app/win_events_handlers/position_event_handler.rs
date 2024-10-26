@@ -63,7 +63,7 @@ impl PositionEventHandler {
         let event: TMCommand = match area_shift.2 != 0 || area_shift.3 != 0 {
             true => {
                 let ((min_width, min_height), _) = get_window_minmax_size(hwnd);
-                // BUG: Used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
+                // BUG: used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
                 let is_minsize = (curr_area.width as i32 == min_width) || (curr_area.height as i32 == min_height);
                 if !curr_area.contains(dest_point) && is_minsize {
                     TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation)

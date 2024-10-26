@@ -6,6 +6,7 @@ use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use serde::Deserialize;
+use std::f32::consts::PI;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -163,18 +164,38 @@ impl WindowAnimator {
 pub enum WindowAnimation {
     Linear,
     EaseIn,
+    EaseInSine,
     EaseInQuad,
     EaseInCubic,
+    EaseInQuart,
     EaseInQuint,
+    EaseInExpo,
+    EaseInCirc,
+    EaseInBack,
+    EaseInElastic,
+    EaseInBounce,
     EaseOut,
-    EaseOutCubic,
+    EaseOutSine,
     EaseOutQuad,
+    EaseOutCubic,
+    EaseOutQuart,
     EaseOutQuint,
+    EaseOutExpo,
+    EaseOutCirc,
     EaseOutBack,
-    EaseOutBounce,
     EaseOutElastic,
+    EaseOutBounce,
     EaseInOut,
+    EaseInOutSine,
+    EaseInOutQuad,
+    EaseInOutCubic,
+    EaseInOutQuart,
+    EaseInOutQuint,
+    EaseInOutExpo,
+    EaseInOutCirc,
     EaseInOutBack,
+    EaseInOutElastic,
+    EaseInOutBounce,
 }
 
 impl Default for WindowAnimation {
@@ -186,32 +207,90 @@ impl Default for WindowAnimation {
 impl WindowAnimation {
     fn get_next_frame(&self, src: f32, trg: f32, percent: f32) -> f32 {
         let t = percent;
-        match self {
-            Self::Linear => Self::lerp(src, trg, t),
-            Self::EaseIn => Self::lerp(src, trg, t * t),
-            Self::EaseInCubic => Self::lerp(src, trg, t * t * t),
-            Self::EaseInQuad => Self::lerp(src, trg, t * t * t * t),
-            Self::EaseInQuint => Self::lerp(src, trg, t * t * t * t * t),
-            Self::EaseOut => Self::lerp(src, trg, 1.0 - (1.0 - t).powi(2)),
-            Self::EaseOutCubic => Self::lerp(src, trg, 1.0 - (1.0 - t).powi(3)),
-            Self::EaseOutQuad => Self::lerp(src, trg, 1.0 - (1.0 - t).powi(2)),
-            Self::EaseOutQuint => Self::lerp(src, trg, 1.0 - (1.0 - t).powi(5)),
-            Self::EaseOutBack => Self::lerp(src, trg, Self::ease_out_back(t)),
-            Self::EaseOutBounce => Self::lerp(src, trg, Self::ease_out_bounce(t)),
-            Self::EaseOutElastic => Self::lerp(src, trg, Self::ease_out_elastic(t)),
-            Self::EaseInOut => Self::lerp(src, trg, t * t * (3.0 - 2.0 * t)),
-            Self::EaseInOutBack => Self::lerp(src, trg, Self::ease_in_out_back(t)),
-        }
+        let t = match self {
+            Self::Linear => t,
+            Self::EaseIn | Self::EaseInQuad => t * t,
+            Self::EaseInSine => 1.0 - ((t * PI) / 2.0).cos(),
+            Self::EaseInCubic => t * t * t,
+            Self::EaseInQuart => t * t * t * t,
+            Self::EaseInQuint => t * t * t * t * t,
+            Self::EaseInExpo => match t == 0.0 {
+                true => 0.0,
+                false => 2.0f32.powf(10.0 * t - 10.0),
+            },
+            Self::EaseInCirc => 1.0 - (1.0 - (t * t)).sqrt(),
+            Self::EaseInBack => Self::ease_in_back(t),
+            Self::EaseInElastic => Self::ease_in_elastic(t),
+            Self::EaseInBounce => 1.0 - Self::ease_out_bounce(1.0 - t),
+            Self::EaseOut | Self::EaseOutQuad => 1.0 - (1.0 - t).powi(2),
+            Self::EaseOutSine => ((t * PI) / 2.0).sin(),
+            Self::EaseOutCubic => 1.0 - (1.0 - t).powi(3),
+            Self::EaseOutQuart => 1.0 - (1.0 - t).powi(4),
+            Self::EaseOutQuint => 1.0 - (1.0 - t).powi(5),
+            Self::EaseOutExpo => match t == 1.0 {
+                true => 1.0,
+                false => 1.0 - 2.0f32.powf(-10.0 * t),
+            },
+            Self::EaseOutCirc => (1.0 - (t - 1.0).powf(2.0)).sqrt(),
+            Self::EaseOutBack => Self::ease_out_back(t),
+            Self::EaseOutElastic => Self::ease_out_elastic(t),
+            Self::EaseOutBounce => Self::ease_out_bounce(t),
+            Self::EaseInOut | Self::EaseInOutQuad => Self::ease_in_out_pow(t, 2.0),
+            Self::EaseInOutSine => -((t * PI).cos() - 1.0) / 2.0,
+            Self::EaseInOutCubic => Self::ease_in_out_pow(t, 3.0),
+            Self::EaseInOutQuart => Self::ease_in_out_pow(t, 4.0),
+            Self::EaseInOutQuint => Self::ease_in_out_pow(t, 5.0),
+            Self::EaseInOutExpo => match t == 0.0 || t == 1.0 {
+                true => t,
+                false => match t < 0.5 {
+                    true => 2.0f32.powf(20.0 * t - 10.0) / 2.0,
+                    false => 2.0 - 2.0f32.powf(-20.0 * t + 10.0) / 2.0,
+                },
+            },
+            Self::EaseInOutCirc => match t < 0.5 {
+                true => (1.0 - (1.0 - (2.0 * t).powf(2.0)).sqrt()) / 2.0,
+                false => ((1.0 + (-2.0 * t - 2.0).powf(2.0)).sqrt() + 1.0) / 2.0,
+            },
+            Self::EaseInOutBack => Self::ease_in_out_back(t),
+            Self::EaseInOutElastic => Self::ease_in_out_elastic(t),
+            Self::EaseInOutBounce => match t < 0.5 {
+                true => (1.0 - Self::ease_out_bounce(1.0 - 2.0 * t)) / 2.0,
+                false => (1.0 + Self::ease_out_bounce(2.0 * t - 1.0)) / 2.0,
+            },
+        };
+        Self::lerp(src, trg, t)
     }
 
     fn lerp(a: f32, b: f32, t: f32) -> f32 {
         a + (b - a) * t
     }
 
+    fn ease_in_back(t: f32) -> f32 {
+        const C1: f32 = 1.70158;
+        const C3: f32 = C1 + 1.0;
+        C3 * t.powi(3) + C1 * t.powi(2)
+    }
+
+    fn ease_in_elastic(t: f32) -> f32 {
+        const C4: f32 = (2.0 * PI) / 3.0;
+        if t == 0.0 || t == 1.0 {
+            return t;
+        }
+        -(2.0f32.powf(10.0 * t - 10.0)) * ((10.0 * t - 10.75) * C4).sin()
+    }
+
     fn ease_out_back(t: f32) -> f32 {
         const C1: f32 = 1.70158;
         const C3: f32 = C1 + 1.0;
         1.0 + C3 * (t - 1.0).powi(3) + C1 * (t - 1.0).powi(2)
+    }
+
+    fn ease_out_elastic(t: f32) -> f32 {
+        const C4: f32 = (2.0 * PI) / 3.0;
+        if t == 0.0 || t == 1.0 {
+            return t;
+        }
+        2.0f32.powf(-10.0 * t) * ((10.0 * t - 0.75) * C4).sin() + 1.0
     }
 
     fn ease_out_bounce(t: f32) -> f32 {
@@ -232,22 +311,31 @@ impl WindowAnimation {
         }
     }
 
-    fn ease_out_elastic(t: f32) -> f32 {
-        const C4: f32 = (2.0 * std::f32::consts::PI) / 3.0;
-        if t == 0.0 || t == 1.0 {
-            return t;
+    fn ease_in_out_pow(t: f32, p: f32) -> f32 {
+        match t < 0.5 {
+            true => 2.0f32.powf(p - 1.0) * t.powf(p),
+            false => 1.0 - ((-2.0 * t + 2.0).powf(p) / 2.0),
         }
-        2.0f32.powf(-10.0 * t) * (t * 10.0 - 0.75).sin() * C4 + 1.0
     }
 
     fn ease_in_out_back(t: f32) -> f32 {
         const C1: f32 = 1.70158;
         const C2: f32 = C1 * 1.525;
 
-        if t < 0.5 {
-            ((2.0 * t).powi(2) * ((C2 + 1.0) * 2.0 * t - C2)) / 2.0
-        } else {
-            ((2.0 * t - 2.0).powi(2) * ((C2 + 1.0) * (2.0 * t - 2.0) + C2) + 2.0) / 2.0
+        match t < 0.5 {
+            true => ((2.0 * t).powi(2) * ((C2 + 1.0) * 2.0 * t - C2)) / 2.0,
+            false => ((2.0 * t - 2.0).powi(2) * ((C2 + 1.0) * (2.0 * t - 2.0) + C2) + 2.0) / 2.0,
+        }
+    }
+
+    fn ease_in_out_elastic(t: f32) -> f32 {
+        const C5: f32 = (2.0 * PI) / 4.5;
+        if t == 0.0 || t == 1.0 {
+            return t;
+        }
+        match t < 0.5 {
+            true => -(2.0f32.powf(20.0 * t - 10.0) * ((20.0 * t - 11.125) * C5).sin()) / 2.0,
+            false => ((2.0f32.powf(-20.0 * t + 10.0) * ((20.0 * t - 11.125) * C5).sin()) / 2.0) + 1.0,
         }
     }
 }

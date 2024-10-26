@@ -44,7 +44,7 @@ pub struct Layout {
     pub animations_enabled: bool,
     #[serde(deserialize_with = "deserializers::to_u32_minmax::<100,10000,_>")]
     pub animations_duration: u32,
-    #[serde(deserialize_with = "deserializers::to_u8_min::<10,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,120,_>")]
     pub animations_framerate: u8,
     #[serde(default)]
     pub animation_type: Option<WindowAnimation>,
@@ -188,13 +188,6 @@ impl From<&Vec<RuleConfig>> for WinMatcher {
 /// Deserialization functions
 pub mod deserializers {
     use serde::{de::Error, Deserialize, Deserializer};
-
-    pub fn to_u8_min<'de, const MIN: u8, D>(deserializer: D) -> Result<u8, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        to_u8_minmax::<'de, MIN, { u8::MAX }, D>(deserializer)
-    }
 
     pub fn to_u8_max<'de, const MAX: u8, D>(deserializer: D) -> Result<u8, D::Error>
     where

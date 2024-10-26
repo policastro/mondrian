@@ -41,7 +41,7 @@ impl OpenCloseEventHandler {
 
 impl WinEventHandler for OpenCloseEventHandler {
     fn init(&mut self) {
-        // INFO: Bigger windows first
+        // INFO: bigger windows first
         let mut wins: Vec<(u32, HWND)> = enum_user_manageable_windows()
             .into_iter()
             .map(|w| (w.get_window_box().unwrap_or_default().get_area(), w.hwnd))

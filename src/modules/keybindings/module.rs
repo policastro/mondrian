@@ -55,7 +55,7 @@ impl ModuleImpl for KeybindingsModule {
         let main_thread_id = self.main_thread_id.clone();
         let mut bindings = self.configs.get_grouped_bindings();
 
-        // INFO: When paused, keeps only the bindings to unpause
+        // INFO: when paused, keeps only the bindings to unpause
         if self.paused {
             bindings.values_mut().for_each(|v| v.retain(|(_, _, p)| *p));
             bindings.retain(|_, v| !v.is_empty());
@@ -111,7 +111,7 @@ impl ModuleImpl for KeybindingsModule {
         self.binded_keys.iter().for_each(|k| k.unbind());
         self.binded_keys.clear();
 
-        // WARNING: Not sure why this is required, but without it the module crashes
+        // WARNING: not sure why this is required, but without it the module crashes
         post_empty_thread_message(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT);
         inputbot::stop_handling_input_events();
         if self.input_thread.is_some() {

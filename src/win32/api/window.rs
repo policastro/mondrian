@@ -117,7 +117,7 @@ pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic
         return false;
     }
 
-    // INFO: To exclude admin windows
+    // INFO: to exclude admin windows
     if get_executable_name(hwnd).is_none() || get_executable_name(hwnd).is_some_and(|s| s == "mondrian.exe") {
         return false;
     }
