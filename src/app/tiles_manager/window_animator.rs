@@ -1,18 +1,18 @@
-use std::collections::HashMap;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::time::Duration;
-use std::time::SystemTime;
-
-use serde::Deserialize;
-use windows::Win32::Foundation::HWND;
-
 use crate::app::structs::area::Area;
+use crate::win32::api::window::begin_defer_window_pos;
+use crate::win32::api::window::end_defer_window_pos;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
+use serde::Deserialize;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
+use std::time::SystemTime;
+use windows::Win32::Foundation::HWND;
 
 pub struct WindowAnimator {
     windows: Vec<(WindowRef, Area)>,
@@ -21,10 +21,11 @@ pub struct WindowAnimator {
     animation_duration: Duration,
     framerate: u8,
     previous_foreground: Option<HWND>,
+    on_error: Arc<dyn Fn() + Send + Sync + 'static>,
 }
 
 impl WindowAnimator {
-    pub fn new(animation_duration: Duration, framerate: u8) -> Self {
+    pub fn new<E: Fn() + Send + Sync + 'static>(animation_duration: Duration, framerate: u8, on_error: E) -> Self {
         assert!(animation_duration.as_millis() > 0);
         assert!(framerate > 0);
         WindowAnimator {
@@ -34,6 +35,7 @@ impl WindowAnimator {
             animation_duration,
             framerate,
             previous_foreground: None,
+            on_error: Arc::new(on_error),
         }
     }
 
@@ -56,7 +58,7 @@ impl WindowAnimator {
         }
     }
 
-    pub fn start(&mut self, animation: Option<(WindowAnimation, WindowAnimation)>) {
+    pub fn start(&mut self, animation: Option<WindowAnimation>) {
         self.previous_foreground = get_foreground_window();
         if animation.is_none() {
             Self::move_windows(&self.windows);
@@ -71,51 +73,63 @@ impl WindowAnimator {
         let duration = self.animation_duration.as_millis();
         let framerate = self.framerate;
         let frame_duration = Duration::from_millis(1000 / u64::from(framerate));
+        let on_error = self.on_error.clone();
         self.animation_thread = Some(std::thread::spawn(move || {
+            running.store(true, Ordering::SeqCst);
             let mut is_running = true;
-            let src_areas: HashMap<isize, Option<Area>> = wins
-                .iter()
-                .filter_map(|(w, _)| {
+            let fwins: Vec<(WindowRef, Area, Area)> = wins
+                .clone()
+                .into_iter()
+                .filter_map(|(w, t)| {
+                    let src_area: Area = w.get_window_box()?;
                     w.restore();
-                    w.get_window_box().map(|a| (w.hwnd.0, Some(a)))
+                    match src_area == t {
+                        true => None,
+                        false => Some((w, src_area, t)),
+                    }
                 })
                 .collect();
-            running.store(true, Ordering::SeqCst);
             let start_time = SystemTime::now();
             while is_running {
                 let passed = start_time.elapsed().unwrap().as_millis();
-                let frame_end = passed + frame_duration.as_millis();
-                for (win, target_area) in wins
-                    .iter()
-                    .filter(|(w, t)| src_areas.get(&w.hwnd.0).is_some_and(|a| a.is_some_and(|a| a != *t)))
-                {
-                    is_running = running.load(Ordering::Relaxed) && passed <= duration;
-                    if !is_running {
-                        break;
+                let mut hdwp = begin_defer_window_pos(fwins.len() as i32).unwrap();
+                is_running = running.load(Ordering::Relaxed) && passed <= duration;
+                if !is_running {
+                    break;
+                }
+                let frame_start = Instant::now();
+                for (win, src_area, target_area) in fwins.iter() {
+                    if src_area == target_area {
+                        continue;
                     }
-                    if let Some(Some(src_area)) = src_areas.get(&win.hwnd.0) {
-                        if src_area == target_area {
-                            continue;
-                        }
-                        let ((x1, y1), (w1, h1)) = (src_area.get_origin(), src_area.get_size());
-                        let ((x2, y2), (w2, h2)) = (target_area.get_origin(), target_area.get_size());
-                        let percent = (passed as f32 / duration as f32).clamp(0.0, 100.0);
-                        let new_area = Area::new(
-                            animation.0.get_next_frame(x1 as f32, x2 as f32, percent) as i32,
-                            animation.0.get_next_frame(y1 as f32, y2 as f32, percent) as i32,
-                            animation.1.get_next_frame(w1 as f32, w2 as f32, percent) as u16,
-                            animation.1.get_next_frame(h1 as f32, h2 as f32, percent) as u16,
-                        );
+                    let ((x1, y1), (w1, h1)) = (src_area.get_origin(), src_area.get_size());
+                    let ((x2, y2), (w2, h2)) = (target_area.get_origin(), target_area.get_size());
+                    let percent = (passed as f32 / duration as f32).clamp(0.0, 100.0);
+                    let new_area = Area::new(
+                        animation.get_next_frame(x1 as f32, x2 as f32, percent) as i32,
+                        animation.get_next_frame(y1 as f32, y2 as f32, percent) as i32,
+                        animation.get_next_frame(w1 as f32, w2 as f32, percent) as u16,
+                        animation.get_next_frame(h1 as f32, h2 as f32, percent) as u16,
+                    );
 
-                        let _ = win
-                            .resize_and_move(new_area.get_origin(), new_area.get_size(), false, false)
-                            .inspect_err(|_| log::error!("Failed to resize and move window {:?}", win.hwnd));
+                    let (pos, size) = match src_area.get_origin() == target_area.get_origin() {
+                        true => (target_area.get_origin(), new_area.get_size()),
+                        false => (new_area.get_origin(), target_area.get_size()),
+                    };
+
+                    if let Ok(v) = win.defer_resize_and_move(hdwp, pos, size, false, false) {
+                        hdwp = v;
+                    } else {
+                        log::error!("Failed to move window");
+                        (on_error)();
+                        return;
                     }
                 }
-                is_running = running.load(Ordering::Relaxed) && passed <= duration;
-                let animation_time = start_time.elapsed().unwrap().as_millis();
-                if animation_time < frame_end {
-                    std::thread::sleep(Duration::from_millis(frame_end.saturating_sub(animation_time) as u64));
+
+                end_defer_window_pos(hdwp);
+                if frame_start.elapsed() < frame_duration {
+                    let sleep_time = frame_duration.saturating_sub(frame_start.elapsed());
+                    std::thread::sleep(sleep_time);
                 }
             }
 
@@ -135,7 +149,7 @@ impl WindowAnimator {
 
     fn move_windows(windows: &[(WindowRef, Area)]) {
         windows.iter().for_each(|(window, target_area)| {
-            let _ = window.resize_and_move(target_area.get_origin(), target_area.get_size(), false, true);
+            let _ = window.resize_and_move(target_area.get_origin(), target_area.get_size(), true, false, true);
             let _ = window.redraw();
         });
         if let Some(hwnd) = get_foreground_window() {
@@ -149,8 +163,8 @@ impl WindowAnimator {
 pub enum WindowAnimation {
     Linear,
     EaseIn,
-    EaseInCubic,
     EaseInQuad,
+    EaseInCubic,
     EaseInQuint,
     EaseOut,
     EaseOutCubic,

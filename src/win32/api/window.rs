@@ -13,11 +13,11 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFOR
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongA,
-    GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-    RealGetWindowClassW, SendMessageW, SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, MINMAXINFO,
-    SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT, WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO,
-    WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
+    BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetForegroundWindow,
+    GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowPlacement, GetWindowRect, GetWindowTextW,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
+    ShowWindow, GWL_STYLE, GW_OWNER, HDWP, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
 };
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
@@ -264,4 +264,15 @@ pub fn create_window<T>(
         true => None,
         false => Some(hwnd),
     }
+}
+
+pub fn begin_defer_window_pos(count: i32) -> Option<HDWP> {
+    match unsafe { BeginDeferWindowPos(count) } {
+        Ok(hdwp) => Some(hdwp),
+        Err(_) => None,
+    }
+}
+
+pub fn end_defer_window_pos(hdwp: HDWP) -> bool {
+    unsafe { EndDeferWindowPos(hdwp).is_ok() }
 }

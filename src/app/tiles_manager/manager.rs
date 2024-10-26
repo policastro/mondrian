@@ -25,7 +25,11 @@ pub struct TilesManager {
 
 impl TilesManager {
     /// Creates a new [`TilesManager`].
-    pub fn new(monitors_layout: Vec<MonitorLayout>, config: Option<TilesManagerConfig>) -> Self {
+    pub fn new<E: Fn() + Send + Sync + 'static>(
+        monitors_layout: Vec<MonitorLayout>,
+        config: Option<TilesManagerConfig>,
+        on_update_error: E,
+    ) -> Self {
         let config = config.unwrap_or_default();
         let containers = monitors_layout
             .into_iter()
@@ -40,7 +44,7 @@ impl TilesManager {
             .collect();
 
         let animation_duration = Duration::from_millis(config.get_animation_duration().into());
-        let animator = WindowAnimator::new(animation_duration, config.get_framerate());
+        let animator = WindowAnimator::new(animation_duration, config.get_framerate(), on_update_error);
         TilesManager {
             unmanaged_wins: HashSet::new(),
             containers,

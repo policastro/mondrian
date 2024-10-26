@@ -64,8 +64,8 @@ impl TilesManagerConfig {
         }
     }
 
-    pub fn get_animations(&self) -> Option<(WindowAnimation, WindowAnimation)> {
-        self.animation_type.clone().map(|a| (a.clone(), a))
+    pub fn get_animations(&self) -> Option<WindowAnimation> {
+        self.animation_type.clone()
     }
 
     pub fn get_animation_duration(&self) -> u32 {

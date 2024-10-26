@@ -93,7 +93,12 @@ impl CoreModule {
             .collect();
 
         let tm_configs = TilesManagerConfig::from(&self.configs);
-        let mut tm = TilesManager::new(monitors, Some(tm_configs));
+        let tm_tx = self.tm_command_tx.clone();
+        let mut tm = TilesManager::new(monitors, Some(tm_configs), move || {
+            if let Some(tx) = tm_tx.as_ref() {
+                tx.send(TMCommand::Update).unwrap();
+            }
+        });
         let tx = self.bus_tx.clone();
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
             match filter_events(event_receiver.recv(), &filter) {
@@ -230,6 +235,10 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
+            Ok(())
+        }
+        TMCommand::Update => {
+            tm.update(false);
             Ok(())
         }
         TMCommand::Noop => return true,
