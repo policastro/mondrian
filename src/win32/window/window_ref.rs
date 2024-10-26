@@ -2,8 +2,9 @@ use windows::Win32::{
     Foundation::HWND,
     Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
-        DeferWindowPos, IsIconic, IsWindowVisible, SetWindowPos, HDWP, SWP_ASYNCWINDOWPOS, SWP_NOREDRAW,
-        SWP_NOSENDCHANGING, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MINIMIZE, SW_RESTORE, SW_SHOWNORMAL,
+        DeferWindowPos, IsIconic, IsWindowVisible, SetWindowPos, HDWP, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED,
+        SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOREDRAW, SWP_NOSENDCHANGING, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MINIMIZE,
+        SW_RESTORE, SW_SHOWNORMAL,
     },
 };
 
@@ -72,7 +73,7 @@ impl WindowObjInfo for WindowRef {
     }
 
     fn get_window_box(&self) -> Option<Area> {
-        // INFO: Some apps (like Windows settings) have negative values (-8)
+        // INFO: some apps (like Windows settings) have negative values (-8)
         get_window_box(self.hwnd)
             .map(|b| Area::new(b[0], b[1], b[2].try_into().unwrap_or(0), b[3].try_into().unwrap_or(0)))
     }
@@ -121,7 +122,7 @@ impl WindowObjHandler for WindowRef {
                 flags |= SWP_ASYNCWINDOWPOS;
             }
             if force_normal {
-                show_window(self.hwnd, SW_SHOWNORMAL); // INFO: Remove maximized state
+                show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
             }
             match SetWindowPos(self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
                 Ok(_) => Ok(()),
@@ -141,12 +142,12 @@ impl WindowObjHandler for WindowRef {
         unsafe {
             let coord = (coordinates.0, coordinates.1);
             let size = (i32::from(size.0), i32::from(size.1));
-            let flags = match redraw {
-                true => SWP_SHOWWINDOW | SWP_NOREDRAW | SWP_NOZORDER,
-                false => SWP_SHOWWINDOW | SWP_NOZORDER,
+            let mut flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_FRAMECHANGED;
+            if !redraw {
+                flags |= SWP_NOREDRAW;
             };
             if force_normal {
-                show_window(self.hwnd, SW_SHOWNORMAL); // INFO: Remove maximized state
+                show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
             }
             match DeferWindowPos(hdwp, self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
                 Ok(hdwp) => Ok(hdwp),

@@ -14,7 +14,7 @@ pub mod tiles_manager {
     pub mod manager;
     pub mod monitor_layout;
     pub mod tm_command;
-    pub mod window_animator;
+    pub mod window_animation_player;
 }
 
 pub mod area_tree {

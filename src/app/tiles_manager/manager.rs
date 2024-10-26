@@ -3,7 +3,7 @@ use super::container::Container;
 use super::container::ContainerLayer;
 use super::containers_manager::Containers;
 use super::monitor_layout::MonitorLayout;
-use super::window_animator::WindowAnimator;
+use super::window_animation_player::WindowAnimationPlayer;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::structs::direction::Direction;
@@ -20,7 +20,7 @@ pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,
     unmanaged_wins: HashSet<isize>,
     config: TilesManagerConfig,
-    animator: WindowAnimator,
+    animation_player: WindowAnimationPlayer,
 }
 
 impl TilesManager {
@@ -44,12 +44,12 @@ impl TilesManager {
             .collect();
 
         let animation_duration = Duration::from_millis(config.get_animation_duration().into());
-        let animator = WindowAnimator::new(animation_duration, config.get_framerate(), on_update_error);
+        let animation_player = WindowAnimationPlayer::new(animation_duration, config.get_framerate(), on_update_error);
         TilesManager {
             unmanaged_wins: HashSet::new(),
             containers,
             config,
-            animator,
+            animation_player,
         }
     }
 
@@ -105,10 +105,10 @@ impl TilesManager {
         let src_c = self.containers.find(current.0, true)?;
         let src_area = src_c.get_active()?.find_leaf(current.0, 0)?.viewbox;
         let point = match direction {
-            Direction::Right => src_area.get_ne_corner().with_offset(1, 1), // INFO: Prefer up
-            Direction::Down => src_area.get_se_corner().with_offset(-1, 1), // INFO: Prefer right
-            Direction::Left => src_area.get_sw_corner().with_offset(-1, -1), // INFO: Prefer down
-            Direction::Up => src_area.get_nw_corner().with_offset(1, -1),   // INFO: Prefer left
+            Direction::Right => src_area.get_ne_corner().with_offset(1, 1), // INFO: prefer up
+            Direction::Down => src_area.get_se_corner().with_offset(-1, 1), // INFO: prefer right
+            Direction::Left => src_area.get_sw_corner().with_offset(-1, -1), // INFO: prefer down
+            Direction::Up => src_area.get_nw_corner().with_offset(1, -1),   // INFO: prefer left
         };
 
         let params = if let Some(c) = self.containers.find_at(point) {
@@ -258,7 +258,7 @@ impl TilesManager {
         };
 
         let area = orig_area.pad(Some(padding.0), Some(padding.1));
-        self.on_resize(curr, orig_area.get_shift(&area), false)
+        self.on_resize(curr, orig_area.get_shift(&area), true)
     }
 
     pub(crate) fn invert_orientation(&mut self) -> Result<(), Error> {
@@ -369,8 +369,8 @@ impl TilesManager {
     }
 
     pub fn update(&mut self, animate: bool) {
-        let animator = &mut self.animator;
-        animator.cancel();
+        let anim_player = &mut self.animation_player;
+        anim_player.cancel();
         self.containers.values_mut().for_each(|c| {
             let (border_pad, tile_pad) = match c.is_focalized() {
                 true => (self.config.get_focalized_pad(), (0, 0)),
@@ -378,15 +378,15 @@ impl TilesManager {
             };
 
             if let Some(c) = c.get_active_mut() {
-                let _ = c.update(border_pad, tile_pad, animator);
+                let _ = c.update(border_pad, tile_pad, anim_player);
             }
         });
         let animation = self.config.get_animations().filter(|_| animate);
-        animator.start(animation);
+        anim_player.play(animation);
     }
 
     pub fn cancel_animation(&mut self) {
-        self.animator.cancel();
+        self.animation_player.cancel();
     }
 
     fn focus_next(&mut self) {

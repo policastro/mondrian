@@ -1,6 +1,6 @@
 use crate::modules::core::config::CoreModuleConfigs;
 
-use super::window_animator::WindowAnimation;
+use super::window_animation_player::WindowAnimation;
 
 #[derive(Default)]
 pub struct TilesManagerConfig {

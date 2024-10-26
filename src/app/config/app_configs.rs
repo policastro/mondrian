@@ -10,7 +10,7 @@ use crate::{
             two_step::TwoStep,
             LayoutStrategyEnum,
         },
-        tiles_manager::window_animator::WindowAnimation,
+        tiles_manager::window_animation_player::WindowAnimation,
     },
     modules::{keybindings::configs::KeybindingsModuleConfigs, overlays::configs::OverlaysModuleConfigs},
 };
