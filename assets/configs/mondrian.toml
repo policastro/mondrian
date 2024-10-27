@@ -1,12 +1,12 @@
 [layout]
 tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
-tiles_padding = 4                # padding between tiles, it must be between 0 and 60
-border_padding = 4               # padding between border and tiles, it must be between 0 and 60
+tiles_padding = 12               # padding between tiles, it must be between 0 and 60
+border_padding = 18              # padding between border and tiles, it must be between 0 and 60
 focalized_padding = 8            # padding for the focalized window, it must be between 0 and 60
 insert_in_monitor = true         # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
-animations_enabled = true        # if true, the animations will be enabled
+animations_enabled = true        # enables or disables the animations
 animation_type = "ease_out_back" # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
-animations_duration = 400        # duration of the animation in milliseconds
+animations_duration = 350        # duration of the animation in milliseconds
 animations_framerate = 60        # animations framerate
 
 [layout.golden_ratio] # if tiling_strategy = "golden_ratio"
@@ -15,22 +15,22 @@ vertical = false # if true, the first split will be vertical
 ratio = 65       # ratio of the first split
 
 [layout.horizontal] # if tiling_strategy = "horizontal"
-grow_right = true # direction of the first split
+grow_right = true # if true, new windows will be placed on the right side of the screen
 
 [layout.vertical] # if tiling_strategy = "vertical"
-grow_down = true # direction of the first split
+grow_down = true # if true, new windows will be placed on the bottom side of the screen
 
 [layout.twostep] # if tiling_strategy = "twostep"
-first_step = "right" # first insertion direction, can be "right", "left", "up" or "down"
-second_step = "down" # second insertion direction, can be "right", "left", "up" or "down"
+first_step = "right" # first insertion direction, can be <"right"|"left"|"up"|"down">
+second_step = "down" # second insertion direction, can be <"right"|"left"|"up"|"down">
 ratio = 65           # ratio of the first split
 
 [modules.keybindings]
-enabled = true # if true, the keybindings will be shown
-default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT", "WIN" or any combination of them (e.g. "CTRL+ALT+SHIFT")
+enabled = true # enables or disables the keybindings module
+default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT" or any combination of them (e.g. "CTRL+ALT+SHIFT")
 bindings = [
-    # { key = "X", action = "quit" },                              # e.g. when pressing <default_modifier>+X, the action will be "quit"
-    # { modifier = "CTRL", key = "R", action = "refresh-config" }, # e.g. when pressing CTRL+R, the action will be "refresh"
+    # { key = "X", action = "quit" },                                   # e.g. when pressing <default_modifier>+X, the action will be "quit"
+    # { modifier = "CTRL+ALT", key = "R", action = "refresh-config" },  # e.g. when pressing CTRL+ALT+R, the action will be "refresh-config"
     # Navigation
     { modifier = "CTRL+ALT", key = "left", action = "focus left" },
     { modifier = "CTRL+ALT", key = "right", action = "focus right" },
@@ -46,7 +46,7 @@ bindings = [
     { modifier = "CTRL+SHIFT", key = "right", action = "resize right 150" },
     { modifier = "CTRL+SHIFT", key = "up", action = "resize up 150" },
     { modifier = "CTRL+SHIFT", key = "down", action = "resize down 150" },
-    # Commands
+    # Others
     { key = "r", action = "release" },
     { key = "f", action = "focalize" },
     { key = "m", action = "minimize" },
@@ -56,26 +56,26 @@ bindings = [
 ]
 
 [modules.overlays]
-enabled = true               # if true, the overlays will be shown
-update_while_resizing = true # if true, the overlays will be updated while resizing
-active.enabled = true        # if true, the active overlay will be shown
+enabled = true               # enables or disables the overlays module
+update_while_resizing = true # the overlays will be updated while resizing
+active.enabled = true        # shows the active overlay will be shown
 active.thickness = 4         # thickness of the border
-active.color = [0, 200, 0]   # color of the border
-active.padding = 0           # padding between the border and the tiles
-inactive.enabled = true      # if true, the inactive overlay will be shown
+active.color = "#FE4A49"     # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+active.padding = 0           # padding between the overlay and the window
+inactive.enabled = true      # shows the inactive overlays
 inactive.thickness = 4       # thickness of the border
-inactive.color = [200, 0, 0] # color of the border
-inactive.padding = 0         # padding between the border and the tiles
+inactive.color = "#FED766"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+inactive.padding = 0         # padding between the overlay and the window
 
 # Other settings
 [advanced]
-detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine. WARNING: it will increase the CPU usage
+detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine
 
 [core]
 rules = [
-    # { title = "Title", exename = "app.exe", classname ="ApplicationWindow" }, # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
-    # { title = "Title" }, # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
-    # { title = "/Title[0-9]/" }, # match any window with a title that matches the regex "/Title[0-9]/" (you can use regex in title, exename and classname by enclosing them in slashes)
+    # { title = "Title", exename = "app.exe", classname = "ApplicationWindow" },                       # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
+    # { title = "Title" },                                                                             # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
+    # { title = "/Title[0-9]/" },                                                                      # match any window with a title that matches the regex "/Title[0-9]/" (you can use regex in title, exename and classname by enclosing them in slashes)
     { exename = "OpenWith.exe" },                                                                    # "Open with" dialog 
     { classname = "OperationStatusWindow" },                                                         # Explorer operation status 
     { title = "/[Pp]icture.in.[Pp]icture/", classname = "/Chrome_WidgetWin_1|MozillaDialogClass/" }, # PIP Firefox/Chrome
