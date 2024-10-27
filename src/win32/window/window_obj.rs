@@ -33,5 +33,5 @@ pub trait WindowObjHandler {
     ) -> Result<HDWP, ()>;
     fn redraw(&self) -> Result<(), ()>;
     fn minimize(&self) -> bool;
-    fn restore(&self) -> bool;
+    fn restore(&self, activate: bool) -> bool;
 }

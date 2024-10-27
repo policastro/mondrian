@@ -52,6 +52,7 @@ impl OverlaysManager {
         if self.locked {
             return;
         }
+
         if let Some(o) = self.overlays.get_mut(&hwnd.0) {
             o.reposition(None)
         };
@@ -71,9 +72,8 @@ impl OverlaysManager {
     }
 
     pub fn resume(&mut self) {
-        self.unlock();
-        self.overlays.iter_mut().for_each(|(_, o)| o.show());
         self.overlays.iter_mut().for_each(|(_, o)| o.reposition(None));
+        self.unlock();
     }
 
     pub fn destroy(&mut self) {

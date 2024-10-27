@@ -4,7 +4,7 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{
         DeferWindowPos, IsIconic, IsWindowVisible, SetWindowPos, HDWP, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED,
         SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOREDRAW, SWP_NOSENDCHANGING, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MINIMIZE,
-        SW_RESTORE, SW_SHOWNORMAL,
+        SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL,
     },
 };
 
@@ -197,7 +197,7 @@ impl WindowObjHandler for WindowRef {
         show_window(self.hwnd, SW_MINIMIZE)
     }
 
-    fn restore(&self) -> bool {
-        show_window(self.hwnd, SW_RESTORE)
+    fn restore(&self, activate: bool) -> bool {
+        show_window(self.hwnd, if activate { SW_RESTORE } else { SW_SHOWNOACTIVATE })
     }
 }

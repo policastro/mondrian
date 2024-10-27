@@ -1,3 +1,4 @@
+use super::window_animation_player::WindowAnimationPlayer;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::structs::point::Point;
@@ -5,8 +6,6 @@ use crate::app::structs::{area::Area, direction::Direction};
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
 use std::{collections::HashMap, hash::Hash};
-
-use super::window_animation_player::WindowAnimationPlayer;
 
 pub trait ContainerLayer {
     fn update(&mut self, border_pad: i16, tile_pad: (i16, i16), animator: &mut WindowAnimationPlayer)
@@ -30,7 +29,7 @@ impl ContainerLayer for WinTree {
                 return self.update(border_pad, tile_pad, animation_player);
             };
             let area = leaf.viewbox.pad_xy(tile_pad);
-            win_ref.restore();
+            win_ref.restore(false);
             let area = win_ref.adjust_area(area);
             animation_player.queue(win_ref, area);
         }
