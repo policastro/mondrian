@@ -38,10 +38,10 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "move <left|right|up|down>",
             "resize <left|right|up|down> <40-250> ",
             "invert",
-            "release [on|off|toggle]",
+            "release",
             "focalize",
-            "pause [on|off|toggle]",
-            "module <keybindings|overlays> [on|off|toggle]",
+            "pause",
+            "module <keybindings|overlays>",
             "quit",
         ];
 
@@ -57,10 +57,10 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "move" => parts.len() == 2,
             "resize" => parts.len() == 3,
             "invert" => parts.len() == 1,
-            "release" => parts.len() <= 2,
+            "release" => parts.len() == 1,
             "focalize" => parts.len() == 1,
-            "pause" => parts.len() <= 2,
-            "module" => parts.len() > 1 && parts.len() <= 3,
+            "pause" => parts.len() == 1,
+            "module" => parts.len() <= 2,
             "quit" => parts.len() == 1,
             _ => false,
         };
@@ -116,29 +116,8 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             }
             "invert" => Ok(MondrianMessage::Invert),
             "focalize" => Ok(MondrianMessage::Focalize),
-            "release" => {
-                let param = match parts.get(1).to_owned() {
-                    Some(&"on") => Some(true),
-                    Some(&"off") => Some(false),
-                    Some(&"toggle") => None,
-                    None => None,
-                    _ => Err(serde::de::Error::custom(
-                        "Invalid parameter for 'release', expected 'on', 'off', 'toggle' or no parameter",
-                    ))?,
-                };
-                Ok(MondrianMessage::Release(param))
-            }
-            "pause" => {
-                let param = match parts.get(1).to_owned() {
-                    Some(&"on") => Some(false),
-                    Some(&"off") => Some(true),
-                    Some(&"toggle") | None => None,
-                    _ => Err(serde::de::Error::custom(
-                        "Invalid parameter for 'pause', expected 'on', 'off', 'toggle' or no parameter",
-                    ))?,
-                };
-                Ok(MondrianMessage::Pause(param))
-            }
+            "release" => Ok(MondrianMessage::Release(None)),
+            "pause" => Ok(MondrianMessage::Pause(None)),
             "module" => {
                 let name = match parts.get(1).to_owned() {
                     Some(&"keybindings") => "keybindings",
@@ -147,16 +126,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
                         "Invalid parameter for 'module', expected 'keybindings' or 'overlays'",
                     ))?,
                 };
-
-                let param = match parts.get(2).to_owned() {
-                    Some(&"on") => Some(false),
-                    Some(&"off") => Some(true),
-                    Some(&"toggle") | None => None,
-                    _ => Err(serde::de::Error::custom(
-                        "Invalid parameter for 'module', expected 'on', 'off', 'toggle' or no parameter",
-                    ))?,
-                };
-                Ok(MondrianMessage::PauseModule(name.to_lowercase(), param))
+                Ok(MondrianMessage::PauseModule(name.to_lowercase(), None))
             }
             "quit" => Ok(MondrianMessage::Quit),
             _ => invalid_action_err,
