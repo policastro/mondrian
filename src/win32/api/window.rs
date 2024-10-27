@@ -13,8 +13,8 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFOR
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetForegroundWindow,
-    GetTitleBarInfo, GetWindow, GetWindowLongA, GetWindowPlacement, GetWindowRect, GetWindowTextW,
+    BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetClientRect,
+    GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongW, GetWindowPlacement, GetWindowRect, GetWindowTextW,
     GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
     ShowWindow, GWL_STYLE, GW_OWNER, HDWP, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
     WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
@@ -43,7 +43,7 @@ pub fn get_class_name(hwnd: HWND) -> String {
 }
 
 pub fn get_window_style(hwnd: HWND) -> u32 {
-    unsafe { GetWindowLongA(hwnd, GWL_STYLE) as u32 }
+    unsafe { GetWindowLongW(hwnd, GWL_STYLE) as u32 }
 }
 
 pub fn get_executable_path(hwnd: HWND) -> Option<String> {
@@ -82,6 +82,16 @@ pub fn get_executable_name(hwnd: HWND) -> Option<String> {
 
 pub fn get_window_box(hwnd: HWND) -> Option<[i32; 4]> {
     get_window_rect(hwnd).map(|[x0, y0, x1, y1]| [x0, y0, x1 - x0, y1 - y0])
+}
+
+pub fn get_client_rect(hwnd: HWND) -> Option<[i32; 4]> {
+    unsafe {
+        let mut rect: RECT = RECT::default();
+        match GetClientRect(hwnd, &mut rect) {
+            Ok(_) => Some([rect.left, rect.top, rect.right, rect.bottom]),
+            Err(_) => None,
+        }
+    }
 }
 
 pub fn get_window_rect(hwnd: HWND) -> Option<[i32; 4]> {

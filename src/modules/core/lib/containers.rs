@@ -30,6 +30,7 @@ impl ContainerLayer for WinTree {
                 return self.update(border_pad, tile_pad, animation_player);
             };
             let area = leaf.viewbox.pad_xy(tile_pad);
+            let area = win_ref.adjust_area(area);
             animation_player.queue(win_ref, area);
         }
         Ok(())
@@ -98,7 +99,6 @@ impl<K: Clone + Eq + Hash> Container<K> {
         self.map.iter_mut()
     }
 }
-
 
 pub(super) trait Containers<U: Clone + Eq + Hash> {
     fn find_at(&self, point: (i32, i32)) -> Option<&Container<U>>;
@@ -202,4 +202,3 @@ fn nearest_distance_area(ref_point: (i32, i32), area: Area, direction: Direction
     };
     point.distance(ref_point)
 }
-

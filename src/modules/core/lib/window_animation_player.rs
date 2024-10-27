@@ -180,8 +180,9 @@ impl WindowAnimationPlayer {
     }
 
     fn move_windows(windows: &[(WindowRef, Area)]) {
-        windows.iter().for_each(|(window, target_area)| {
-            let _ = window.resize_and_move(target_area.get_origin(), target_area.get_size(), true, false, true);
+        windows.iter().for_each(|(window, trg_area)| {
+            let (pos, size) = (trg_area.get_origin(), trg_area.get_size());
+            let _ = window.resize_and_move(pos, size, true, false, true);
             let _ = window.redraw();
         });
         if let Some(hwnd) = get_foreground_window() {
@@ -370,4 +371,3 @@ impl WindowAnimation {
         }
     }
 }
-

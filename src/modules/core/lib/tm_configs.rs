@@ -38,19 +38,19 @@ impl TilesManagerConfig {
     }
 
     pub fn get_focalized_pad(&self) -> i16 {
-        i16::from(self.focalized_padding) - 8 // INFO: 8 is a magic number
+        i16::from(self.focalized_padding)
     }
 
     pub fn get_border_pad(&self) -> i16 {
-        i16::from(self.border_padding - self.tiles_padding) - 2 // INFO: 2 is a magic number
+        i16::from(self.border_padding - self.tiles_padding)
     }
 
     pub fn get_tile_pady(&self) -> i16 {
-        i16::from(self.tiles_padding) - 5 // INFO: 5 is a magic number
+        i16::from(self.tiles_padding)
     }
 
     pub fn get_tile_padx(&self) -> i16 {
-        i16::from(self.tiles_padding) - 8 // INFO: 8 is a magic number
+        i16::from(self.tiles_padding)
     }
 
     pub fn get_tile_pad_xy(&self) -> (i16, i16) {

@@ -15,8 +15,8 @@ use super::{
 use crate::{
     app::structs::area::Area,
     win32::api::window::{
-        focus, get_class_name, get_executable_name, get_window_box, get_window_style, get_window_title,
-        is_window_cloaked, show_window,
+        focus, get_class_name, get_client_rect, get_executable_name, get_window_box, get_window_rect, get_window_style,
+        get_window_title, is_window_cloaked, show_window,
     },
 };
 
@@ -42,6 +42,24 @@ impl WindowRef {
             iconic: self.is_iconic(),
             cloaked: self.is_cloaked(),
         })
+    }
+
+    pub fn adjust_area(&self, area: Area) -> Area {
+        let c = get_client_rect(self.hwnd);
+        let w = get_window_rect(self.hwnd);
+        let (c, w) = match (c, w) {
+            (Some(c), Some(w)) => (c, w),
+            _ => return area,
+        };
+        let thickness_x = ((w[2] - w[0]) - c[2]) / 2;
+        let thickness_y = ((w[3] - w[1]) - c[3]) / 2;
+
+        Area {
+            x: area.x - thickness_x,
+            y: area.y - thickness_y,
+            width: (area.width as i32 + (thickness_x * 2)).max(0) as u16,
+            height: (area.height as i32 + (thickness_y * 2)).max(0) as u16,
+        }
     }
 }
 
@@ -103,6 +121,7 @@ impl WindowObjHandler for WindowRef {
     fn focus(&self) {
         focus(self.hwnd);
     }
+
     fn resize_and_move(
         &self,
         coordinates: (i32, i32),
@@ -115,15 +134,19 @@ impl WindowObjHandler for WindowRef {
             let coord = (coordinates.0, coordinates.1);
             let size = (i32::from(size.0), i32::from(size.1));
             let mut flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW | SWP_NOZORDER;
+
             if !redraw {
                 flags |= SWP_NOREDRAW;
             }
+
             if async_op {
                 flags |= SWP_ASYNCWINDOWPOS;
             }
+
             if force_normal {
                 show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
             }
+
             match SetWindowPos(self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
                 Ok(_) => Ok(()),
                 Err(_) => Err(()),
@@ -143,9 +166,11 @@ impl WindowObjHandler for WindowRef {
             let coord = (coordinates.0, coordinates.1);
             let size = (i32::from(size.0), i32::from(size.1));
             let mut flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_FRAMECHANGED;
+
             if !redraw {
                 flags |= SWP_NOREDRAW;
             };
+
             if force_normal {
                 show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
             }
