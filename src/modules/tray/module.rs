@@ -6,7 +6,7 @@ use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 use crate::{
     app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage},
-    modules::module::{module_impl::ModuleImpl, Module},
+    modules::{module_impl::ModuleImpl, Module},
     win32::{
         api::misc::{get_current_thread_id, post_empty_thread_message},
         win_event_loop::next_win_event_loop_iteration,

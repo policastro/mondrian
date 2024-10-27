@@ -3,7 +3,7 @@ use crate::app::config::cli_args::CliArgs;
 use crate::app::mondrian_command::MondrianMessage;
 use crate::modules::core::module::CoreModule;
 use crate::modules::keybindings::module::KeybindingsModule;
-use crate::modules::module::Module;
+use crate::modules::Module;
 use crate::modules::overlays::module::OverlaysModule;
 use crate::modules::tray::module::TrayModule;
 use clap::Parser;

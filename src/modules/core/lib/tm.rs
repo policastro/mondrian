@@ -1,8 +1,7 @@
-use super::config::TilesManagerConfig;
-use super::container::Container;
-use super::container::ContainerLayer;
-use super::containers_manager::Containers;
+
+use super::containers::{Container, ContainerLayer, Containers};
 use super::monitor_layout::MonitorLayout;
+use super::tm_configs::TilesManagerConfig;
 use super::window_animation_player::WindowAnimationPlayer;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;

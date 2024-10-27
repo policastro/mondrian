@@ -8,14 +8,16 @@ use windows::Win32::{
     },
 };
 
-use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::is_user_managable_window;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use crate::win32::window::window_snapshot::WindowSnapshot;
 use crate::win32::{api::cursor::get_cursor_pos, callbacks::win_event_hook::WinEvent};
-use crate::{app::tiles_manager::tm_command::TMCommand, win32::api::window::get_window_minmax_size};
+use crate::{
+    modules::core::lib::tm_command::TMCommand,
+    win32::api::{key::get_key_state, window::get_window_minmax_size},
+};
 
 pub struct PositionEventHandler {
     sender: Sender<TMCommand>,

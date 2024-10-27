@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Deserializer};
 
-use super::{structs::direction::Direction, tiles_manager::tm_command::TMCommand};
+use crate::modules::core::lib::tm_command::TMCommand;
+
+use super::structs::direction::Direction;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MondrianMessage {

@@ -1,13 +1,11 @@
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
-
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED,
     EVENT_SYSTEM_FOREGROUND,
 };
-
-use crate::app::tiles_manager::tm_command::TMCommand;
+use crate::modules::core::lib::tm_command::TMCommand;
 use crate::win32::api::window::{enum_user_manageable_windows, is_user_managable_window, is_window_visible};
 use crate::win32::callbacks::win_event_hook::WinEvent;
 use crate::win32::win_events_manager::WinEventHandler;

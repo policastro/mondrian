@@ -1,8 +1,7 @@
 use serde::Deserialize;
 
 use crate::{
-    app::{
-        area_tree::layout_strategy::{
+    app::area_tree::layout_strategy::{
             self,
             golden_ratio::GoldenRatio,
             mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
@@ -10,9 +9,7 @@ use crate::{
             two_step::TwoStep,
             LayoutStrategyEnum,
         },
-        tiles_manager::window_animation_player::WindowAnimation,
-    },
-    modules::{keybindings::configs::KeybindingsModuleConfigs, overlays::configs::OverlaysModuleConfigs},
+    modules::{core::lib::window_animation_player::WindowAnimation, keybindings::configs::KeybindingsModuleConfigs, overlays::configs::OverlaysModuleConfigs},
 };
 
 use super::win_matcher::WinMatcher;
