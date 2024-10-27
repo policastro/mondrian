@@ -160,7 +160,7 @@ Then, I started working on it and new features were added. In any case, the main
 
 Yes, there are others tiling window managers for Windows out there. In particular, I used [komorebi](https://github.com/LGUG2Z/komorebi) and [GlazeWM](https://github.com/glzr-io/glazewm) before building this project. Both of them are really good and with great features, and they are in active development. If you need a more mature and established TWM, I recommend trying them.
 
-### 3. Are the any options to improve the performance?
+### 3. Are there any options to improve the performance?
 
 There are different configurations options that can improve the performances. Here the most important ones:
 
