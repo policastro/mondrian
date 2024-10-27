@@ -60,7 +60,7 @@ pub mod overlay {
 
     const OVERLAY_CLASS_NAME: &str = "mondrian:overlay";
     pub const WM_CHANGE_BORDER: u32 = WM_USER + 1;
-    
+
     unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
             WM_CREATE => {

@@ -93,12 +93,33 @@ impl CoreModule {
             .collect();
 
         let tm_configs = TilesManagerConfig::from(&self.configs);
+
+        let app_tx = self.bus_tx.clone();
+        let on_update_start = move || {
+            app_tx.send(MondrianMessage::CoreUpdateStart).unwrap();
+        };
+
+        let app_tx = self.bus_tx.clone();
         let tm_tx = self.tm_command_tx.clone();
-        let mut tm = TilesManager::new(monitors, Some(tm_configs), move || {
+        let on_update_error = move || {
+            app_tx.send(MondrianMessage::CoreUpdateError).unwrap();
             if let Some(tx) = tm_tx.as_ref() {
                 tx.send(TMCommand::Update).unwrap();
             }
-        });
+        };
+
+        let app_tx = self.bus_tx.clone();
+        let on_update_complete = move || {
+            app_tx.send(MondrianMessage::CoreUpdateComplete).unwrap();
+        };
+
+        let mut tm = TilesManager::new(
+            monitors,
+            Some(tm_configs),
+            on_update_start,
+            on_update_error,
+            on_update_complete,
+        );
         let tx = self.bus_tx.clone();
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
             match filter_events(event_receiver.recv(), &filter) {

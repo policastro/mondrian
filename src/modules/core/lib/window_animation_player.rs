@@ -1,5 +1,4 @@
 use crate::app::structs::area::Area;
-use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::api::window::begin_defer_window_pos;
 use crate::win32::api::window::end_defer_window_pos;
 use crate::win32::api::window::get_foreground_window;
@@ -23,11 +22,18 @@ pub struct WindowAnimationPlayer {
     animation_duration: Duration,
     framerate: u8,
     previous_foreground: Option<HWND>,
+    on_start: Arc<dyn Fn() + Send + Sync + 'static>,
     on_error: Arc<dyn Fn() + Send + Sync + 'static>,
+    on_complete: Arc<dyn Fn() + Send + Sync + 'static>,
 }
 
 impl WindowAnimationPlayer {
-    pub fn new<E: Fn() + Send + Sync + 'static>(animation_duration: Duration, framerate: u8, on_error: E) -> Self {
+    pub fn new<S, E, C>(animation_duration: Duration, framerate: u8, on_start: S, on_error: E, on_complete: C) -> Self
+    where
+        S: Fn() + Sync + Send + 'static,
+        E: Fn() + Sync + Send + 'static,
+        C: Fn() + Sync + Send + 'static,
+    {
         assert!(animation_duration.as_millis() > 0);
         assert!(framerate > 0);
         WindowAnimationPlayer {
@@ -37,7 +43,9 @@ impl WindowAnimationPlayer {
             animation_duration,
             framerate,
             previous_foreground: None,
+            on_start: Arc::new(on_start),
             on_error: Arc::new(on_error),
+            on_complete: Arc::new(on_complete),
         }
     }
 
@@ -75,24 +83,25 @@ impl WindowAnimationPlayer {
         let duration = self.animation_duration.as_millis();
         let framerate = self.framerate;
         let frame_duration = Duration::from_millis(1000 / u64::from(framerate));
+
+        let on_start = self.on_start.clone();
         let on_error = self.on_error.clone();
+        let on_complete = self.on_complete.clone();
         self.animation_thread = Some(std::thread::spawn(move || {
             running.store(true, Ordering::SeqCst);
             let mut is_running = true;
-            let monitors: Vec<Area> = enum_display_monitors().into_iter().map(Area::from).collect();
+            (on_start)();
 
-            let fwins: Vec<(WindowRef, Area, Area, bool)> = wins
+            let fwins: Vec<(WindowRef, Area, Area)> = wins
                 .clone()
                 .into_iter()
                 .filter_map(|(w, t)| {
-                    let m = &monitors.iter().find(|m| m.contains(t.get_center()));
                     let src_area: Area = w.get_window_box()?;
-                    let same_monitor = m.is_some_and(|m| m.contains(src_area.get_center()));
                     w.restore();
-                    match src_area == t {
-                        true => None,
-                        false => Some((w, src_area, t, same_monitor)),
-                    }
+                    if src_area == t {
+                        return None;
+                    };
+                    Some((w, src_area, t))
                 })
                 .collect();
 
@@ -114,6 +123,7 @@ impl WindowAnimationPlayer {
 
             Self::move_windows(&wins);
             running.store(false, std::sync::atomic::Ordering::SeqCst);
+            (on_complete)();
         }));
 
         self.windows.clear();
@@ -127,14 +137,14 @@ impl WindowAnimationPlayer {
     }
 
     fn animate_frame(
-        wins: &[(WindowRef, Area, Area, bool)],
+        wins: &[(WindowRef, Area, Area)],
         animation: &WindowAnimation,
         complete_frac: f32,
         frame_duration: Duration,
     ) -> Result<(), WindowRef> {
-        let mut hdwp = begin_defer_window_pos(wins.len() as i32).unwrap();
+        let mut hdwp = begin_defer_window_pos((wins.len() as i32) * 2).unwrap();
         let frame_start = Instant::now();
-        for (win, src_area, trg_area, same_monitor) in wins.iter() {
+        for (win, src_area, trg_area) in wins.iter() {
             if src_area == trg_area {
                 continue;
             }
@@ -147,21 +157,7 @@ impl WindowAnimationPlayer {
                 animation.get_next_frame(h1 as f32, h2 as f32, complete_frac) as u16,
             );
 
-            let pos = new_area.get_origin();
-
-            // NOTE: animating the windows sizes is very expensive, so it's done only when
-            // one of the following is true:
-            //      1. no move operation (i.e. the same origin)
-            //      2. the destination monitor is the same as the origin and the window is getting bigger
-            // The second condition avoids intermonitor flickering
-            let size = match src_area.get_origin() == trg_area.get_origin() {
-                true => new_area.get_size(),
-                false => match same_monitor {
-                    true if src_area.get_size() < trg_area.get_size() => new_area.get_size(),
-                    _ => trg_area.get_size(),
-                },
-            };
-
+            let (pos, size) = (new_area.get_origin(), new_area.get_size());
             match win.defer_resize_and_move(hdwp, pos, size, false, false) {
                 Ok(v) => {
                     hdwp = v;

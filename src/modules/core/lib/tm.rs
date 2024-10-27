@@ -1,4 +1,3 @@
-
 use super::containers::{Container, ContainerLayer, Containers};
 use super::monitor_layout::MonitorLayout;
 use super::tm_configs::TilesManagerConfig;
@@ -24,11 +23,18 @@ pub struct TilesManager {
 
 impl TilesManager {
     /// Creates a new [`TilesManager`].
-    pub fn new<E: Fn() + Send + Sync + 'static>(
+    pub fn new<S, E, C>(
         monitors_layout: Vec<MonitorLayout>,
         config: Option<TilesManagerConfig>,
+        on_update_start: S,
         on_update_error: E,
-    ) -> Self {
+        on_update_complete: C,
+    ) -> Self
+    where
+        S: Fn() + Sync + Send + 'static,
+        E: Fn() + Sync + Send + 'static,
+        C: Fn() + Sync + Send + 'static,
+    {
         let config = config.unwrap_or_default();
         let containers = monitors_layout
             .into_iter()
@@ -43,7 +49,13 @@ impl TilesManager {
             .collect();
 
         let animation_duration = Duration::from_millis(config.get_animation_duration().into());
-        let animation_player = WindowAnimationPlayer::new(animation_duration, config.get_framerate(), on_update_error);
+        let animation_player = WindowAnimationPlayer::new(
+            animation_duration,
+            config.get_framerate(),
+            on_update_start,
+            on_update_error,
+            on_update_complete,
+        );
         TilesManager {
             unmanaged_wins: HashSet::new(),
             containers,

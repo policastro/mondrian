@@ -1,12 +1,15 @@
 use std::sync::mpsc::{channel, Sender};
 
 use serde::Deserialize;
-use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::WM_QUIT};
+use windows::Win32::{
+    Foundation::HWND,
+    UI::WindowsAndMessaging::{SW_HIDE, WM_QUIT},
+};
 
 use crate::win32::{
     api::{
         misc::{post_empyt_message, post_message},
-        window::destroy_window,
+        window::{destroy_window, show_window},
     },
     win_event_loop::start_mono_win_event_loop,
 };
@@ -26,7 +29,9 @@ enum OverlayMessage {
     Quit,
     SetActive,
     SetInactive,
-    Reposition(Option<bool>)
+    Hide,
+    Show,
+    Reposition(Option<bool>),
 }
 
 impl Overlay {
@@ -73,6 +78,12 @@ impl Overlay {
                         curr_activated = activated;
                         Self::move_overlay_to_target(hwnd, target, p.thickness, p.padding);
                     }
+                    Ok(OverlayMessage::Hide) => {
+                        show_window(hwnd, SW_HIDE);
+                    }
+                    Ok(OverlayMessage::Show) => {
+                        show_window(hwnd, SW_HIDE);
+                    }
                     _ => {
                         post_empyt_message(hwnd, WM_QUIT);
                         break;
@@ -118,6 +129,20 @@ impl Overlay {
             return;
         }
         self.send_msg(OverlayMessage::Reposition(activated));
+    }
+
+    pub fn hide(&mut self) {
+        if !self.exists() {
+            return;
+        }
+        self.send_msg(OverlayMessage::Hide);
+    }
+
+    pub fn show(&mut self) {
+        if !self.exists() {
+            return;
+        }
+        self.send_msg(OverlayMessage::Show);
     }
 
     fn send_msg(&self, msg: OverlayMessage) {

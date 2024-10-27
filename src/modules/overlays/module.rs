@@ -1,21 +1,18 @@
-use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
-
-use crate::{
-    app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage},
-    modules::{module_impl::ModuleImpl, ConfigurableModule, Module},
-    win32::{
-        api::misc::{get_current_thread_id, post_empty_thread_message},
-        win_events_manager::WinEventManager,
-    },
-};
-
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    mpsc::Sender,
-    Arc, Mutex,
-};
-
+use crate::app::config::app_configs::AppConfigs;
+use crate::app::mondrian_command::MondrianMessage;
+use crate::modules::module_impl::ModuleImpl;
+use crate::modules::ConfigurableModule;
+use crate::modules::Module;
+use crate::win32::api::misc::get_current_thread_id;
+use crate::win32::api::misc::post_empty_thread_message;
+use crate::win32::win_events_manager::WinEventManager;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
+use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 use super::{
     configs::OverlaysModuleConfigs,
@@ -117,6 +114,18 @@ impl ModuleImpl for OverlaysModule {
                 if self.is_running() {
                     let overlays = self.overlays.as_mut().expect("Overlays not initialized");
                     overlays.lock().unwrap().rebuild(windows);
+                }
+            }
+            MondrianMessage::CoreUpdateStart => {
+                if self.is_running() {
+                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                    overlays.lock().unwrap().suspend();
+                }
+            }
+            MondrianMessage::CoreUpdateError | MondrianMessage::CoreUpdateComplete => {
+                if self.is_running() {
+                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                    overlays.lock().unwrap().resume();
                 }
             }
             MondrianMessage::Quit => Module::stop(self),
