@@ -97,7 +97,6 @@ impl WindowAnimationPlayer {
                 .into_iter()
                 .filter_map(|(w, t)| {
                     let src_area: Area = w.get_window_box()?;
-                    w.restore();
                     if src_area == t {
                         return None;
                     };

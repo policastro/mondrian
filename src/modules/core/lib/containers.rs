@@ -2,7 +2,7 @@ use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::structs::point::Point;
 use crate::app::structs::{area::Area, direction::Direction};
-use crate::win32::window::window_obj::WindowObjInfo;
+use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
 use std::{collections::HashMap, hash::Hash};
 
@@ -30,6 +30,7 @@ impl ContainerLayer for WinTree {
                 return self.update(border_pad, tile_pad, animation_player);
             };
             let area = leaf.viewbox.pad_xy(tile_pad);
+            win_ref.restore();
             let area = win_ref.adjust_area(area);
             animation_player.queue(win_ref, area);
         }
