@@ -6,15 +6,16 @@ use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
-use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
 use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
+use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetClientRect,
-    GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongW, GetWindowPlacement, GetWindowRect, GetWindowTextW,
+    BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetForegroundWindow,
+    GetTitleBarInfo, GetWindow, GetWindowLongW, GetWindowPlacement, GetWindowRect, GetWindowTextW,
     GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
     ShowWindow, GWL_STYLE, GW_OWNER, HDWP, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
     WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
@@ -82,16 +83,6 @@ pub fn get_executable_name(hwnd: HWND) -> Option<String> {
 
 pub fn get_window_box(hwnd: HWND) -> Option<[i32; 4]> {
     get_window_rect(hwnd).map(|[x0, y0, x1, y1]| [x0, y0, x1 - x0, y1 - y0])
-}
-
-pub fn get_client_rect(hwnd: HWND) -> Option<[i32; 4]> {
-    unsafe {
-        let mut rect: RECT = RECT::default();
-        match GetClientRect(hwnd, &mut rect) {
-            Ok(_) => Some([rect.left, rect.top, rect.right, rect.bottom]),
-            Err(_) => None,
-        }
-    }
 }
 
 pub fn get_window_rect(hwnd: HWND) -> Option<[i32; 4]> {
@@ -285,4 +276,23 @@ pub fn begin_defer_window_pos(count: i32) -> Option<HDWP> {
 
 pub fn end_defer_window_pos(hdwp: HDWP) -> bool {
     unsafe { EndDeferWindowPos(hdwp).is_ok() }
+}
+
+pub fn get_dwmwa_extended_frame_bounds(hwnd: HWND) -> Option<[i32; 4]> {
+    let mut rect: RECT = RECT::default();
+    match unsafe {
+        DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            &mut rect as *mut _ as *mut _,
+            size_of::<RECT>() as u32,
+        )
+    } {
+        Ok(_) => Some([rect.left, rect.top, rect.right, rect.bottom]),
+        Err(_) => None,
+    }
+}
+
+pub fn get_dpi_for_window(hwnd: HWND) -> u32 {
+    unsafe { GetDpiForWindow(hwnd) }
 }

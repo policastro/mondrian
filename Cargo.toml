@@ -39,6 +39,7 @@ features = [
     "Win32_UI_Controls",
     "Win32_System_Console",
     "Win32_Graphics_Dwm",
+    "Win32_UI_HiDpi",
 ]
 
 [build-dependencies]

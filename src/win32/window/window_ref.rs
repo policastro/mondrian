@@ -12,10 +12,11 @@ use super::{
     window_obj::{WindowObjHandler, WindowObjInfo},
     window_snapshot::WindowSnapshot,
 };
+use crate::win32::api::window::{get_dpi_for_window, get_dwmwa_extended_frame_bounds};
 use crate::{
     app::structs::area::Area,
     win32::api::window::{
-        focus, get_class_name, get_client_rect, get_executable_name, get_window_box, get_window_rect, get_window_style,
+        focus, get_class_name, get_executable_name, get_window_box, get_window_rect, get_window_style,
         get_window_title, is_window_cloaked, show_window,
     },
 };
@@ -45,20 +46,27 @@ impl WindowRef {
     }
 
     pub fn adjust_area(&self, area: Area) -> Area {
-        let c = get_client_rect(self.hwnd);
-        let w = get_window_rect(self.hwnd);
-        let (c, w) = match (c, w) {
-            (Some(c), Some(w)) => (c, w),
+        let w = match get_window_rect(self.hwnd) {
+            Some(w) => w,
             _ => return area,
         };
-        let thickness_x = ((w[2] - w[0]) - c[2]) / 2;
-        let thickness_y = ((w[3] - w[1]) - c[3]) / 2;
+
+        // INFO: used to find windows invisible borders
+        let frame = get_dwmwa_extended_frame_bounds(self.hwnd).unwrap_or([0, 0, 0, 0]);
+        let dpi: f32 = get_dpi_for_window(self.hwnd) as f32 / 96.0;
+        let th = (
+            ((frame[0] as f32 / dpi) - w[0] as f32) as i32,
+            ((frame[1] as f32 / dpi) - w[1] as f32) as i32,
+            ((frame[2] as f32 / dpi) - w[2] as f32) as i32,
+            ((frame[3] as f32 / dpi) - w[3] as f32) as i32,
+        );
+        let th = (th.0, th.1, th.0 - th.2, th.1 - th.3);
 
         Area {
-            x: area.x - thickness_x,
-            y: area.y - thickness_y,
-            width: (area.width as i32 + (thickness_x * 2)).max(0) as u16,
-            height: (area.height as i32 + (thickness_y * 2)).max(0) as u16,
+            x: area.x - th.0,
+            y: area.y - th.1,
+            width: (area.width as i32 + th.2).max(0) as u16,
+            height: (area.height as i32 + th.3).max(0) as u16,
         }
     }
 }
