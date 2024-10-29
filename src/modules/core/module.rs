@@ -104,7 +104,7 @@ impl CoreModule {
         let on_update_error = move || {
             app_tx.send(MondrianMessage::CoreUpdateError).unwrap();
             if let Some(tx) = tm_tx.as_ref() {
-                tx.send(TMCommand::Update).unwrap();
+                tx.send(TMCommand::Update(false)).unwrap();
             }
         };
 
@@ -258,8 +258,8 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
             Ok(())
         }
-        TMCommand::Update => {
-            tm.update(false);
+        TMCommand::Update(animate) => {
+            tm.update(animate);
             Ok(())
         }
         TMCommand::Noop => return true,

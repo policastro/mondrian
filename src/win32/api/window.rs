@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::mem::size_of;
 use std::os::windows::ffi::OsStringExt;
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
+use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
@@ -16,9 +16,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, IN
 use windows::Win32::UI::WindowsAndMessaging::{
     BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetForegroundWindow,
     GetTitleBarInfo, GetWindow, GetWindowLongW, GetWindowPlacement, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SendMessageW, SetForegroundWindow,
-    ShowWindow, GWL_STYLE, GW_OWNER, HDWP, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SetForegroundWindow,
+    ShowWindow, GWL_STYLE, GW_OWNER, HDWP, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
 };
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
@@ -191,24 +191,6 @@ pub fn focus(hwnd: HWND) {
         let _ = SetForegroundWindow(hwnd);
         let _ = SetFocus(hwnd);
     };
-}
-
-pub fn get_window_minmax_size(hwnd: HWND) -> ((i32, i32), (i32, i32)) {
-    unsafe {
-        let mut min_max_info: MINMAXINFO = std::mem::zeroed();
-        let _ = SendMessageW(
-            hwnd,
-            WM_GETMINMAXINFO,
-            WPARAM(0),
-            LPARAM(&mut min_max_info as *mut MINMAXINFO as isize),
-        );
-        let min_width = min_max_info.ptMinTrackSize.x;
-        let min_height = min_max_info.ptMinTrackSize.y;
-        let max_width = min_max_info.ptMaxTrackSize.x;
-        let max_height = min_max_info.ptMaxTrackSize.y;
-
-        ((min_width - 8, min_height - 8), (max_width - 8, max_height - 8)) // NOTE: -8 to remove the border
-    }
 }
 
 pub fn destroy_window(hwnd: HWND) {

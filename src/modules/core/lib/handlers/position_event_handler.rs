@@ -1,27 +1,33 @@
-use std::{collections::HashMap, sync::mpsc::Sender};
-
-use windows::Win32::{
-    Foundation::HWND,
-    UI::{
-        Input::KeyboardAndMouse::{VK_MENU, VK_SHIFT},
-        WindowsAndMessaging::{EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART},
-    },
-};
-
+use crate::app::structs::area::Area;
+use crate::modules::core::lib::tm_command::TMCommand;
+use crate::win32::api::cursor::get_cursor_info;
+use crate::win32::api::cursor::get_cursor_pos;
+use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::is_user_managable_window;
+use crate::win32::callbacks::win_event_hook::WinEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
-use crate::win32::window::window_snapshot::WindowSnapshot;
-use crate::win32::{api::cursor::get_cursor_pos, callbacks::win_event_hook::WinEvent};
-use crate::{
-    modules::core::lib::tm_command::TMCommand,
-    win32::api::{key::get_key_state, window::get_window_minmax_size},
-};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::mpsc::Sender;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_MENU;
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT;
+use windows::Win32::UI::WindowsAndMessaging::LoadCursorW;
+use windows::Win32::UI::WindowsAndMessaging::CURSORINFO;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZEEND;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZESTART;
+use windows::Win32::UI::WindowsAndMessaging::IDC_SIZEALL;
+use windows::Win32::UI::WindowsAndMessaging::IDC_SIZENESW;
+use windows::Win32::UI::WindowsAndMessaging::IDC_SIZENS;
+use windows::Win32::UI::WindowsAndMessaging::IDC_SIZENWSE;
+use windows::Win32::UI::WindowsAndMessaging::IDC_SIZEWE;
 
 pub struct PositionEventHandler {
     sender: Sender<TMCommand>,
-    windows: HashMap<isize, WindowSnapshot>,
+    windows: HashMap<isize, (Area, bool)>,
+    resize_cursors: HashSet<isize>,
 }
 
 impl PositionEventHandler {
@@ -29,16 +35,30 @@ impl PositionEventHandler {
         PositionEventHandler {
             sender,
             windows: HashMap::new(),
+            resize_cursors: HashSet::new(),
         }
     }
 
     fn start_movesize(&mut self, hwnd: HWND) {
-        let info = WindowRef::new(hwnd).snapshot();
-        if info.is_some() {
+        let area = WindowRef::new(hwnd).get_window_box();
+        if let Some(area) = area {
+            let is_resize = self.is_resize_handle();
             let event = TMCommand::WindowStartMoveSize(hwnd);
             self.sender.send(event).expect("Failed to send event");
+            self.windows.insert(hwnd.0, (area, is_resize));
         }
-        info.and_then(|info| self.windows.insert(hwnd.0, info));
+    }
+
+    fn is_resize_handle(&self) -> bool {
+        let cursor_info: CURSORINFO = match get_cursor_info() {
+            Ok(cursor_info) => cursor_info,
+            Err(err) => {
+                log::warn!("Failed to get cursor info: {}", err);
+                return false;
+            }
+        };
+
+        self.resize_cursors.contains(&cursor_info.hCursor.0)
     }
 
     fn end_movesize(&mut self, hwnd: HWND) {
@@ -46,11 +66,7 @@ impl PositionEventHandler {
         let (invert_op, switch_orientation) = (shift_key.pressed, alt_key.pressed);
         let dest_point = get_cursor_pos();
 
-        let area = match self
-            .windows
-            .remove(&hwnd.0)
-            .map(|i| i.viewarea.expect("Could not get area"))
-        {
+        let (prev_area, is_resize) = match self.windows.remove(&hwnd.0) {
             Some(area) => area,
             None => return,
         };
@@ -60,19 +76,8 @@ impl PositionEventHandler {
             None => return,
         };
 
-        let area_shift = area.get_shift(&curr_area);
-
-        let event: TMCommand = match area_shift.2 != 0 || area_shift.3 != 0 {
-            true => {
-                let ((min_width, min_height), _) = get_window_minmax_size(hwnd);
-                // BUG: used to enable window move when window has a minsize. However, it is not working correctly when is resized at the minsize (it should send a window resize event)
-                let is_minsize = (curr_area.width as i32 == min_width) || (curr_area.height as i32 == min_height);
-                if !curr_area.contains(dest_point) && is_minsize {
-                    TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation)
-                } else {
-                    TMCommand::WindowResized(hwnd, area, curr_area)
-                }
-            }
+        let event = match is_resize {
+            true => TMCommand::WindowResized(hwnd, prev_area, curr_area),
             false => TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation),
         };
 
@@ -83,7 +88,15 @@ impl PositionEventHandler {
 }
 
 impl WinEventHandler for PositionEventHandler {
-    fn init(&mut self) {}
+    fn init(&mut self) {
+        // NOTE: loads all the resize cursors
+        [IDC_SIZEALL, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZENESW, IDC_SIZEWE]
+            .iter()
+            .filter_map(|cursor| unsafe { LoadCursorW(None, *cursor) }.ok())
+            .for_each(|cursor| {
+                self.resize_cursors.insert(cursor.0);
+            });
+    }
 
     fn handle(&mut self, event: &WinEvent) {
         if !is_user_managable_window(event.hwnd, true, true, true) {

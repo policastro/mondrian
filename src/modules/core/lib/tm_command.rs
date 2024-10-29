@@ -22,7 +22,7 @@ pub enum TMCommand {
     Move(Direction),
     Resize(Direction, u8),
     Release(Option<bool>),
-    Update,
+    Update(bool),
     Focalize,
     Invert,
     ListManagedWindows,
