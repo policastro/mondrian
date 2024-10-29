@@ -1,4 +1,4 @@
-use windows::Win32::UI::WindowsAndMessaging::HDWP;
+use windows::Win32::UI::WindowsAndMessaging::SET_WINDOW_POS_FLAGS;
 
 use crate::app::structs::area::Area;
 
@@ -17,20 +17,11 @@ pub trait WindowObjHandler {
     fn focus(&self);
     fn resize_and_move(
         &self,
-        coordinates: (i32, i32),
+        pos: (i32, i32),
         size: (u16, u16),
         force_normal: bool,
-        async_op: bool,
-        redraw: bool,
+        flags: SET_WINDOW_POS_FLAGS,
     ) -> Result<(), ()>;
-    fn defer_resize_and_move(
-        &self,
-        hdwp: HDWP,
-        coordinates: (i32, i32),
-        size: (u16, u16),
-        force_normal: bool,
-        redraw: bool,
-    ) -> Result<HDWP, ()>;
     fn redraw(&self) -> Result<(), ()>;
     fn minimize(&self) -> bool;
     fn restore(&self, activate: bool) -> bool;

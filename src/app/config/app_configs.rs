@@ -2,14 +2,17 @@ use serde::Deserialize;
 
 use crate::{
     app::area_tree::layout_strategy::{
-            self,
-            golden_ratio::GoldenRatio,
-            mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
-            squared::Squared,
-            two_step::TwoStep,
-            LayoutStrategyEnum,
-        },
-    modules::{core::lib::window_animation_player::WindowAnimation, keybindings::configs::KeybindingsModuleConfigs, overlays::configs::OverlaysModuleConfigs},
+        self,
+        golden_ratio::GoldenRatio,
+        mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
+        squared::Squared,
+        two_step::TwoStep,
+        LayoutStrategyEnum,
+    },
+    modules::{
+        core::lib::window_animation_player::WindowAnimation, keybindings::configs::KeybindingsModuleConfigs,
+        overlays::configs::OverlaysModuleConfigs,
+    },
 };
 
 use super::win_matcher::WinMatcher;
@@ -41,7 +44,7 @@ pub struct Layout {
     pub animations_enabled: bool,
     #[serde(deserialize_with = "deserializers::to_u32_minmax::<100,10000,_>")]
     pub animations_duration: u32,
-    #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,120,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,240,_>")]
     pub animations_framerate: u8,
     #[serde(default)]
     pub animation_type: Option<WindowAnimation>,

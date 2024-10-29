@@ -1,6 +1,4 @@
 use crate::app::structs::area::Area;
-use crate::win32::api::window::begin_defer_window_pos;
-use crate::win32::api::window::end_defer_window_pos;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -14,6 +12,12 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::SET_WINDOW_POS_FLAGS;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOREDRAW;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOSENDCHANGING;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER;
+use windows::Win32::UI::WindowsAndMessaging::SWP_SHOWWINDOW;
 
 pub struct WindowAnimationPlayer {
     windows: Vec<(WindowRef, Area)>,
@@ -104,6 +108,7 @@ impl WindowAnimationPlayer {
                 })
                 .collect();
 
+            let set_pos_flags = SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOREDRAW;
             let start_time = SystemTime::now();
             while is_running {
                 let passed = start_time.elapsed().unwrap().as_millis();
@@ -112,7 +117,7 @@ impl WindowAnimationPlayer {
                     break;
                 }
                 let complete_frac = (passed as f32 / duration as f32).clamp(0.0, 1.0);
-                let res = Self::animate_frame(&fwins, &animation, complete_frac, frame_duration);
+                let res = Self::animate_frame(&fwins, &animation, complete_frac, frame_duration, &set_pos_flags);
                 if let Err(win) = res {
                     log::error!("Failed to animate window {:?}", win);
                     (on_error)();
@@ -140,13 +145,14 @@ impl WindowAnimationPlayer {
         animation: &WindowAnimation,
         complete_frac: f32,
         frame_duration: Duration,
+        set_pos_flags: &SET_WINDOW_POS_FLAGS,
     ) -> Result<(), WindowRef> {
-        let mut hdwp = begin_defer_window_pos((wins.len() as i32) * 2).unwrap();
         let frame_start = Instant::now();
         for (win, src_area, trg_area) in wins.iter() {
             if src_area == trg_area {
                 continue;
             }
+
             let ((x1, y1), (w1, h1)) = (src_area.get_origin(), src_area.get_size());
             let ((x2, y2), (w2, h2)) = (trg_area.get_origin(), trg_area.get_size());
             let new_area = Area::new(
@@ -157,15 +163,11 @@ impl WindowAnimationPlayer {
             );
 
             let (pos, size) = (new_area.get_origin(), new_area.get_size());
-            match win.defer_resize_and_move(hdwp, pos, size, false, false) {
-                Ok(v) => {
-                    hdwp = v;
-                }
-                Err(_) => return Err(*win),
+            if win.resize_and_move(pos, size, false, *set_pos_flags).is_err() {
+                return Err(*win);
             }
         }
 
-        end_defer_window_pos(hdwp);
         if frame_start.elapsed() < frame_duration {
             let sleep_time = frame_duration.saturating_sub(frame_start.elapsed());
             std::thread::sleep(sleep_time);
@@ -175,9 +177,10 @@ impl WindowAnimationPlayer {
     }
 
     fn move_windows(windows: &[(WindowRef, Area)]) {
+        let flags = SWP_SHOWWINDOW | SWP_NOSENDCHANGING | SWP_NOACTIVATE;
         windows.iter().for_each(|(window, trg_area)| {
             let (pos, size) = (trg_area.get_origin(), trg_area.get_size());
-            let _ = window.resize_and_move(pos, size, true, false, true);
+            let _ = window.resize_and_move(pos, size, true, flags);
             let _ = window.redraw();
         });
         if let Some(hwnd) = get_foreground_window() {

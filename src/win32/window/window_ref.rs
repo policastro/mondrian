@@ -2,9 +2,8 @@ use windows::Win32::{
     Foundation::HWND,
     Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
-        DeferWindowPos, IsIconic, IsWindowVisible, SetWindowPos, HDWP, SWP_ASYNCWINDOWPOS, SWP_FRAMECHANGED,
-        SWP_NOACTIVATE, SWP_NOCOPYBITS, SWP_NOREDRAW, SWP_NOSENDCHANGING, SWP_NOZORDER, SWP_SHOWWINDOW, SW_MINIMIZE,
-        SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL,
+        IsIconic, IsWindowVisible, SetWindowPos, SET_WINDOW_POS_FLAGS, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE,
+        SW_SHOWNORMAL,
     },
 };
 
@@ -55,10 +54,10 @@ impl WindowRef {
         let frame = get_dwmwa_extended_frame_bounds(self.hwnd).unwrap_or([0, 0, 0, 0]);
         let dpi: f32 = get_dpi_for_window(self.hwnd) as f32 / 96.0;
         let th = (
-            ((frame[0] as f32 / dpi) - w[0] as f32) as i32,
-            ((frame[1] as f32 / dpi) - w[1] as f32) as i32,
-            ((frame[2] as f32 / dpi) - w[2] as f32) as i32,
-            ((frame[3] as f32 / dpi) - w[3] as f32) as i32,
+            ((frame[0] as f32 / dpi) - w[0] as f32).round() as i32,
+            ((frame[1] as f32 / dpi) - w[1] as f32).round() as i32,
+            ((frame[2] as f32 / dpi) - w[2] as f32).round() as i32,
+            ((frame[3] as f32 / dpi) - w[3] as f32).round() as i32,
         );
         let th = (th.0, th.1, th.0 - th.2, th.1 - th.3);
 
@@ -132,58 +131,20 @@ impl WindowObjHandler for WindowRef {
 
     fn resize_and_move(
         &self,
-        coordinates: (i32, i32),
+        pos: (i32, i32),
         size: (u16, u16),
         force_normal: bool,
-        async_op: bool,
-        redraw: bool,
+        flags: SET_WINDOW_POS_FLAGS,
     ) -> Result<(), ()> {
         unsafe {
-            let coord = (coordinates.0, coordinates.1);
             let size = (i32::from(size.0), i32::from(size.1));
-            let mut flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW | SWP_NOZORDER;
-
-            if !redraw {
-                flags |= SWP_NOREDRAW;
-            }
-
-            if async_op {
-                flags |= SWP_ASYNCWINDOWPOS;
-            }
 
             if force_normal {
                 show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
             }
 
-            match SetWindowPos(self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
+            match SetWindowPos(self.hwnd, None, pos.0, pos.1, size.0, size.1, flags) {
                 Ok(_) => Ok(()),
-                Err(_) => Err(()),
-            }
-        }
-    }
-
-    fn defer_resize_and_move(
-        &self,
-        hdwp: HDWP,
-        coordinates: (i32, i32),
-        size: (u16, u16),
-        force_normal: bool,
-        redraw: bool,
-    ) -> Result<HDWP, ()> {
-        unsafe {
-            let coord = (coordinates.0, coordinates.1);
-            let size = (i32::from(size.0), i32::from(size.1));
-            let mut flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_FRAMECHANGED;
-
-            if !redraw {
-                flags |= SWP_NOREDRAW;
-            };
-
-            if force_normal {
-                show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
-            }
-            match DeferWindowPos(hdwp, self.hwnd, None, coord.0, coord.1, size.0, size.1, flags) {
-                Ok(hdwp) => Ok(hdwp),
                 Err(_) => Err(()),
             }
         }

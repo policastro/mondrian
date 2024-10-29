@@ -14,11 +14,10 @@ use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
 use windows::Win32::UI::WindowsAndMessaging::{
-    BeginDeferWindowPos, CreateWindowExW, DestroyWindow, EndDeferWindowPos, EnumWindows, GetForegroundWindow,
-    GetTitleBarInfo, GetWindow, GetWindowLongW, GetWindowPlacement, GetWindowRect, GetWindowTextW,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, RealGetWindowClassW, SetForegroundWindow,
-    ShowWindow, GWL_STYLE, GW_OWNER, HDWP, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
+    CreateWindowExW, DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongW,
+    GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+    RealGetWindowClassW, SetForegroundWindow, ShowWindow, GWL_STYLE, GW_OWNER, SHOW_WINDOW_CMD, SW_MAXIMIZE,
+    TITLEBARINFO, WINDOWPLACEMENT, WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
 };
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
@@ -247,17 +246,6 @@ pub fn create_window<T>(
         true => None,
         false => Some(hwnd),
     }
-}
-
-pub fn begin_defer_window_pos(count: i32) -> Option<HDWP> {
-    match unsafe { BeginDeferWindowPos(count) } {
-        Ok(hdwp) => Some(hdwp),
-        Err(_) => None,
-    }
-}
-
-pub fn end_defer_window_pos(hdwp: HDWP) -> bool {
-    unsafe { EndDeferWindowPos(hdwp).is_ok() }
 }
 
 pub fn get_dwmwa_extended_frame_bounds(hwnd: HWND) -> Option<[i32; 4]> {
