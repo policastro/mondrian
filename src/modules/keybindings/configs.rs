@@ -61,7 +61,7 @@ struct ExtBindingConfig {
 impl Default for ExtKeybindingsConfig {
     fn default() -> Self {
         ExtKeybindingsConfig {
-            enabled: true,
+            enabled: false,
             default_modifier: vec!["ALT".to_string()],
             bindings: vec![],
         }

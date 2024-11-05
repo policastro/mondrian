@@ -5,14 +5,11 @@ use crate::app::config::app_configs::AppConfigs;
 use super::lib::overlay::OverlayParams;
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct OverlaysModuleConfigs {
-    #[serde(default)]
     pub enabled: bool,
-    #[serde(default)]
     pub update_while_resizing: bool,
-    #[serde(default = "OverlayParams::default_active")]
     pub active: OverlayParams,
-    #[serde(default = "OverlayParams::default_inactive")]
     pub inactive: OverlayParams,
 }
 
@@ -35,18 +32,16 @@ impl From<&AppConfigs> for OverlaysModuleConfigs {
 
 impl OverlaysModuleConfigs {
     pub(crate) fn get_active(&self) -> Option<OverlayParams> {
-        if self.active.enabled {
-            Some(self.active)
-        } else {
-            None
+        match &self.active.enabled {
+            true => Some(self.active),
+            false => None,
         }
     }
 
     pub(crate) fn get_inactive(&self) -> Option<OverlayParams> {
-        if self.inactive.enabled {
-            Some(self.inactive)
-        } else {
-            None
+        match &self.inactive.enabled {
+            true => Some(self.inactive),
+            false => None,
         }
     }
 

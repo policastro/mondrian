@@ -22,17 +22,17 @@ By default, the application doesn't log any messages to a file. To enable loggin
 
 #### Moving windows
 
-You can swap two windows in the same monitor just by dragging one of them into the other. By holding `Left ALT` while dragging, the windows will be swapped and the direction of the tiles will be inverted.
+You can swap two windows in the same monitor just by dragging one of them into the other. By holding `ALT` while dragging, the windows will be swapped and the direction of the tiles will be inverted.
 
 When the window is dragged to another monitor, by default it will be inserted. In this case, you can:
 
-- hold `Left SHIFT` while dragging the window to swap the windows;
-- holding `Left ALT` while dragging the window to insert the windows and to invert the direction of the tiles.
+- hold `SHIFT` while dragging the window to swap the windows;
+- hold `ALT` while dragging the window to insert the windows and to invert the direction of the tiles.
 
 By changing the `insert_in_monitor` configuration option to `false`, the window will be swapped in the other monitor by default. In this case, you can:
 
-- hold `Left SHIFT` while dragging the window to insert the windows;
-- hold `Left ALT` while dragging the window to insert the window and to invert the direction of the tiles.
+- hold `SHIFT` while dragging the window to insert the windows;
+- hold `ALT` while dragging the window to insert the window and to invert the direction of the tiles.
 
 #### Resizing windows
 
@@ -183,4 +183,3 @@ This project is licensed under the GPLv3 license. See the `LICENSE.md` for more 
 ## Acknowledgments
 
 - [Andrey Sitnik](https://github.com/ai) for the website [easings.net](https://easings.net), which I used as reference for implementing the animations.
-

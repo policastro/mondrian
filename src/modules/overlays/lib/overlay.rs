@@ -189,10 +189,10 @@ impl OverlayParams {
     }
 
     pub fn default_active() -> OverlayParams {
-        OverlayParams::new(true, Color::new(0, 180, 0), 1, 0)
+        OverlayParams::new(true, Color::new(254, 74, 73), 4, 0)
     }
 
     pub fn default_inactive() -> OverlayParams {
-        OverlayParams::new(false, Color::new(180, 0, 0), 0, 0)
+        OverlayParams::new(true, Color::new(254, 215, 102), 4, 0)
     }
 }

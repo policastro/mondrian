@@ -46,13 +46,12 @@ pub struct Layout {
     pub animations_duration: u32,
     #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,240,_>")]
     pub animations_framerate: u8,
-    #[serde(default)]
     pub animation_type: Option<WindowAnimation>,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub tiles_padding: u8,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub border_padding: u8,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<60,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_max::<120,_>")]
     pub focalized_padding: u8,
     pub insert_in_monitor: bool,
     #[serde(default)]
@@ -136,12 +135,12 @@ impl Default for Layout {
     fn default() -> Self {
         Layout {
             tiling_strategy: "golden_ratio".to_string(),
-            tiles_padding: 4,
+            tiles_padding: 12,
             animations_enabled: true,
-            animations_duration: 600,
+            animations_duration: 300,
             animations_framerate: 60,
             animation_type: Some(WindowAnimation::default()),
-            border_padding: 4,
+            border_padding: 18,
             focalized_padding: 8,
             golden_ratio: GoldenRatio::default(),
             horizontal: MonoAxisHorizontal::default(),
