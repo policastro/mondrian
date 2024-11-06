@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::app::{
     config::app_configs::deserializers,
@@ -8,15 +8,19 @@ use crate::app::{
 use super::{LayoutStrategy, TreeOperation};
 use serde::Deserializer;
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 #[serde(default)]
 pub struct GoldenRatio {
-    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,90,_>")]
     ratio: u8,
     clockwise: bool,
     #[serde(skip)]
     current_direction: Direction,
-    #[serde(rename = "vertical", deserialize_with = "deserialize_first_split")]
+    #[serde(
+        rename = "vertical",
+        deserialize_with = "deserialize_first_split",
+        serialize_with = "serialize_first_split"
+    )]
     first_split: Orientation,
     #[serde(skip)]
     count: u8,
@@ -100,4 +104,14 @@ where
         true => Orientation::Vertical,
         false => Orientation::Horizontal,
     })
+}
+
+fn serialize_first_split<S>(orientation: &Orientation, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match orientation {
+        Orientation::Vertical => serializer.serialize_bool(true),
+        Orientation::Horizontal => serializer.serialize_bool(false),
+    }
 }

@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::app::{
     config::app_configs::deserializers,
@@ -7,14 +7,14 @@ use crate::app::{
 
 use super::{LayoutStrategy, TreeOperation};
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 #[serde(default)]
 pub struct TwoStep {
     #[serde(rename = "first_step")]
     first_dir: Direction,
     #[serde(rename = "second_step")]
     second_dir: Direction,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
+    #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,90,_>")]
     ratio: u8,
     #[serde(skip)]
     current_dir: Direction,

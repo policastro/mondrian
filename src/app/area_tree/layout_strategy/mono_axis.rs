@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 
@@ -67,7 +67,7 @@ impl Default for MonoAxis {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct MonoAxisVertical {
     grow_down: bool,
@@ -107,7 +107,7 @@ impl Default for MonoAxisVertical {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct MonoAxisHorizontal {
     grow_right: bool,

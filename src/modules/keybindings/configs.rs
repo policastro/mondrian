@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage};
 use inputbot::KeybdKey::*;
-use serde::{de::Error, Deserialize, Deserializer};
+use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(default, try_from = "ExtKeybindingsConfig")]
+#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[serde(default, try_from = "ExtKeybindingsConfig", into = "ExtKeybindingsConfig")]
 pub struct KeybindingsModuleConfigs {
     pub enabled: bool,
     pub bindings: Vec<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianMessage)>,
@@ -31,16 +31,7 @@ impl From<&AppConfigs> for KeybindingsModuleConfigs {
     }
 }
 
-impl Default for KeybindingsModuleConfigs {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            bindings: vec![],
-        }
-    }
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(default)]
 struct ExtKeybindingsConfig {
     enabled: bool,
@@ -49,7 +40,7 @@ struct ExtKeybindingsConfig {
     bindings: Vec<ExtBindingConfig>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 struct ExtBindingConfig {
     #[serde(default, deserialize_with = "deserialize_modifier_opt")]
     pub modifier: Option<Vec<String>>,
@@ -86,6 +77,16 @@ impl From<ExtKeybindingsConfig> for KeybindingsModuleConfigs {
         KeybindingsModuleConfigs {
             enabled: val.enabled,
             bindings,
+        }
+    }
+}
+
+impl From<KeybindingsModuleConfigs> for ExtKeybindingsConfig {
+    fn from(val: KeybindingsModuleConfigs) -> Self {
+        ExtKeybindingsConfig {
+            enabled: val.enabled,
+            default_modifier: ["ALT".to_string()].to_vec(),
+            bindings: [].to_vec(),
         }
     }
 }

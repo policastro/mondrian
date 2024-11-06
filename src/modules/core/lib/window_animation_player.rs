@@ -4,6 +4,7 @@ use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use serde::Deserialize;
+use serde::Serialize;
 use std::f32::consts::PI;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -189,7 +190,7 @@ impl WindowAnimationPlayer {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum WindowAnimation {
     Linear,

@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     app::area_tree::layout_strategy::{
@@ -17,7 +17,7 @@ use crate::{
 
 use super::win_matcher::WinMatcher;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AppConfigs {
     #[serde(default)]
@@ -30,13 +30,13 @@ pub struct AppConfigs {
     pub advanced: Advanced,
 }
 
-#[derive(Deserialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Core {
     pub rules: Vec<RuleConfig>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Layout {
     #[serde(deserialize_with = "deserializers::to_tiling_strategy")]
@@ -66,20 +66,20 @@ pub struct Layout {
     pub squared: layout_strategy::squared::Squared,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Advanced {
     pub detect_maximized_windows: bool,
 }
 
-#[derive(Deserialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[serde(default, deny_unknown_fields)]
 pub struct Modules {
     pub keybindings: KeybindingsModuleConfigs,
     pub overlays: OverlaysModuleConfigs,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RuleConfig {
     pub classname: Option<String>,
@@ -147,7 +147,7 @@ impl Default for Layout {
             vertical: MonoAxisVertical::default(),
             twostep: TwoStep::default(),
             squared: Squared::default(),
-            insert_in_monitor: false,
+            insert_in_monitor: true,
         }
     }
 }

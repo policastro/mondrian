@@ -1,10 +1,10 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 
 use super::{LayoutStrategy, TreeOperation};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Squared {
     #[serde(skip)]

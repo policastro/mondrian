@@ -1,21 +1,23 @@
+use super::color::Color;
+use super::utils;
+use crate::app::config::app_configs::deserializers;
+use crate::win32::api::misc::post_empyt_message;
+use crate::win32::api::misc::post_message;
+use crate::win32::api::window::destroy_window;
+use crate::win32::api::window::show_window;
+use crate::win32::win_event_loop::start_mono_win_event_loop;
 use serde::Deserialize;
+use serde::Serialize;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
+use std::thread;
 use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::SetWindowPos;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOSENDCHANGING;
+use windows::Win32::UI::WindowsAndMessaging::SWP_SHOWWINDOW;
 use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
-
-use crate::win32::{
-    api::{
-        misc::{post_empyt_message, post_message},
-        window::{destroy_window, show_window},
-    },
-    win_event_loop::start_mono_win_event_loop,
-};
-use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOSENDCHANGING, SWP_SHOWWINDOW};
-
-use super::{color::Color, utils};
-use std::thread;
 
 pub struct Overlay {
     target: HWND,
@@ -155,18 +157,21 @@ impl Drop for Overlay {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(default)]
 pub struct OverlayParams {
     pub enabled: bool,
     pub color: Color,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub thickness: u8,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<30,_>")]
     pub padding: u8,
 }
 
 impl Default for OverlayParams {
     fn default() -> Self {
         OverlayParams {
-            enabled: true,
+            enabled: false,
             color: Color::new(0, 0, 0),
             thickness: 0,
             padding: 0,

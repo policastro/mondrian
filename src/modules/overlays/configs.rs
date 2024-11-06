@@ -1,15 +1,17 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::app::config::app_configs::AppConfigs;
 
 use super::lib::overlay::OverlayParams;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct OverlaysModuleConfigs {
     pub enabled: bool,
     pub update_while_resizing: bool,
+    #[serde(default = "OverlayParams::default_active")]
     pub active: OverlayParams,
+    #[serde(default = "OverlayParams::default_inactive")]
     pub inactive: OverlayParams,
 }
 

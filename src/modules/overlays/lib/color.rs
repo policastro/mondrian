@@ -1,11 +1,11 @@
 use core::fmt;
+use serde::de;
+use serde::de::Visitor;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
 
-use serde::{
-    de::{self, Visitor},
-    Deserialize, Deserializer,
-};
-
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct Color {
     red: u8,
     green: u8,
