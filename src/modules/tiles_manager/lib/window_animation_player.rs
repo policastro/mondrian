@@ -74,6 +74,7 @@ impl WindowAnimationPlayer {
     }
 
     pub fn play(&mut self, animation: Option<WindowAnimation>) {
+        self.cancel();
         self.previous_foreground = get_foreground_window();
         if animation.is_none() {
             Self::move_windows(&self.windows);
@@ -81,7 +82,6 @@ impl WindowAnimationPlayer {
             return;
         }
 
-        self.cancel();
         let animation = animation.unwrap().clone();
         let wins = self.windows.clone();
         let running = self.running.clone();
@@ -92,10 +92,10 @@ impl WindowAnimationPlayer {
         let on_start = self.on_start.clone();
         let on_error = self.on_error.clone();
         let on_complete = self.on_complete.clone();
+        self.running.store(true, Ordering::SeqCst);
+        (on_start)();
         self.animation_thread = Some(std::thread::spawn(move || {
-            running.store(true, Ordering::SeqCst);
-            let mut is_running = true;
-            (on_start)();
+            let mut is_running = running.load(Ordering::SeqCst);
 
             let fwins: Vec<(WindowRef, Area, Area)> = wins
                 .clone()
@@ -113,7 +113,7 @@ impl WindowAnimationPlayer {
             let start_time = SystemTime::now();
             while is_running {
                 let passed = start_time.elapsed().unwrap().as_millis();
-                is_running = running.load(Ordering::Relaxed) && passed <= duration;
+                is_running = running.load(Ordering::SeqCst) && passed <= duration;
                 if !is_running {
                     break;
                 }
@@ -127,7 +127,7 @@ impl WindowAnimationPlayer {
             }
 
             Self::move_windows(&wins);
-            running.store(false, std::sync::atomic::Ordering::SeqCst);
+            running.store(false, std::sync::atomic::Ordering::Relaxed);
             (on_complete)();
         }));
 

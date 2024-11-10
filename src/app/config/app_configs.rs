@@ -1,21 +1,16 @@
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    app::area_tree::layout_strategy::{
-        self,
-        golden_ratio::GoldenRatio,
-        mono_axis::{MonoAxisHorizontal, MonoAxisVertical},
-        squared::Squared,
-        two_step::TwoStep,
-        LayoutStrategyEnum,
-    },
-    modules::{
-        core::lib::window_animation_player::WindowAnimation, keybindings::configs::KeybindingsModuleConfigs,
-        overlays::configs::OverlaysModuleConfigs,
-    },
-};
-
 use super::win_matcher::WinMatcher;
+use crate::app::area_tree::layout_strategy;
+use crate::app::area_tree::layout_strategy::golden_ratio::GoldenRatio;
+use crate::app::area_tree::layout_strategy::mono_axis::MonoAxisHorizontal;
+use crate::app::area_tree::layout_strategy::mono_axis::MonoAxisVertical;
+use crate::app::area_tree::layout_strategy::squared::Squared;
+use crate::app::area_tree::layout_strategy::two_step::TwoStep;
+use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::modules::keybindings::configs::KeybindingsModuleConfigs;
+use crate::modules::overlays::configs::OverlaysModuleConfigs;
+use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

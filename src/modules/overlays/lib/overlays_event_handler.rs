@@ -5,7 +5,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::win32::{
-    api::window::get_foreground_window, callbacks::win_event_hook::WinEvent, win_events_manager::WinEventHandler,
+    api::window::get_foreground_window, callbacks::win_event_hook::WindowsEvent, win_events_manager::WinEventHandler,
 };
 
 use super::overlay_manager::OverlaysManager;
@@ -29,7 +29,7 @@ impl OverlayEventHandler {
 impl WinEventHandler for OverlayEventHandler {
     fn init(&mut self) {}
 
-    fn handle(&mut self, event: &WinEvent) {
+    fn handle(&mut self, event: &WindowsEvent) {
         if event.hwnd.0 == 0 {
             return;
         }
@@ -41,8 +41,10 @@ impl WinEventHandler for OverlayEventHandler {
             self.overlays.lock().unwrap().focus(event.hwnd);
         } else if event.event == EVENT_SYSTEM_MOVESIZESTART {
             self.moving = !self.update_while_resizing;
+            self.overlays.lock().unwrap().suspend();
         } else if event.event == EVENT_SYSTEM_MOVESIZEEND {
             self.moving = false;
+            self.overlays.lock().unwrap().resume();
         }
     }
 

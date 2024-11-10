@@ -1,10 +1,13 @@
+use super::filter::skip_window;
+use crate::app::config::win_matcher::WinMatcher;
+use crate::app::mondrian_message::MondrianMessage;
+use crate::app::mondrian_message::WindowEvent;
 use crate::app::structs::area::Area;
-use crate::modules::core::lib::tm_command::TMCommand;
 use crate::win32::api::cursor::get_cursor_info;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::is_user_managable_window;
-use crate::win32::callbacks::win_event_hook::WinEvent;
+use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
@@ -25,15 +28,17 @@ use windows::Win32::UI::WindowsAndMessaging::IDC_SIZENWSE;
 use windows::Win32::UI::WindowsAndMessaging::IDC_SIZEWE;
 
 pub struct PositionEventHandler {
-    sender: Sender<TMCommand>,
+    sender: Sender<MondrianMessage>,
+    filter: WinMatcher,
     windows: HashMap<isize, (Area, bool)>,
     resize_cursors: HashSet<isize>,
 }
 
 impl PositionEventHandler {
-    pub fn new(sender: Sender<TMCommand>) -> PositionEventHandler {
+    pub fn new(sender: Sender<MondrianMessage>, filter: WinMatcher) -> PositionEventHandler {
         PositionEventHandler {
             sender,
+            filter,
             windows: HashMap::new(),
             resize_cursors: HashSet::new(),
         }
@@ -43,9 +48,11 @@ impl PositionEventHandler {
         let area = WindowRef::new(hwnd).get_window_box();
         if let Some(area) = area {
             let is_resize = self.is_resize_handle();
-            let event = TMCommand::WindowStartMoveSize(hwnd);
-            self.sender.send(event).expect("Failed to send event");
-            self.windows.insert(hwnd.0, (area, is_resize));
+            let event = WindowEvent::StartMoveSize(hwnd);
+            if !skip_window(&event, &self.filter) {
+                self.sender.send(event.into()).expect("Failed to send event");
+                self.windows.insert(hwnd.0, (area, is_resize));
+            }
         }
     }
 
@@ -76,14 +83,15 @@ impl PositionEventHandler {
             None => return,
         };
 
-        let event = match is_resize {
-            true => TMCommand::WindowResized(hwnd, prev_area, curr_area),
-            false => TMCommand::WindowMoved(hwnd, dest_point, invert_op, switch_orientation),
+        let win_event = match is_resize {
+            true => WindowEvent::Resized(hwnd, prev_area, curr_area),
+            false => WindowEvent::Moved(hwnd, dest_point, invert_op, switch_orientation),
         };
 
-        if let Err(err) = self.sender.send(event) {
-            log::error!("Failed to send event: {}", err);
-        }
+        let _ = self
+            .sender
+            .send(win_event.into())
+            .inspect_err(|err| log::error!("Failed to send event: {}", err));
     }
 }
 
@@ -98,7 +106,7 @@ impl WinEventHandler for PositionEventHandler {
             });
     }
 
-    fn handle(&mut self, event: &WinEvent) {
+    fn handle(&mut self, event: &WindowsEvent) {
         if !is_user_managable_window(event.hwnd, true, true, true) {
             return;
         }

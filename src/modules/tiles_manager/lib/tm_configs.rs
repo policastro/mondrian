@@ -1,4 +1,4 @@
-use crate::modules::core::config::CoreModuleConfigs;
+use super::super::configs::CoreModuleConfigs;
 
 use super::window_animation_player::WindowAnimation;
 

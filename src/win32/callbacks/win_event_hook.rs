@@ -16,7 +16,7 @@ use crate::win32::{api::accessibility::set_global_win_event_hook, win_events_man
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct WinEvent {
+pub struct WindowsEvent {
     pub h_win_event_hook: HWINEVENTHOOK,
     pub event: u32,
     pub hwnd: HWND,
@@ -26,16 +26,16 @@ pub struct WinEvent {
     pub dwms_event_time: u32,
 }
 
-pub struct WinEventDispatcher {
+pub struct WindowsEventDispatcher {
     pub events_map: HashMap<u32, HashSet<u32>>,
     pub hooks: HashMap<u32, HWINEVENTHOOK>,
     pub counter: u32,
     pub handlers: HashMap<u32, Box<dyn WinEventHandler + Send>>,
 }
 
-impl WinEventDispatcher {
-    pub fn new() -> WinEventDispatcher {
-        WinEventDispatcher {
+impl WindowsEventDispatcher {
+    pub fn new() -> WindowsEventDispatcher {
+        WindowsEventDispatcher {
             events_map: HashMap::new(),
             hooks: HashMap::new(),
             counter: 0,
@@ -93,7 +93,7 @@ impl WinEventDispatcher {
         }
     }
 
-    fn dispatch(&mut self, event: &WinEvent) {
+    fn dispatch(&mut self, event: &WindowsEvent) {
         if let Some(handlers) = self.events_map.get(&event.event) {
             handlers.iter().for_each(|i| {
                 self.handlers.get_mut(i).expect("Handler not found").handle(event);
@@ -109,8 +109,8 @@ impl WinEventDispatcher {
 }
 
 lazy_static! {
-    pub(crate) static ref EVENT_MANAGER: Arc<Mutex<WinEventDispatcher>> =
-        Arc::new(Mutex::new(WinEventDispatcher::new()));
+    pub(crate) static ref EVENT_MANAGER: Arc<Mutex<WindowsEventDispatcher>> =
+        Arc::new(Mutex::new(WindowsEventDispatcher::new()));
 }
 
 pub(crate) unsafe extern "system" fn win_event_hook(
@@ -122,7 +122,7 @@ pub(crate) unsafe extern "system" fn win_event_hook(
     id_event_thread: u32,
     dwms_event_time: u32,
 ) {
-    let event = WinEvent {
+    let event = WindowsEvent {
         h_win_event_hook: hook_id,
         event,
         hwnd,

@@ -33,7 +33,9 @@ impl OverlaysManager {
                 .entry(*w)
                 .or_insert_with(|| Overlay::new(hwnd, self.active, self.inactive));
 
-            o.reposition(Some(is_foreground));
+            if !self.locked {
+                o.reposition(Some(is_foreground));
+            }
         });
 
         self.overlays.retain(|w, _| windows.contains(w));
@@ -43,6 +45,7 @@ impl OverlaysManager {
         if self.locked {
             return;
         }
+
         if self.overlays.contains_key(&hwnd.0) {
             self.overlays.iter_mut().for_each(|(w, o)| o.activate(*w == hwnd.0));
         }
@@ -72,7 +75,10 @@ impl OverlaysManager {
     }
 
     pub fn resume(&mut self) {
-        self.overlays.iter_mut().for_each(|(_, o)| o.reposition(None));
+        let foreground = get_foreground_window().unwrap_or_default().0;
+        self.overlays
+            .iter_mut()
+            .for_each(|(hwnd, o)| o.reposition(Some(foreground == *hwnd)));
         self.unlock();
     }
 

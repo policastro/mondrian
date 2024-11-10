@@ -30,8 +30,8 @@ impl WindowRef {
         WindowRef { hwnd }
     }
 
-    pub fn snapshot(&self) -> Option<WindowSnapshot> {
-        Some(WindowSnapshot {
+    pub fn snapshot(&self) -> WindowSnapshot {
+        WindowSnapshot {
             hwnd: self.hwnd,
             exe_name: self.get_exe_name(),
             title: self.get_title(),
@@ -41,7 +41,7 @@ impl WindowRef {
             visible: self.is_visible(),
             iconic: self.is_iconic(),
             cloaked: self.is_cloaked(),
-        })
+        }
     }
 
     pub fn adjust_area(&self, area: Area) -> Area {
@@ -84,7 +84,7 @@ impl From<isize> for WindowRef {
 
 impl From<WindowRef> for WindowSnapshot {
     fn from(val: WindowRef) -> Self {
-        val.snapshot().unwrap()
+        val.snapshot()
     }
 }
 

@@ -1,10 +1,47 @@
+use super::structs::area::Area;
 use super::structs::direction::Direction;
-use crate::modules::core::lib::tm_command::TMCommand;
+use crate::modules::tiles_manager::lib::tm_command::TMCommand;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::str::FromStr;
+use windows::Win32::Foundation::HWND;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum WindowEvent {
+    Opened(HWND),
+    Closed(HWND),
+    Minimized(HWND),
+    Restored(HWND),
+    Maximized(HWND),
+    Unmaximized(HWND),
+    StartMoveSize(HWND),
+    Moved(HWND, (i32, i32), bool, bool),
+    Resized(HWND, Area, Area),
+}
+
+impl WindowEvent {
+    pub fn get_hwnd(&self) -> HWND {
+        match self {
+            WindowEvent::Opened(hwnd)
+            | WindowEvent::Closed(hwnd)
+            | WindowEvent::Minimized(hwnd)
+            | WindowEvent::Restored(hwnd)
+            | WindowEvent::Maximized(hwnd)
+            | WindowEvent::Unmaximized(hwnd)
+            | WindowEvent::StartMoveSize(hwnd)
+            | WindowEvent::Moved(hwnd, _, _, _)
+            | WindowEvent::Resized(hwnd, _, _) => *hwnd,
+        }
+    }
+}
+
+impl From<WindowEvent> for MondrianMessage {
+    fn from(event: WindowEvent) -> Self {
+        MondrianMessage::WindowEvent(event)
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MondrianMessage {
@@ -28,6 +65,7 @@ pub enum MondrianMessage {
     Minimize,
     ListManagedWindows,
     Quit,
+    WindowEvent(WindowEvent),
 }
 
 impl<'de> serde::Deserialize<'de> for MondrianMessage {

@@ -1,11 +1,13 @@
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
-use crate::app::mondrian_command::MondrianMessage;
-use crate::modules::core::module::CoreModule;
+use crate::app::mondrian_message::MondrianMessage;
+use crate::modules::events_monitor::module::EventsMonitorModule;
 use crate::modules::keybindings::module::KeybindingsModule;
-use crate::modules::Module;
+use crate::modules::logger::module::LoggerModule;
 use crate::modules::overlays::module::OverlaysModule;
+use crate::modules::tiles_manager::module::TilesManagerModule;
 use crate::modules::tray::module::TrayModule;
+use crate::modules::Module;
 use clap::Parser;
 use log4rs::config::RawConfig;
 use std::collections::HashMap;
@@ -36,8 +38,10 @@ fn start_app(cfg_file: &PathBuf) {
     let (bus_tx, bus_rx) = std::sync::mpsc::channel();
 
     let modules: Vec<Box<dyn Module>> = vec![
+        Box::new(LoggerModule {}),
+        Box::new(EventsMonitorModule::new(bus_tx.clone())),
+        Box::new(TilesManagerModule::new(bus_tx.clone())),
         Box::new(OverlaysModule::new(bus_tx.clone())),
-        Box::new(CoreModule::new(bus_tx.clone())),
         Box::new(TrayModule::new(bus_tx.clone())),
         Box::new(KeybindingsModule::new(bus_tx.clone())),
     ];

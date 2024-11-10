@@ -381,7 +381,6 @@ impl TilesManager {
 
     pub fn update(&mut self, animate: bool) {
         let anim_player = &mut self.animation_player;
-        anim_player.cancel();
         self.containers.values_mut().for_each(|c| {
             let (border_pad, tile_pad) = match c.is_focalized() {
                 true => (self.config.get_focalized_pad(), (0, 0)),

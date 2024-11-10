@@ -1,11 +1,11 @@
 use crate::app::config::app_configs::AppConfigs;
-use crate::app::mondrian_command::MondrianMessage;
+use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::misc::get_current_thread_id;
 use crate::win32::api::misc::post_empty_thread_message;
-use crate::win32::win_events_manager::WinEventManager;
+use crate::win32::win_events_manager::WindowsEventManager;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Sender;
@@ -59,7 +59,7 @@ impl ModuleImpl for OverlaysModule {
         let update_while_resizing = self.configs.update_while_resizing;
         let main_thread = thread::spawn(move || {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
-            let mut wem = WinEventManager::new();
+            let mut wem = WindowsEventManager::new();
             wem.hook(OverlayEventHandler::new(overlay_manager, update_while_resizing));
             wem.start_event_loop();
         });

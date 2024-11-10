@@ -1,12 +1,8 @@
+use super::lib::window_animation_player::WindowAnimation;
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::config::app_configs::AppConfigs;
-use crate::app::config::win_matcher;
-
-use super::lib::window_animation_player::WindowAnimation;
 
 pub struct CoreModuleConfigs {
-    pub detect_maximized_windows: bool,
-    pub filter: Option<win_matcher::WinMatcher>,
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
     pub border_padding: u8,
@@ -21,8 +17,6 @@ pub struct CoreModuleConfigs {
 impl Default for CoreModuleConfigs {
     fn default() -> Self {
         CoreModuleConfigs {
-            detect_maximized_windows: true,
-            filter: None,
             layout_strategy: LayoutStrategyEnum::default(),
             tiles_padding: 0,
             border_padding: 0,
@@ -46,8 +40,6 @@ impl CoreModuleConfigs {
 impl From<&AppConfigs> for CoreModuleConfigs {
     fn from(app_configs: &AppConfigs) -> Self {
         CoreModuleConfigs {
-            detect_maximized_windows: app_configs.advanced.detect_maximized_windows,
-            filter: app_configs.get_filters(),
             layout_strategy: app_configs.get_layout_strategy(),
             tiles_padding: app_configs.layout.tiles_padding,
             border_padding: app_configs.layout.border_padding,

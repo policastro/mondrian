@@ -1,4 +1,4 @@
-pub mod mondrian_command;
+pub mod mondrian_message;
 
 pub mod area_tree {
     pub mod layout_strategy;

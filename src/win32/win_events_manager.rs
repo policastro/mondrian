@@ -1,22 +1,22 @@
 use super::{
-    callbacks::win_event_hook::{WinEvent, EVENT_MANAGER},
+    callbacks::win_event_hook::{WindowsEvent, EVENT_MANAGER},
     win_event_loop::start_win_event_loop,
 };
 
 pub trait WinEventHandler {
     fn init(&mut self);
-    fn handle(&mut self, event: &WinEvent);
+    fn handle(&mut self, event: &WindowsEvent);
     /// Returns the list of events managed by this handler. If None, all events are managed.
     fn get_managed_events(&self) -> Option<Vec<u32>>;
 }
 
-pub struct WinEventManager {
+pub struct WindowsEventManager {
     handlers_key: Vec<u32>,
 }
 
-impl WinEventManager {
-    pub fn new() -> WinEventManager {
-        WinEventManager { handlers_key: vec![] }
+impl WindowsEventManager {
+    pub fn new() -> WindowsEventManager {
+        WindowsEventManager { handlers_key: vec![] }
     }
 
     pub fn hook(&mut self, handler: impl WinEventHandler + Send + 'static) {
@@ -36,7 +36,7 @@ impl WinEventManager {
     }
 }
 
-impl Drop for WinEventManager {
+impl Drop for WindowsEventManager {
     fn drop(&mut self) {
         self.unhook_all();
     }

@@ -1,20 +1,26 @@
-pub mod core {
-    pub mod config;
+pub mod events_monitor {
+    pub mod configs;
     pub mod module;
     pub(crate) mod lib {
         pub mod display_change_detector;
+        pub mod filter;
+        pub mod maximize_event_handler;
+        pub mod minimize_event_handler;
+        pub mod open_event_handler;
+        pub mod position_event_handler;
+    }
+}
+
+pub mod tiles_manager {
+    pub mod configs;
+    pub mod module;
+    pub(crate) mod lib {
         pub mod containers;
+        pub mod monitor_layout;
         pub mod tm;
         pub mod tm_command;
         pub mod tm_configs;
         pub mod window_animation_player;
-        pub mod monitor_layout;
-        pub mod handlers {
-            pub mod maximize_event_handler;
-            pub mod minimize_event_handler;
-            pub mod position_event_handler;
-            pub mod open_event_handler;
-        }
     }
 }
 
@@ -39,7 +45,11 @@ pub mod tray {
     pub mod module;
 }
 
-use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage};
+pub mod logger {
+    pub mod module;
+}
+
+use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
 
 pub trait Module {
     fn start(&mut self);
@@ -56,7 +66,7 @@ pub trait ConfigurableModule: Module {
 }
 
 pub(in crate::modules) mod module_impl {
-    use crate::app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage};
+    use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
 
     use super::Module;
 

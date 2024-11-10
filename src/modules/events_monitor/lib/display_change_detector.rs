@@ -1,4 +1,4 @@
-use crate::app::mondrian_command::MondrianMessage;
+use crate::app::mondrian_message::MondrianMessage;
 use crate::win32::api::window::create_window;
 use lazy_static::lazy_static;
 use std::ffi::OsStr;

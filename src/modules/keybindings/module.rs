@@ -2,7 +2,7 @@ use inputbot::BlockInput;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 use crate::{
-    app::{config::app_configs::AppConfigs, mondrian_command::MondrianMessage},
+    app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage},
     modules::{module_impl::ModuleImpl, ConfigurableModule, Module},
     win32::api::misc::{get_current_thread_id, post_empty_thread_message},
 };
