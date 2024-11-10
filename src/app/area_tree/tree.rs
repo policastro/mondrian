@@ -35,6 +35,22 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
         self.update_map();
     }
 
+    pub fn insert_at(&mut self, id: T, point: (i32, i32)) {
+        if self.ids_map.contains_key(&id) {
+            return;
+        }
+        self.root.insert_at(id, point, self.area, 20);
+        self.update_map();
+    }
+
+    pub fn move_to(&mut self, id: T, point: (i32, i32)) {
+        if let Some(leaf) = self.ids_map.remove(&id) {
+            self.root.insert_at(id, point, self.area, 20);
+            self.remove_at(leaf.viewbox.get_center());
+            self.update_map();
+        }
+    }
+
     pub fn switch_subtree_orientations(&mut self, point: (i32, i32)) {
         if let Some(parent) = self.root.find_parent_mut(point, self.area) {
             parent.switch_subtree_orientations();
@@ -65,11 +81,14 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
 
     pub fn remove(&mut self, id: T) {
         if let Some(leaf) = self.ids_map.remove(&id) {
-            self.strategy.init(self.ids_map.len() as u8, TreeOperation::Remove);
-            self.root
-                .remove(leaf.viewbox.get_center(), self.area, &mut self.strategy);
-            self.update_map();
+            self.remove_at(leaf.viewbox.get_center());
         }
+    }
+
+    pub fn remove_at(&mut self, point: (i32, i32)) {
+        self.strategy.init(self.ids_map.len() as u8, TreeOperation::Remove);
+        self.root.remove(point, self.area, &mut self.strategy);
+        self.update_map();
     }
 
     pub(crate) fn resize_ancestor(

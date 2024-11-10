@@ -55,6 +55,43 @@ impl<T: Copy> AreaNode<T> {
         return main_tree.as_mut().unwrap().insert(id, area, strategy);
     }
 
+    pub fn insert_at(&mut self, id: T, point: (i32, i32), area: Area, vertical_limit: u8) {
+        assert!(vertical_limit <= 50);
+        if self.id.is_none() && self.is_leaf() {
+            self.id = Some(id);
+            return;
+        }
+
+        let mut curr_node = self;
+        let mut curr_area = area;
+        while !curr_node.is_leaf() {
+            let (min_area, max_area) = curr_area.split(curr_node.ratio, curr_node.orientation);
+
+            (curr_node, curr_area) = match min_area.contains(point) {
+                true => (curr_node.left.as_mut().unwrap(), min_area),
+                false => (curr_node.right.as_mut().unwrap(), max_area),
+            };
+        }
+
+        let (up_area, _) = curr_area.split(vertical_limit, Orientation::Horizontal);
+        let (_, down_area) = curr_area.split(100 - vertical_limit, Orientation::Horizontal);
+        let (left_area, _) = curr_area.split(50, Orientation::Vertical);
+
+        let (orient, left, right) = if up_area.contains(point) {
+            (Orientation::Horizontal, Some(id), curr_node.id)
+        } else if down_area.contains(point) {
+            (Orientation::Horizontal, curr_node.id, Some(id))
+        } else if left_area.contains(point) {
+            (Orientation::Vertical, Some(id), curr_node.id)
+        } else {
+            (Orientation::Vertical, curr_node.id, Some(id))
+        };
+
+        curr_node.left = Some(Box::new(AreaNode::new(left, orient, 50)));
+        curr_node.right = Some(Box::new(AreaNode::new(right, orient, 50)));
+        (curr_node.orientation, curr_node.ratio, curr_node.id) = (orient, 50, None);
+    }
+
     pub fn find_leaf(&self, point: (i32, i32), area: Area) -> Option<AreaLeaf<T>> {
         let mut curr_node = self;
         let mut curr_area = area;

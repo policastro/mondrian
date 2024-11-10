@@ -49,6 +49,7 @@ pub struct Layout {
     #[serde(deserialize_with = "deserializers::to_u8_max::<120,_>")]
     pub focalized_padding: u8,
     pub insert_in_monitor: bool,
+    pub free_move_in_monitor: bool,
     #[serde(default)]
     pub golden_ratio: layout_strategy::golden_ratio::GoldenRatio,
     #[serde(default)]
@@ -143,6 +144,7 @@ impl Default for Layout {
             twostep: TwoStep::default(),
             squared: Squared::default(),
             insert_in_monitor: true,
+            free_move_in_monitor: false,
         }
     }
 }

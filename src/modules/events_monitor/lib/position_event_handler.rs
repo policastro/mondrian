@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_CONTROL;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_MENU;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT;
 use windows::Win32::UI::WindowsAndMessaging::LoadCursorW;
@@ -69,8 +70,13 @@ impl PositionEventHandler {
     }
 
     fn end_movesize(&mut self, hwnd: HWND) {
-        let (shift_key, alt_key) = (get_key_state(VK_SHIFT.0), get_key_state(VK_MENU.0));
-        let (invert_op, switch_orientation) = (shift_key.pressed, alt_key.pressed);
+        let (shift, alt, ctrl) = (
+            get_key_state(VK_SHIFT.0),
+            get_key_state(VK_MENU.0),
+            get_key_state(VK_CONTROL.0),
+        );
+
+        let (invert_op, switch_orientation, free_move) = (shift.pressed, alt.pressed, ctrl.pressed);
         let dest_point = get_cursor_pos();
 
         let (prev_area, is_resize) = match self.windows.remove(&hwnd.0) {
@@ -85,7 +91,7 @@ impl PositionEventHandler {
 
         let win_event = match is_resize {
             true => WindowEvent::Resized(hwnd, prev_area, curr_area),
-            false => WindowEvent::Moved(hwnd, dest_point, invert_op, switch_orientation),
+            false => WindowEvent::Moved(hwnd, dest_point, invert_op, switch_orientation, free_move),
         };
 
         let _ = self

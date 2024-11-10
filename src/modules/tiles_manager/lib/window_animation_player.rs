@@ -15,7 +15,6 @@ use std::time::SystemTime;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::SET_WINDOW_POS_FLAGS;
 use windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE;
-use windows::Win32::UI::WindowsAndMessaging::SWP_NOREDRAW;
 use windows::Win32::UI::WindowsAndMessaging::SWP_NOSENDCHANGING;
 use windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER;
 use windows::Win32::UI::WindowsAndMessaging::SWP_SHOWWINDOW;
@@ -109,7 +108,7 @@ impl WindowAnimationPlayer {
                 })
                 .collect();
 
-            let set_pos_flags = SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOREDRAW;
+            let set_pos_flags = SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOZORDER;
             let start_time = SystemTime::now();
             while is_running {
                 let passed = start_time.elapsed().unwrap().as_millis();

@@ -159,6 +159,7 @@ impl TilesManager {
         target: (i32, i32),
         invert_monitor_op: bool,
         switch_orient: bool,
+        invert_free_move: bool,
     ) -> Result<(), Error> {
         if self.unmanaged_wins.contains(&hwnd.0) {
             return Ok(());
@@ -178,8 +179,10 @@ impl TilesManager {
 
         if cs.is_same_container(src_leaf.viewbox.get_center(), target) {
             // If it is in the same monitor
-            if let Some(leaf) = trg_leaf {
-                let c = cs.find_mut(hwnd.0, true).ok_or(c_err)?;
+            let c = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;
+            if invert_free_move && !c.is_focalized() {
+                c.get_active_mut().ok_or(c_err)?.move_to(src_leaf.id, target);
+            } else if let Some(leaf) = trg_leaf {
                 c.iter_mut().for_each(|(_, t)| t.swap_ids(src_leaf.id, leaf.id));
             }
         } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient || trg_leaf.is_none() {
@@ -190,7 +193,10 @@ impl TilesManager {
 
             let c = cs.find_at_mut(target).ok_or(c_err)?;
             c.unfocalize();
-            c.get_active_mut().ok_or(c_err)?.insert(src_leaf.id);
+            match self.config.is_free_move(invert_free_move) {
+                true => c.get_active_mut().ok_or(c_err)?.insert_at(src_leaf.id, target),
+                false => c.get_active_mut().ok_or(c_err)?.insert(src_leaf.id),
+            }
         } else {
             // If it is in another monitor and swap
             let src_trees = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;

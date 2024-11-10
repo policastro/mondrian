@@ -17,7 +17,7 @@ pub enum WindowEvent {
     Maximized(HWND),
     Unmaximized(HWND),
     StartMoveSize(HWND),
-    Moved(HWND, (i32, i32), bool, bool),
+    Moved(HWND, (i32, i32), bool, bool, bool),
     Resized(HWND, Area, Area),
 }
 
@@ -31,7 +31,7 @@ impl WindowEvent {
             | WindowEvent::Maximized(hwnd)
             | WindowEvent::Unmaximized(hwnd)
             | WindowEvent::StartMoveSize(hwnd)
-            | WindowEvent::Moved(hwnd, _, _, _)
+            | WindowEvent::Moved(hwnd, _, _, _, _)
             | WindowEvent::Resized(hwnd, _, _) => *hwnd,
         }
     }

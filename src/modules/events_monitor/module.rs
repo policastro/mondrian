@@ -117,11 +117,15 @@ impl ModuleImpl for EventsMonitorModule {
     fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
+            MondrianMessage::Retile => Module::restart(self),
             MondrianMessage::Configure => {
                 self.configure(app_configs.into());
             }
             MondrianMessage::RefreshConfig => {
                 self.configure(app_configs.into());
+                Module::restart(self);
+            }
+            MondrianMessage::MonitorsLayoutChanged => {
                 Module::restart(self);
             }
             MondrianMessage::Quit => Module::stop(self),

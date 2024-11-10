@@ -22,7 +22,9 @@ By default, the application doesn't log any messages to a file. To enable loggin
 
 #### Moving windows
 
-You can swap two windows in the same monitor just by dragging one of them into the other. By holding `ALT` while dragging, the windows will be swapped and the direction of the tiles will be inverted.
+You can swap two windows in the same monitor just by dragging one of them into the other. In this case, you can:
+
+- hold `ALT` while dragging, to swap the windows and to invert the direction of the tiles;
 
 When the window is dragged to another monitor, by default it will be inserted. In this case, you can:
 
@@ -33,6 +35,17 @@ By changing the `insert_in_monitor` configuration option to `false`, the window 
 
 - hold `SHIFT` while dragging the window to insert the windows;
 - hold `ALT` while dragging the window to insert the window and to invert the direction of the tiles.
+
+If you drag a window in the same monitor while holding `CTRL`, you can place the window freely based on the cursor position relative to an other window.
+In particular:
+
+- if the cursor is at the top of an other window (i.e. <20% of its height), the moving window will be placed above it;
+- if the cursor is at the bottom of an other window (i.e. >80% of its height), the moving window will be placed below it;
+- if the cursor is to the left of an other window (i.e. <50% of its width), the moving window will be placed to the left of it;
+- if the cursor is to the right of an other window (i.e. >50% of its width), the moving window will be placed to the right of it.
+
+By default, the same happens when the window is dragged to another monitor.
+You can set the `free_move_in_monitor` configuration option to `true` if you want to place the window freely in the other monitor without holding `CTRL` (in this case, holding it will disable the free movement).
 
 #### Resizing windows
 
@@ -56,6 +69,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `layout.border_padding`                  | Padding between border and tiles                                            | 0 - 100                                                                            | 18                                 |
 | `layout.focalized_padding`               | Padding between border and focalized window                                 | 0 - 120                                                                            | 8                                  |
 | `layout.insert_in_monitor`               | If true, moving the window to a new monitor inserts it rather than swapping | `true`, `false`                                                                    | `true`                             |
+| `layout.free_move_in_monitor`            | If true, free moving the window to a new monitor is enabled by default      | `true`, `false`                                                                    | `false`                            |
 | `layout.golden_ratio.ratio`              | The ratio of the first split                                                | 10 - 90                                                                            | 50                                 |
 | `layout.golden_ratio.clockwise`          | Places the windows clockwise or counterclockwise                            | `true`, `false`                                                                    | `true`                             |
 | `layout.golden_ratio.vertical`           | If true, the layout will be vertical                                        | `true`, `false`                                                                    | `false`                            |
