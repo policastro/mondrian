@@ -62,16 +62,27 @@ impl ModuleImpl for TrayModule {
         let main_thread = thread::spawn(move || {
             let icon = Icon::from_resource_name("APP_ICON", Some((256, 256))).unwrap();
             let tray_menu = Menu::new();
-            let retile = MenuItem::with_id("RETILE", "Retile", true, None);
-            let open_config = MenuItem::with_id("OPEN_CONFIG", "Open config file", true, None);
-            let with_id = MenuItem::with_id("REFRESH_CONFIG", "Refresh config", true, None);
+            let retile = MenuItem::with_id("RETILE", "⊞ Retile", true, None);
+            let open_config = MenuItem::with_id("OPEN_CONFIG", "⚙️ Open config file", true, None);
+            let with_id = MenuItem::with_id("REFRESH_CONFIG", "⟳ Refresh config", true, None);
             let refresh_config = with_id;
-            let pause = tray_icon::menu::CheckMenuItem::with_id("PAUSE", "Pause", true, false, None);
-            let separator = PredefinedMenuItem::separator();
-            let quit = MenuItem::with_id("QUIT", "Quit", true, None);
+            let pause = tray_icon::menu::CheckMenuItem::with_id("PAUSE", "⏯ Pause", true, false, None);
+            let separator_1 = PredefinedMenuItem::separator();
+            let about = MenuItem::with_id("ABOUT", "ⓘ About", true, None);
+            let separator_2 = PredefinedMenuItem::separator();
+            let quit = MenuItem::with_id("QUIT", "✖ Quit", true, None);
 
             tray_menu
-                .append_items(&[&retile, &open_config, &refresh_config, &pause, &separator, &quit])
+                .append_items(&[
+                    &retile,
+                    &open_config,
+                    &refresh_config,
+                    &pause,
+                    &separator_1,
+                    &about,
+                    &separator_2,
+                    &quit,
+                ])
                 .expect("Failed to append items");
 
             let _tray_icon = TrayIconBuilder::new()
@@ -102,6 +113,7 @@ impl ModuleImpl for TrayModule {
                     Some("RETILE") => Some(MondrianMessage::Retile),
                     Some("REFRESH_CONFIG") => Some(MondrianMessage::RefreshConfig),
                     Some("OPEN_CONFIG") => Some(MondrianMessage::OpenConfig),
+                    Some("ABOUT") => Some(MondrianMessage::About),
                     Some("QUIT") => Some(MondrianMessage::Quit),
                     _ => None,
                 };

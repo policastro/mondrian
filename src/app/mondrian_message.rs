@@ -79,6 +79,7 @@ pub enum MondrianMessage {
     Focalize,
     Minimize,
     ListManagedWindows,
+    About,
     Quit,
     WindowEvent(WindowEvent),
 }
