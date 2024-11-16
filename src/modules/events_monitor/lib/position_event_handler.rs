@@ -1,5 +1,7 @@
 use super::filter::skip_window;
 use crate::app::config::win_matcher::WinMatcher;
+use crate::app::mondrian_message::IntermonitorMoveOp;
+use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::WindowEvent;
 use crate::app::structs::area::Area;
@@ -33,15 +35,24 @@ pub struct PositionEventHandler {
     filter: WinMatcher,
     windows: HashMap<isize, (Area, bool)>,
     resize_cursors: HashSet<isize>,
+    default_insert_in_monitor: bool,
+    default_free_move_in_monitor: bool,
 }
 
 impl PositionEventHandler {
-    pub fn new(sender: Sender<MondrianMessage>, filter: WinMatcher) -> PositionEventHandler {
+    pub fn new(
+        sender: Sender<MondrianMessage>,
+        filter: WinMatcher,
+        default_insert_in_monitor: bool,
+        default_free_move_in_monitor: bool,
+    ) -> PositionEventHandler {
         PositionEventHandler {
             sender,
             filter,
             windows: HashMap::new(),
             resize_cursors: HashSet::new(),
+            default_insert_in_monitor,
+            default_free_move_in_monitor,
         }
     }
 
@@ -71,12 +82,11 @@ impl PositionEventHandler {
 
     fn end_movesize(&mut self, hwnd: HWND) {
         let (shift, alt, ctrl) = (
-            get_key_state(VK_SHIFT.0),
-            get_key_state(VK_MENU.0),
-            get_key_state(VK_CONTROL.0),
+            get_key_state(VK_SHIFT.0).pressed,
+            get_key_state(VK_MENU.0).pressed,
+            get_key_state(VK_CONTROL.0).pressed,
         );
 
-        let (invert_op, switch_orientation, free_move) = (shift.pressed, alt.pressed, ctrl.pressed);
         let dest_point = get_cursor_pos();
 
         let (prev_area, is_resize) = match self.windows.remove(&hwnd.0) {
@@ -89,9 +99,11 @@ impl PositionEventHandler {
             None => return,
         };
 
+        let intramonitor_op = self.get_intramonitor_op(alt, ctrl);
+        let intermonitor_op = self.get_intermonitor_op(alt, shift, ctrl);
         let win_event = match is_resize {
             true => WindowEvent::Resized(hwnd, prev_area, curr_area),
-            false => WindowEvent::Moved(hwnd, dest_point, invert_op, switch_orientation, free_move),
+            false => WindowEvent::Moved(hwnd, dest_point, intramonitor_op, intermonitor_op),
         };
 
         let _ = self
@@ -99,17 +111,48 @@ impl PositionEventHandler {
             .send(win_event.into())
             .inspect_err(|err| log::error!("Failed to send event: {}", err));
     }
+
+    fn get_intramonitor_op(&self, invert_mod: bool, free_mode_mod: bool) -> IntramonitorMoveOp {
+        // NOTE: precedence: invert_mod > free_mode_mod
+        if invert_mod {
+            return IntramonitorMoveOp::Invert;
+        }
+
+        match free_mode_mod {
+            true => IntramonitorMoveOp::InsertFreeMove,
+            false => IntramonitorMoveOp::Swap,
+        }
+    }
+
+    fn get_intermonitor_op(&self, invert_mod: bool, insert_mod: bool, free_mode_mod: bool) -> IntermonitorMoveOp {
+        // NOTE: precedence: invert_mod > free_mode_mod > insert_mod
+        if invert_mod {
+            return IntermonitorMoveOp::Invert;
+        }
+
+        if self.default_insert_in_monitor {
+            match (self.default_free_move_in_monitor, free_mode_mod, insert_mod) {
+                (_, false, true) => IntermonitorMoveOp::Swap,
+                (true, false, false) | (false, true, _) => IntermonitorMoveOp::InsertFreeMove,
+                (false, false, false) | (true, true, _) => IntermonitorMoveOp::Insert,
+            }
+        } else {
+            match (free_mode_mod, insert_mod) {
+                (true, _) => IntermonitorMoveOp::InsertFreeMove,
+                (false, true) => IntermonitorMoveOp::Insert,
+                (false, false) => IntermonitorMoveOp::Swap,
+            }
+        }
+    }
 }
 
 impl WinEventHandler for PositionEventHandler {
     fn init(&mut self) {
         // NOTE: loads all the resize cursors
-        [IDC_SIZEALL, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZENESW, IDC_SIZEWE]
+        self.resize_cursors = [IDC_SIZEALL, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZENESW, IDC_SIZEWE]
             .iter()
-            .filter_map(|cursor| unsafe { LoadCursorW(None, *cursor) }.ok())
-            .for_each(|cursor| {
-                self.resize_cursors.insert(cursor.0);
-            });
+            .filter_map(|cursor| unsafe { LoadCursorW(None, *cursor) }.map(|c| c.0).ok())
+            .collect();
     }
 
     fn handle(&mut self, event: &WindowsEvent) {

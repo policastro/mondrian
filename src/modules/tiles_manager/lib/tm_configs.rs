@@ -7,8 +7,6 @@ pub struct TilesManagerConfig {
     tiles_padding: i8,
     border_padding: i8,
     focalized_padding: i8,
-    insert_in_monitor: bool,
-    free_move: bool,
     animations_duration: u32,
     animations_framerate: u8,
     animation_type: Option<WindowAnimation>,
@@ -19,8 +17,6 @@ impl TilesManagerConfig {
         tiles_padding: u8,
         border_padding: u8,
         focalized_padding: u8,
-        insert_in_monitor: bool,
-        free_move: bool,
         animations_configs: AnimationConfigs,
     ) -> Self {
         let max_i8: u8 = i8::MAX.try_into().expect("max_i8 out of range");
@@ -30,8 +26,6 @@ impl TilesManagerConfig {
             tiles_padding: i8::try_from(tiles_padding).expect("tiles_padding out of range"),
             border_padding: i8::try_from(border_padding).expect("border_padding out of range"),
             focalized_padding: i8::try_from(focalized_padding).expect("focalized_padding out of range"),
-            insert_in_monitor,
-            free_move,
             animations_duration: animations_configs.duration,
             animations_framerate: animations_configs.framerate,
             animation_type: animations_configs.anim_type,
@@ -58,20 +52,6 @@ impl TilesManagerConfig {
         (self.get_tile_padx(), self.get_tile_pady())
     }
 
-    pub fn is_insert_in_monitor(&self, inverted: bool) -> bool {
-        match inverted {
-            true => !self.insert_in_monitor,
-            false => self.insert_in_monitor,
-        }
-    }
-
-    pub fn is_free_move(&self, inverted: bool) -> bool {
-        match inverted {
-            true => !self.free_move,
-            false => self.free_move,
-        }
-    }
-
     pub fn get_animations(&self) -> Option<WindowAnimation> {
         self.animation_type.clone()
     }
@@ -95,8 +75,6 @@ impl From<&CoreModuleConfigs> for TilesManagerConfig {
             configs.tiles_padding,
             configs.border_padding,
             configs.focalized_padding,
-            configs.insert_in_monitor,
-            configs.free_move_in_monitor,
             AnimationConfigs {
                 duration: configs.animations_duration,
                 framerate: configs.animations_framerate,

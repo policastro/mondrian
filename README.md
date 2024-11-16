@@ -4,13 +4,13 @@ _Mondrian_ is a tiling window manager built with Rust for Windows 11.
 
 ### 🌟 Key Features
 
-- Automatic window placement with different (and customizable) tiling layouts;
-- Customizable keybindings;
+- Automatic/manual window placement with different tiling layouts;
+- Keybindings;
 - Multi-monitor support;
 - Mouse movements support (moving/resizing windows);
 - System tray application;
-- Fullscreen support;
-- Multiple animations.
+- Multiple animations;
+- Highly customizable.
 
 ## Getting Started
 
@@ -22,9 +22,8 @@ By default, the application doesn't log any messages to a file. To enable loggin
 
 #### Moving windows
 
-You can swap two windows in the same monitor just by dragging one of them into the other. In this case, you can:
-
-- hold `ALT` while dragging, to swap the windows and to invert the direction of the tiles;
+You can swap two windows in the same monitor just by dragging one of them into the other. While dragging, you can:
+- hold `ALT`, to swap the windows and to invert the direction of the tiles;
 
 When the window is dragged to another monitor, by default it will be inserted. In this case, you can:
 
@@ -36,16 +35,26 @@ By changing the `insert_in_monitor` configuration option to `false`, the window 
 - hold `SHIFT` while dragging the window to insert the windows;
 - hold `ALT` while dragging the window to insert the window and to invert the direction of the tiles.
 
-If you drag a window in the same monitor while holding `CTRL`, you can place the window freely based on the cursor position relative to an other window.
+If you drag a window while holding `CTRL`, you can place the window freely based on the cursor position relative to an other window.
 In particular:
-
-- if the cursor is at the top of an other window (i.e. <20% of its height), the moving window will be placed above it;
-- if the cursor is at the bottom of an other window (i.e. >80% of its height), the moving window will be placed below it;
-- if the cursor is to the left of an other window (i.e. <50% of its width), the moving window will be placed to the left of it;
+- if the cursor is at the top of an other window (i.e. <=20% of its height), the moving window will be placed above it;
+- if the cursor is at the bottom of an other window (i.e. >=80% of its height), the moving window will be placed below it;
+- if the cursor is to the left of an other window (i.e. <=50% of its width), the moving window will be placed to the left of it;
 - if the cursor is to the right of an other window (i.e. >50% of its width), the moving window will be placed to the right of it.
 
-By default, the same happens when the window is dragged to another monitor.
-You can set the `free_move_in_monitor` configuration option to `true` if you want to place the window freely in the other monitor without holding `CTRL` (in this case, holding it will disable the free movement).
+Holding `CTRL` has the same effect when dragging the window to another monitor (by default).
+
+You can set the `free_move_in_monitor` configuration option to `true` if you want to place the window freely in another monitor without holding `CTRL` (in this case, holding `CTRL` will position the window automatically).
+
+Below a table that shows the keybindings for moving/swapping windows in different monitors, depending on the values of the `insert_in_monitor` and `free_move_in_monitor` configuration options:
+
+| `insert_in_monitor` | `free_move_in_monitor` |     No key     |     `CTRL`     |   `SHIFT`    |            `ALT`             | 
+| :-----------------: | :--------------------: | :------------: | :------------: | :----------: | :--------------------------: |
+|       `false`       |     `false`/`true`     |     swaps      | inserts freely | inserts auto | inserts auto + inverts tiles |
+|       `true`        |        `false`         |  inserts auto  | inserts freely |    swaps     | inserts auto + inverts tiles |
+|       `true`        |         `true`         | inserts freely |  inserts auto  |    swaps     | inserts auto + inverts tiles |
+
+If more than one modifier is held, the precedence order is as follows: `ALT > CTRL > SHIFT`.
 
 #### Resizing windows
 
@@ -109,7 +118,9 @@ You can specify custom keybindings with the `modules.keybindings.bindings` optio
 Each binding has the following format:
 
 ```toml
-{ modifier = "MODIFIER", key = "KEY", action = "ACTION" }
+bindings = [
+    { modifier = "MODIFIER", key = "KEY", action = "ACTION" }
+]
 ```
 
 The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, or any combination of them joined by `+` (e.g. `ALT+SHIFT`). This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
@@ -159,7 +170,10 @@ You can ignore windows with the `core.rules` option.
 Each rule has the following format:
 
 ```toml
-{ title = "TITLE", exename = "EXENAME", classname = "CLASSNAME" }
+[core]
+rules = [
+    { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME" }
+]
 ```
 
 You can specify at least one or more parameters, and the rule will be matched if all the parameters match the corresponding window property.

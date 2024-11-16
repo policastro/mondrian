@@ -40,7 +40,12 @@ impl EventsMonitorModule {
     }
 
     fn start_win_events_loop(&mut self) {
-        let detect_maximized_windows = self.configs.detect_maximized_windows;
+        let (detect_maximized, default_insert, default_free_move) = (
+            self.configs.detect_maximized_windows,
+            self.configs.default_insert_in_monitor,
+            self.configs.default_free_move_in_monitor,
+        );
+
         let win_events_thread_id = self.win_events_thread_id.clone();
         let bus_tx = self.bus_tx.clone();
         let filter = self.configs.filter.clone().unwrap();
@@ -52,10 +57,15 @@ impl EventsMonitorModule {
 
             win_events_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             let mut wem = WindowsEventManager::new();
-            wem.hook(PositionEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(OpenCloseEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(MinimizeEventHandler::new(bus_tx.clone(), filter.clone()));
-            if detect_maximized_windows {
+            wem.hook(PositionEventHandler::new(
+                bus_tx.clone(),
+                filter.clone(),
+                default_insert,
+                default_free_move,
+            ));
+            if detect_maximized {
                 wem.hook(MaximizeEventHandler::new(bus_tx.clone(), filter.clone()));
             }
 

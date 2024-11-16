@@ -4,6 +4,7 @@ use super::tm_configs::TilesManagerConfig;
 use super::window_animation_player::WindowAnimationPlayer;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
+use crate::app::mondrian_message::{IntermonitorMoveOp, IntramonitorMoveOp};
 use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
 use crate::win32::api::window::get_foreground_window;
@@ -13,6 +14,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
 use windows::Win32::Foundation::HWND;
+
+type IntraOp = IntramonitorMoveOp;
+type InterOp = IntermonitorMoveOp;
+type Error = TilesManagerError;
 
 pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,
@@ -157,9 +162,8 @@ impl TilesManager {
         &mut self,
         hwnd: HWND,
         target: (i32, i32),
-        invert_monitor_op: bool,
-        switch_orient: bool,
-        invert_free_move: bool,
+        intra_op: IntraOp,
+        inter_op: InterOp,
     ) -> Result<(), Error> {
         if self.unmanaged_wins.contains(&hwnd.0) {
             return Ok(());
@@ -169,37 +173,40 @@ impl TilesManager {
             return Err(Error::NoWindow);
         }
 
-        let cs = &mut self.containers;
-        let c_err = Error::ContainerNotFound { refresh: true };
+        const C_ERR: Error = Error::ContainerNotFound { refresh: true };
 
+        let cs = &mut self.containers;
         let src_leaf = cs.find(hwnd.0, true).and_then(|c| c.get_active());
         let src_leaf = src_leaf.and_then(|t| t.find_leaf(hwnd.0, 0)).ok_or(Error::Generic)?;
         let trg_leaf = cs.find_at(target).and_then(|c| c.get_active());
         let trg_leaf = trg_leaf.and_then(|t| t.find_leaf_at(target, 0));
 
-        if cs.is_same_container(src_leaf.viewbox.get_center(), target) {
+        let is_same_monitor = cs.is_same_container(src_leaf.viewbox.get_center(), target);
+        if is_same_monitor {
             // If it is in the same monitor
-            let c = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;
-            if invert_free_move && !c.is_focalized() {
-                c.get_active_mut().ok_or(c_err)?.move_to(src_leaf.id, target);
+            let c = cs.find_mut(src_leaf.id, true).ok_or(C_ERR)?;
+            if matches!(intra_op, IntraOp::InsertFreeMove) && !c.is_focalized() {
+                c.get_active_mut().ok_or(C_ERR)?.move_to(src_leaf.id, target);
             } else if let Some(leaf) = trg_leaf {
                 c.iter_mut().for_each(|(_, t)| t.swap_ids(src_leaf.id, leaf.id));
             }
-        } else if self.config.is_insert_in_monitor(invert_monitor_op) || switch_orient || trg_leaf.is_none() {
+        } else if matches!(inter_op, InterOp::Insert | InterOp::Invert | InterOp::InsertFreeMove) || trg_leaf.is_none()
+        {
             // If it is in another monitor and insert
-            let c = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;
+            let c = cs.find_mut(src_leaf.id, true).ok_or(C_ERR)?;
             c.unfocalize();
-            c.get_active_mut().ok_or(c_err)?.remove(src_leaf.id);
+            c.get_active_mut().ok_or(C_ERR)?.remove(src_leaf.id);
 
-            let c = cs.find_at_mut(target).ok_or(c_err)?;
+            let c = cs.find_at_mut(target).ok_or(C_ERR)?;
             c.unfocalize();
-            match self.config.is_free_move(invert_free_move) {
-                true => c.get_active_mut().ok_or(c_err)?.insert_at(src_leaf.id, target),
-                false => c.get_active_mut().ok_or(c_err)?.insert(src_leaf.id),
+
+            match matches!(inter_op, InterOp::InsertFreeMove) {
+                true => c.get_active_mut().ok_or(C_ERR)?.insert_at(src_leaf.id, target),
+                false => c.get_active_mut().ok_or(C_ERR)?.insert(src_leaf.id),
             }
         } else {
             // If it is in another monitor and swap
-            let src_trees = cs.find_mut(src_leaf.id, true).ok_or(c_err)?;
+            let src_trees = cs.find_mut(src_leaf.id, true).ok_or(C_ERR)?;
             match trg_leaf {
                 Some(leaf) => src_trees.iter_mut().for_each(|(_, t)| {
                     t.replace_id(src_leaf.id, leaf.id);
@@ -207,18 +214,23 @@ impl TilesManager {
                 None => src_trees.iter_mut().for_each(|(_, t)| t.remove(src_leaf.id)),
             };
 
-            let trg_trees = cs.find_at_mut(target).ok_or(c_err)?;
+            let trg_trees = cs.find_at_mut(target).ok_or(C_ERR)?;
             match trg_leaf {
                 Some(trg) => trg_trees.iter_mut().for_each(|(_, t)| {
                     t.replace_id(trg.id, src_leaf.id);
                 }),
-                None => trg_trees.get_active_mut().ok_or(c_err)?.insert(src_leaf.id),
+                None => trg_trees.get_active_mut().ok_or(C_ERR)?.insert(src_leaf.id),
             };
+        };
+
+        let switch_orient = match is_same_monitor {
+            true => matches!(intra_op, IntramonitorMoveOp::Invert),
+            false => matches!(inter_op, InterOp::Invert),
         };
 
         if switch_orient {
             let tree = cs.find_at_mut(target).and_then(|c| c.get_active_mut());
-            tree.ok_or(c_err)?.switch_subtree_orientations(target);
+            tree.ok_or(C_ERR)?.switch_subtree_orientations(target);
         }
 
         self.update(true);
@@ -435,7 +447,7 @@ enum ContainerType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Error {
+pub enum TilesManagerError {
     Generic,
     WindowAlreadyAdded,
     NoWindowsInfo,
@@ -480,7 +492,7 @@ impl From<ContainerType> for String {
     }
 }
 
-impl Error {
+impl TilesManagerError {
     pub fn is_warn(&self) -> bool {
         matches!(self, Error::WindowAlreadyAdded | Error::NoWindowsInfo)
     }

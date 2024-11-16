@@ -9,6 +9,21 @@ use std::str::FromStr;
 use windows::Win32::Foundation::HWND;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub enum IntermonitorMoveOp {
+    Swap,
+    Insert,
+    InsertFreeMove,
+    Invert,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum IntramonitorMoveOp {
+    Swap,
+    InsertFreeMove,
+    Invert,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum WindowEvent {
     Opened(HWND),
     Closed(HWND),
@@ -17,7 +32,7 @@ pub enum WindowEvent {
     Maximized(HWND),
     Unmaximized(HWND),
     StartMoveSize(HWND),
-    Moved(HWND, (i32, i32), bool, bool, bool),
+    Moved(HWND, (i32, i32), IntramonitorMoveOp, IntermonitorMoveOp),
     Resized(HWND, Area, Area),
 }
 
@@ -31,7 +46,7 @@ impl WindowEvent {
             | WindowEvent::Maximized(hwnd)
             | WindowEvent::Unmaximized(hwnd)
             | WindowEvent::StartMoveSize(hwnd)
-            | WindowEvent::Moved(hwnd, _, _, _, _)
+            | WindowEvent::Moved(hwnd, _, _, _)
             | WindowEvent::Resized(hwnd, _, _) => *hwnd,
         }
     }

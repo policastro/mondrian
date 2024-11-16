@@ -200,7 +200,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
                 tm.cancel_animation();
                 Ok(())
             }
-            WindowEvent::Moved(hwnd, coords, invert, switch, free) => tm.on_move(hwnd, coords, invert, switch, free),
+            WindowEvent::Moved(hwnd, coords, intra, inter) => tm.on_move(hwnd, coords, intra, inter),
             WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd, c_area.get_shift(&p_area), true),
         },
         TMCommand::Focus(direction) => tm.focus_at(direction),
@@ -239,4 +239,3 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
 
     true
 }
-
