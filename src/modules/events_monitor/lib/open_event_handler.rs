@@ -67,9 +67,12 @@ impl WinEventHandler for OpenCloseEventHandler {
             return;
         }
 
-        if (event.event == EVENT_OBJECT_DESTROY || event.event == EVENT_OBJECT_CLOAKED)
-            || (event.event == EVENT_OBJECT_HIDE && !is_window_visible(event.hwnd))
-        {
+        let (is_cloaked, is_destroyed, is_hidden) = (
+            event.event == EVENT_OBJECT_CLOAKED,
+            event.event == EVENT_OBJECT_DESTROY,
+            event.event == EVENT_OBJECT_HIDE,
+        );
+        if is_cloaked || ((is_destroyed || is_hidden) && !is_window_visible(event.hwnd)) {
             self.windows.remove(&event.hwnd.0);
             self.sender
                 .send(WindowEvent::Closed(event.hwnd).into())

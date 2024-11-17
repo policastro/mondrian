@@ -1,6 +1,7 @@
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
+use crate::win32::window::window_ref::WindowRef;
 
 pub struct LoggerModule;
 
@@ -15,7 +16,10 @@ impl ModuleImpl for LoggerModule {
     }
 
     fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
-        log::trace!("{:?}", event);
+        match event {
+            MondrianMessage::WindowEvent(e) => log::info!("[{:?}]: {}", event, WindowRef::new(e.get_hwnd()).snapshot()),
+            _ => log::trace!("{:?}", event),
+        }
     }
 
     fn name(&self) -> String {
