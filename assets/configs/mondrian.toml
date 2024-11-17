@@ -78,6 +78,7 @@ rules = [
     # { title = "Title" },                                                                             # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
     # { title = "/Title[0-9]/" },                                                                      # match any window with a title that matches the regex "/Title[0-9]/" (you can use regex in title, exename and classname by enclosing them in slashes)
     { exename = "OpenWith.exe" },                                                                    # "Open with" dialog 
+    { exename = "StartMenuExperienceHost.exe" },                                                     # Manages the start menu
     { classname = "OperationStatusWindow" },                                                         # Explorer operation status 
     { title = "/[Pp]icture.in.[Pp]icture/", classname = "/Chrome_WidgetWin_1|MozillaDialogClass/" }, # PIP Firefox/Chrome
 ]
