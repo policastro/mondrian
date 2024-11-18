@@ -4,10 +4,8 @@ pub mod overlay {
     use crate::win32::api::window::create_window;
     use crate::win32::api::window::get_window_box;
     use crate::win32::api::window::show_window;
-    use lazy_static::lazy_static;
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
-    use std::sync::Mutex;
     use windows::core::PCWSTR;
     use windows::Win32::Foundation::COLORREF;
     use windows::Win32::Foundation::HMODULE;
@@ -32,12 +30,9 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
     use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
-    use windows::Win32::UI::WindowsAndMessaging::RegisterClassExW;
     use windows::Win32::UI::WindowsAndMessaging::SetLayeredWindowAttributes;
     use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
-    use windows::Win32::UI::WindowsAndMessaging::CS_HREDRAW;
-    use windows::Win32::UI::WindowsAndMessaging::CS_VREDRAW;
     use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
     use windows::Win32::UI::WindowsAndMessaging::HTCAPTION;
     use windows::Win32::UI::WindowsAndMessaging::LWA_COLORKEY;
@@ -47,21 +42,20 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::WM_PAINT;
     use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
     use windows::Win32::UI::WindowsAndMessaging::WM_USER;
-    use windows::Win32::UI::WindowsAndMessaging::WNDCLASSEXW;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_LAYERED;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_NOACTIVATE;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_TOOLWINDOW;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_TRANSPARENT;
     use windows::Win32::UI::WindowsAndMessaging::WS_POPUP;
 
-    lazy_static! {
-        static ref CLASS_REGISTER_MUTEX: Mutex<()> = Mutex::new(());
+    pub const WM_USER_CONFIGURE: u32 = WM_USER + 1;
+
+    pub trait OverlayBase {
+        fn get_thickness(&self) -> u8;
+        fn get_padding(&self) -> u8;
     }
 
-    const OVERLAY_CLASS_NAME: &str = "mondrian:overlay";
-    pub const WM_CHANGE_BORDER: u32 = WM_USER + 1;
-
-    unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    pub unsafe extern "system" fn overlay_win_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
             WM_CREATE => {
                 let create_struct = &*(lparam.0 as *const CREATESTRUCTW);
@@ -71,10 +65,10 @@ pub mod overlay {
             }
             WM_PAINT => {
                 let params = *(GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut OverlayParams);
-                draw_border(hwnd, params.thickness as i32, params.color);
+                draw_overlay(hwnd, params.thickness as i32, params.color);
                 LRESULT(0)
             }
-            WM_CHANGE_BORDER => {
+            WM_USER_CONFIGURE => {
                 let params = lparam.0 as *mut OverlayParams;
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, params as isize);
                 let _ = InvalidateRect(hwnd, None, false);
@@ -88,30 +82,23 @@ pub mod overlay {
         }
     }
 
-    pub fn create(params: OverlayParams, target: Option<HWND>) -> HWND {
-        let _lock = CLASS_REGISTER_MUTEX.lock().unwrap();
+    pub fn create<P: OverlayBase + Clone + PartialEq + Send + Copy>(
+        params: P,
+        target: Option<HWND>,
+        class_name: &str,
+    ) -> HWND {
         let color_alpha = Color::new(255, 255, 255); // WARNING: only works with white background
 
         let mut hmod: HMODULE = unsafe { std::mem::zeroed() };
         unsafe { GetModuleHandleExW(0, None, &mut hmod).unwrap() };
 
+        let cs_w: Vec<u16> = OsStr::new(class_name).encode_wide().chain(Some(0)).collect();
+        let cs_ptr = PCWSTR(cs_w.as_ptr());
+
         let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
         let style = WS_POPUP;
 
-        let cs_w: Vec<u16> = OsStr::new(OVERLAY_CLASS_NAME).encode_wide().chain(Some(0)).collect();
-        let cs_ptr = PCWSTR(cs_w.as_ptr());
-
-        let wc = WNDCLASSEXW {
-            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-            hInstance: hmod.into(),
-            lpszClassName: cs_ptr,
-            lpfnWndProc: Some(window_proc),
-            style: CS_HREDRAW | CS_VREDRAW,
-            ..Default::default()
-        };
-
-        unsafe { RegisterClassExW(&wc) };
-        let b = get_box_from_target(target.unwrap_or(HWND(0)), params.thickness, params.padding);
+        let b = get_box_from_target(target.unwrap_or(HWND(0)), params.get_thickness(), params.get_padding());
         let hwnd = create_window(ex_style, cs_ptr, style, b.unwrap_or_default(), target, hmod, params);
         let hwnd = hwnd.unwrap_or(HWND(0));
         show_window(hwnd, SW_SHOWNOACTIVATE);
@@ -130,7 +117,7 @@ pub mod overlay {
         Some((b[0] + 7 - shift1, b[1] - shift1, b[2] - 10 + shift2, b[3] - 5 + shift2))
     }
 
-    pub fn draw_border(hwnd: HWND, thickness: i32, color: Color) {
+    pub fn draw_overlay(hwnd: HWND, thickness: i32, color: Color) {
         unsafe {
             let mut ps: PAINTSTRUCT = std::mem::zeroed();
             let hdc = BeginPaint(hwnd, &mut ps);

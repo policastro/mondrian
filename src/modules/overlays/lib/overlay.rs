@@ -1,5 +1,6 @@
 use super::color::Color;
 use super::utils;
+use super::utils::overlay::OverlayBase;
 use crate::app::config::app_configs::deserializers;
 use crate::win32::api::misc::post_empyt_message;
 use crate::win32::api::misc::post_message;
@@ -19,71 +20,67 @@ use windows::Win32::UI::WindowsAndMessaging::SWP_SHOWWINDOW;
 use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
-pub struct Overlay {
-    target: HWND,
+pub struct Overlay<P: OverlayBase + Clone + PartialEq + Copy + Send + 'static> {
+    target: Option<HWND>,
     main_thread: Option<thread::JoinHandle<()>>,
-    msg_tx: Option<Sender<OverlayMessage>>,
-    active_params: OverlayParams,
-    inactive_params: OverlayParams,
-}
-enum OverlayMessage {
-    Quit,
-    SetActive,
-    SetInactive,
-    Hide,
-    Reposition(Option<bool>),
+    msg_tx: Option<Sender<OverlayMessage<P>>>,
+    class_name: String,
 }
 
-impl Overlay {
-    pub fn new(target: HWND, active_params: OverlayParams, inactive_params: OverlayParams) -> Overlay {
-        Overlay {
+enum OverlayMessage<P: OverlayBase + Clone + PartialEq + Copy> {
+    Configure(P),
+    Reposition(Option<P>),
+    Quit,
+    Hide,
+}
+
+impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
+    pub fn new(target: Option<HWND>, class_name: &str) -> Overlay<P> {
+        Overlay::<P> {
             target,
             main_thread: None,
-            active_params,
-            inactive_params,
             msg_tx: None,
+            class_name: class_name.to_string(),
         }
     }
 
-    pub fn create(&mut self, activated: bool) {
+    pub fn create(&mut self, params: P) {
         if self.exists() {
             return;
         }
 
-        let (active, inactive) = (self.active_params, self.inactive_params);
         let target = self.target;
         let (tx, rx) = channel();
         self.msg_tx = Some(tx);
+        let class_name = self.class_name.clone();
         let main_thread = thread::spawn(move || {
-            let params = if activated { active } else { inactive };
-            let hwnd = utils::overlay::create(params, Some(target));
+            let hwnd = utils::overlay::create(params, target, class_name.as_str());
 
-            let mut curr_activated = activated;
-            let t = thread::spawn(move || loop {
-                match rx.recv() {
-                    Ok(OverlayMessage::SetActive) => {
-                        post_message(hwnd, utils::overlay::WM_CHANGE_BORDER, Some(active));
-                        curr_activated = true;
-                    }
-                    Ok(OverlayMessage::SetInactive) => {
-                        post_message(hwnd, utils::overlay::WM_CHANGE_BORDER, Some(inactive));
-                        curr_activated = false;
-                    }
-                    Ok(OverlayMessage::Reposition(activated)) => {
-                        let activated = activated.unwrap_or(curr_activated);
-                        let p = if activated { active } else { inactive };
-                        if curr_activated != activated {
-                            post_message(hwnd, utils::overlay::WM_CHANGE_BORDER, Some(p));
+            let t = thread::spawn(move || {
+                let mut params = params;
+                loop {
+                    match rx.recv() {
+                        Ok(OverlayMessage::Configure(p)) => {
+                            post_message(hwnd, utils::overlay::WM_USER_CONFIGURE, Some(p));
+                            params = p;
                         }
-                        curr_activated = activated;
-                        Self::move_overlay_to_target(hwnd, target, p.thickness, p.padding);
-                    }
-                    Ok(OverlayMessage::Hide) => {
-                        show_window(hwnd, SW_HIDE);
-                    }
-                    _ => {
-                        post_empyt_message(hwnd, WM_QUIT);
-                        break;
+                        Ok(OverlayMessage::Reposition(p)) => {
+                            if let Some(p) = p.filter(|p| *p != params) {
+                                post_message(hwnd, utils::overlay::WM_USER_CONFIGURE, Some(p));
+                                params = p;
+                            }
+                            if let Some(target) = target {
+                                let (thickness, padding) = (params.get_thickness(), params.get_padding());
+                                Self::move_overlay_to_target(hwnd, target, thickness, padding);
+                            }
+                        }
+                        Ok(OverlayMessage::Hide) => {
+                            show_window(hwnd, SW_HIDE);
+                        }
+                        _ => {
+                            post_empyt_message(hwnd, WM_QUIT);
+                            break;
+                        }
                     }
                 }
             });
@@ -101,41 +98,31 @@ impl Overlay {
     }
 
     pub fn destroy(&mut self) {
-        if !self.exists() {
-            return;
-        }
-
         if let Some(th) = self.main_thread.take() {
-            self.send_msg(OverlayMessage::Quit);
+            self.send_msg(OverlayMessage::Quit, false);
             th.join().unwrap();
         }
 
         self.msg_tx = None;
     }
 
-    pub fn activate(&mut self, active: bool) {
-        match active {
-            true => self.send_msg(OverlayMessage::SetActive),
-            false => self.send_msg(OverlayMessage::SetInactive),
-        };
+    pub fn configure(&mut self, params: P) {
+        self.send_msg(OverlayMessage::Configure(params), true);
     }
 
-    pub fn reposition(&mut self, activated: Option<bool>) {
-        if !self.exists() {
-            self.create(activated.unwrap_or(false));
-            return;
-        }
-        self.send_msg(OverlayMessage::Reposition(activated));
+    pub fn reposition(&mut self, params: Option<P>) {
+        self.send_msg(OverlayMessage::Reposition(params), true);
     }
 
     pub fn hide(&mut self) {
-        if !self.exists() {
-            return;
-        }
-        self.send_msg(OverlayMessage::Hide);
+        self.send_msg(OverlayMessage::Hide, true);
     }
 
-    fn send_msg(&self, msg: OverlayMessage) {
+    fn send_msg(&self, msg: OverlayMessage<P>, check_exists: bool) {
+        if check_exists && !self.exists() {
+            return;
+        }
+
         if let Some(tx) = &self.msg_tx {
             tx.send(msg).unwrap();
         }
@@ -151,13 +138,13 @@ impl Overlay {
     }
 }
 
-impl Drop for Overlay {
+impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Drop for Overlay<P> {
     fn drop(&mut self) {
         self.destroy();
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct OverlayParams {
     pub enabled: bool,

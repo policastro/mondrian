@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Copy, Default, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize)]
 pub struct Color {
     red: u8,
     green: u8,

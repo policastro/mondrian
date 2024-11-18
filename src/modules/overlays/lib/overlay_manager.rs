@@ -1,23 +1,26 @@
-use std::collections::{HashMap, HashSet};
-
+use super::overlay::Overlay;
+use super::overlay::OverlayParams;
+use super::utils::overlay::OverlayBase;
+use crate::win32::api::window::get_foreground_window;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use windows::Win32::Foundation::HWND;
 
-use crate::win32::api::window::get_foreground_window;
-
-use super::overlay::{Overlay, OverlayParams};
-
 pub struct OverlaysManager {
-    overlays: HashMap<isize, Overlay>,
+    overlays: HashMap<isize, Overlay<OverlayParams>>,
     active: OverlayParams,
     inactive: OverlayParams,
+    class_name: String,
     locked: bool,
 }
+
 impl OverlaysManager {
-    pub fn new(active: Option<OverlayParams>, inactive: Option<OverlayParams>) -> OverlaysManager {
+    pub fn new(active: Option<OverlayParams>, inactive: Option<OverlayParams>, class_name: &str) -> OverlaysManager {
         OverlaysManager {
             overlays: HashMap::new(),
             active: active.unwrap_or(OverlayParams::empty()),
             inactive: inactive.unwrap_or(OverlayParams::empty()),
+            class_name: class_name.to_string(),
             locked: false,
         }
     }
@@ -31,10 +34,11 @@ impl OverlaysManager {
             let o = self
                 .overlays
                 .entry(*w)
-                .or_insert_with(|| Overlay::new(hwnd, self.active, self.inactive));
+                .or_insert_with(|| Overlay::new(Some(hwnd), &self.class_name.clone()));
 
             if !self.locked {
-                o.reposition(Some(is_foreground));
+                let p = if is_foreground { self.active } else { self.inactive };
+                Self::reposition_overlay(o, p);
             }
         });
 
@@ -47,7 +51,10 @@ impl OverlaysManager {
         }
 
         if self.overlays.contains_key(&hwnd.0) {
-            self.overlays.iter_mut().for_each(|(w, o)| o.activate(*w == hwnd.0));
+            self.overlays.iter_mut().for_each(|(w, o)| {
+                let p = if *w == hwnd.0 { self.active } else { self.inactive };
+                o.configure(p);
+            });
         }
     }
 
@@ -57,7 +64,7 @@ impl OverlaysManager {
         }
 
         if let Some(o) = self.overlays.get_mut(&hwnd.0) {
-            o.reposition(None)
+            o.reposition(None);
         };
     }
 
@@ -76,19 +83,38 @@ impl OverlaysManager {
 
     pub fn resume(&mut self) {
         let foreground = get_foreground_window().unwrap_or_default().0;
-        self.overlays
-            .iter_mut()
-            .for_each(|(hwnd, o)| o.reposition(Some(foreground == *hwnd)));
+        let (active, inactive) = (self.active, self.inactive);
+        self.overlays.iter_mut().for_each(|(hwnd, o)| {
+            let p = if foreground == *hwnd { active } else { inactive };
+            Self::reposition_overlay(o, p);
+        });
         self.unlock();
     }
 
     pub fn destroy(&mut self) {
         self.overlays.clear();
     }
+
+    fn reposition_overlay(overlay: &mut Overlay<OverlayParams>, params: OverlayParams) {
+        match overlay.exists() {
+            true => overlay.reposition(Some(params)),
+            false => overlay.create(params),
+        }
+    }
 }
 
 impl Drop for OverlaysManager {
     fn drop(&mut self) {
         self.destroy();
+    }
+}
+
+impl OverlayBase for OverlayParams {
+    fn get_padding(&self) -> u8 {
+        self.padding
+    }
+
+    fn get_thickness(&self) -> u8 {
+        self.thickness
     }
 }

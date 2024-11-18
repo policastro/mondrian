@@ -1,3 +1,7 @@
+use super::configs::OverlaysModuleConfigs;
+use super::lib::overlay_manager::OverlaysManager;
+use super::lib::overlays_event_handler::OverlayEventHandler;
+use super::lib::utils::overlay::overlay_win_proc;
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
@@ -5,6 +9,7 @@ use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::misc::get_current_thread_id;
 use crate::win32::api::misc::post_empty_thread_message;
+use crate::win32::api::window::register_class;
 use crate::win32::win_events_manager::WindowsEventManager;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
@@ -14,10 +19,7 @@ use std::sync::Mutex;
 use std::thread;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
-use super::{
-    configs::OverlaysModuleConfigs,
-    lib::{overlay_manager::OverlaysManager, overlays_event_handler::OverlayEventHandler},
-};
+const OVERLAY_CLASS_NAME: &str = "mondrian:overlay";
 
 pub struct OverlaysModule {
     bus: Sender<MondrianMessage>,
@@ -30,6 +32,8 @@ pub struct OverlaysModule {
 
 impl OverlaysModule {
     pub fn new(bus: Sender<MondrianMessage>) -> OverlaysModule {
+        register_class(OVERLAY_CLASS_NAME, Some(overlay_win_proc)); // Overlays class
+
         OverlaysModule {
             configs: OverlaysModuleConfigs::default(),
             enabled: true,
@@ -51,7 +55,8 @@ impl ModuleImpl for OverlaysModule {
             return;
         }
 
-        let om = OverlaysManager::new(self.configs.get_active(), self.configs.get_inactive());
+        let (active, inactive) = (self.configs.get_active(), self.configs.get_inactive());
+        let om = OverlaysManager::new(active, inactive, OVERLAY_CLASS_NAME);
         self.overlays = Some(Arc::new(Mutex::new(om)));
 
         let overlay_manager = self.overlays.clone().unwrap();
