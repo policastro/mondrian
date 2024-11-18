@@ -17,7 +17,9 @@ impl ModuleImpl for LoggerModule {
 
     fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
         match event {
-            MondrianMessage::WindowEvent(e) => log::info!("[{:?}]: {}", event, WindowRef::new(e.get_hwnd()).snapshot()),
+            MondrianMessage::WindowEvent(e) => {
+                log::info!("[Window:{:?}]: {}", e, WindowRef::new(e.get_hwnd()).snapshot())
+            }
             _ => log::trace!("{:?}", event),
         }
     }
