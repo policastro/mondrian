@@ -67,6 +67,15 @@ impl Area {
         (self.x + i32::from(self.width), self.y + i32::from(self.height))
     }
 
+    pub fn get_corners(&self) -> [(i32, i32); 4] {
+        [
+            self.get_nw_corner(),
+            self.get_ne_corner(),
+            self.get_sw_corner(),
+            self.get_se_corner(),
+        ]
+    }
+
     pub fn get_bottom_center(&self) -> (i32, i32) {
         (self.x + i32::from(self.width / 2), self.y + i32::from(self.height))
     }

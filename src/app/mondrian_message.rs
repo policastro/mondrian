@@ -23,6 +23,49 @@ pub enum IntramonitorMoveOp {
     Invert,
 }
 
+impl IntramonitorMoveOp {
+    pub fn calc(invert_mod: bool, free_mode_mod: bool) -> Self {
+        // NOTE: precedence: invert_mod > free_mode_mod
+        if invert_mod {
+            return IntramonitorMoveOp::Invert;
+        }
+
+        match free_mode_mod {
+            true => IntramonitorMoveOp::InsertFreeMove,
+            false => IntramonitorMoveOp::Swap,
+        }
+    }
+}
+
+impl IntermonitorMoveOp {
+    pub fn calc(
+        default_insert_in_monitor: bool,
+        default_free_move_in_monitor: bool,
+        invert_mod: bool,
+        insert_mod: bool,
+        free_mode_mod: bool,
+    ) -> Self {
+        // NOTE: precedence: invert_mod > free_mode_mod > insert_mod
+        if invert_mod {
+            return IntermonitorMoveOp::Invert;
+        }
+
+        if default_insert_in_monitor {
+            match (default_free_move_in_monitor, free_mode_mod, insert_mod) {
+                (_, false, true) => IntermonitorMoveOp::Swap,
+                (true, false, false) | (false, true, _) => IntermonitorMoveOp::InsertFreeMove,
+                (false, false, false) | (true, true, _) => IntermonitorMoveOp::Insert,
+            }
+        } else {
+            match (free_mode_mod, insert_mod) {
+                (true, _) => IntermonitorMoveOp::InsertFreeMove,
+                (false, true) => IntermonitorMoveOp::Insert,
+                (false, false) => IntermonitorMoveOp::Swap,
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum WindowEvent {
     Opened(HWND),
