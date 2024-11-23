@@ -86,7 +86,8 @@ impl TilesManager {
 
         let center = win.get_window_box().map(|a| a.get_center());
         let center = center.ok_or(Error::NoWindowsInfo)?;
-        let c = self.containers.find_at_mut(center).ok_or(Error::NoWindowsInfo)?;
+        let c = self.containers.find_at_or_near_mut(center);
+        let c = c.ok_or(Error::NoWindowsInfo)?;
         c.unfocalize();
         c.get_active_mut().ok_or(Error::NoWindowsInfo)?.insert(win.hwnd.0);
 
@@ -130,7 +131,7 @@ impl TilesManager {
         let params = if let Some(c) = self.containers.find_at(point) {
             // If the point is in a tree
             Some((c, point))
-        } else if let Some(c) = self.containers.find_nearest(src_area.get_center(), direction) {
+        } else if let Some(c) = self.containers.find_closest_at(src_area.get_center(), direction) {
             // Otherwise, find the nearest container
             let area = c.get_active()?.area;
             let point = match direction {

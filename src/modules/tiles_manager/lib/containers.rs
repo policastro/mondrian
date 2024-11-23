@@ -110,10 +110,11 @@ impl<K: Clone + Eq + Hash> Container<K> {
 pub(super) trait Containers<U: Clone + Eq + Hash> {
     fn find_at(&self, point: (i32, i32)) -> Option<&Container<U>>;
     fn find_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
+    fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
     fn find(&self, hwnd: isize, only_active: bool) -> Option<&Container<U>>;
     fn find_mut(&mut self, hwnd: isize, only_active: bool) -> Option<&mut Container<U>>;
     fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool;
-    fn find_nearest(&self, ref_point: (i32, i32), direction: Direction) -> Option<&Container<U>>;
+    fn find_closest_at(&self, ref_point: (i32, i32), direction: Direction) -> Option<&Container<U>>;
 }
 
 impl Containers<String> for HashMap<isize, Container<String>> {
@@ -123,6 +124,14 @@ impl Containers<String> for HashMap<isize, Container<String>> {
 
     fn find_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<String>> {
         self.values_mut().find(|c| c.contains(point))
+    }
+
+    fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<String>> {
+        self.values_mut().min_by(|a, b| {
+            let dist1 = calc_distance(point, a.get_active().unwrap().area);
+            let dist2 = calc_distance(point, b.get_active().unwrap().area);
+            dist1.cmp(&dist2)
+        })
     }
 
     fn find(&self, hwnd: isize, only_active: bool) -> Option<&Container<String>> {
@@ -147,23 +156,28 @@ impl Containers<String> for HashMap<isize, Container<String>> {
         c1.is_some_and(|c1| c2.is_some_and(|c2| c1.0 == c2.0))
     }
 
-    fn find_nearest(&self, ref_point: (i32, i32), direction: Direction) -> Option<&Container<String>> {
+    // NOTE: finds the closest container in the given direction, ignoring the one in which the ref_point is
+    fn find_closest_at(&self, ref_point: (i32, i32), limit_direction: Direction) -> Option<&Container<String>> {
         let ref_id = *self.iter().find(|c| c.1.contains(ref_point))?.0;
         let ref_area = self.get(&ref_id)?.get_active()?.area;
-        let point = match direction {
+        let point = match limit_direction {
             Direction::Right => ref_area.get_ne_corner(),
             Direction::Down => ref_area.get_se_corner(),
             Direction::Left => ref_area.get_sw_corner(),
             Direction::Up => ref_area.get_nw_corner(),
         };
 
-        let nearest = self
+        let closest = self
             .iter()
-            .filter(|(k, _c)| **k != ref_id) // Filter out the same monitor
-            .filter(|(_k, c)| {
+            .filter(|(k, c)| {
+                // Filter out the same monitor
+                if **k == ref_id {
+                    return false;
+                };
+
                 // Filter out the ones that are not in the same direction
                 let area = c.get_active().expect("Container must have an active tree").area;
-                match direction {
+                match limit_direction {
                     Direction::Right => area.x >= point.0,
                     Direction::Down => area.y >= point.1,
                     Direction::Left => area.x + i32::from(area.width) <= point.0,
@@ -171,41 +185,19 @@ impl Containers<String> for HashMap<isize, Container<String>> {
                 }
             })
             .min_by(|a, b| {
-                let dist1 = nearest_distance_area(point, a.1.get_active().unwrap().area, direction);
-                let dist2 = nearest_distance_area(point, b.1.get_active().unwrap().area, direction);
+                let dist1 = calc_distance(point, a.1.get_active().unwrap().area);
+                let dist2 = calc_distance(point, b.1.get_active().unwrap().area);
                 dist1.cmp(&dist2)
             });
 
-        nearest.map(|c| c.1)
+        closest.map(|c| c.1)
     }
 }
 
-fn nearest_distance_area(ref_point: (i32, i32), area: Area, direction: Direction) -> u32 {
-    let point = match direction {
-        Direction::Right => match (ref_point.1 >= area.y, ref_point.1 <= area.y + i32::from(area.height)) {
-            (true, true) => ref_point,
-            (true, false) => area.get_sw_corner(),
-            (false, true) => area.get_nw_corner(),
-            _ => area.get_left_center(),
-        },
-        Direction::Down => match (ref_point.0 >= area.x, ref_point.0 <= area.x + i32::from(area.width)) {
-            (true, true) => ref_point,
-            (true, false) => area.get_ne_corner(),
-            (false, true) => area.get_nw_corner(),
-            _ => area.get_top_center(),
-        },
-        Direction::Left => match (ref_point.1 >= area.y, ref_point.1 <= area.y + i32::from(area.height)) {
-            (true, true) => ref_point,
-            (true, false) => area.get_se_corner(),
-            (false, true) => area.get_ne_corner(),
-            _ => area.get_right_center(),
-        },
-        Direction::Up => match (ref_point.0 >= area.x, ref_point.0 <= area.x + i32::from(area.width)) {
-            (true, true) => ref_point,
-            (true, false) => area.get_se_corner(),
-            (false, true) => area.get_sw_corner(),
-            _ => area.get_bottom_center(),
-        },
-    };
-    point.distance(ref_point)
+fn calc_distance(ref_point: (i32, i32), area: Area) -> u32 {
+    let projection = (
+        ref_point.0.clamp(area.x, area.x + i32::from(area.width)),
+        ref_point.1.clamp(area.y, area.y + i32::from(area.height)),
+    );
+    ref_point.distance(projection)
 }

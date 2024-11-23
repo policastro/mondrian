@@ -10,8 +10,7 @@ impl Point for (i32, i32) {
     }
 
     fn distance(&self, other: (i32, i32)) -> u32 {
-        let (x1, y1) = self;
-        let (x2, y2) = other;
+        let ((x1, y1), (x2, y2)) = (self, other);
         ((x2 - x1).pow(2) + (y2 - y1).pow(2)) as u32
     }
 
