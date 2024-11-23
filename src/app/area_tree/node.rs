@@ -1,11 +1,13 @@
+use super::layout_strategy::LayoutStrategy;
+use super::layout_strategy::LayoutStrategyEnum;
+use super::leaf::AreaLeaf;
+use crate::app::structs::area::Area;
+use crate::app::structs::direction::Direction;
+use crate::app::structs::orientation::Orientation;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
-
-use crate::app::structs::{area::Area, direction::Direction, orientation::Orientation};
-
-use super::{
-    layout_strategy::{LayoutStrategy, LayoutStrategyEnum},
-    leaf::AreaLeaf,
-};
+use std::hash::Hash;
 
 pub(super) struct AreaNode<T: Copy> {
     pub orientation: Orientation,
@@ -109,26 +111,6 @@ impl<T: Copy> AreaNode<T> {
             };
         }
         curr_node.id.map(|id| AreaLeaf::new(id, curr_area))
-    }
-
-    pub fn get_all_leaves(&self, area: Area) -> Vec<AreaLeaf<T>> {
-        let mut leaves = Vec::new();
-
-        if self.is_leaf() && self.id.is_some() {
-            leaves.push(AreaLeaf::new(self.id.unwrap(), area));
-        }
-
-        let (min_area, max_area) = self.get_split_area(area);
-
-        if let Some(left) = &self.left {
-            leaves.extend(left.get_all_leaves(min_area));
-        }
-
-        if let Some(right) = &self.right {
-            leaves.extend(right.get_all_leaves(max_area));
-        }
-
-        leaves
     }
 
     pub fn switch_subtree_orientations(&mut self) {
@@ -274,6 +256,87 @@ impl<T: Copy> AreaNode<T> {
 
     pub fn is_leaf(&self) -> bool {
         self.left.is_none() || self.right.is_none()
+    }
+}
+
+impl<T: Copy + Eq + Hash + Debug> AreaNode<T> {
+    pub fn leaves(&self, area: Area, ignored_ids: Option<&HashSet<T>>) -> Vec<AreaLeaf<T>> {
+        let mut leaves = Vec::new();
+
+        let leaves_counts = match ignored_ids.is_some() {
+            true => {
+                let mut leaves_counts = HashMap::new();
+                self.get_leaves_counts(&mut leaves_counts, ignored_ids);
+                Some(leaves_counts)
+            }
+            false => None,
+        };
+
+        let mut stack = vec![(self, area)];
+
+        while let Some((node, area)) = stack.pop() {
+            if node.is_leaf() {
+                if let Some(id) = node.id.filter(|&id| !Self::is_ignored(ignored_ids, id)) {
+                    leaves.push(AreaLeaf::new(id, area));
+                }
+                continue;
+            }
+
+            let (min_area, max_area) = node.get_split_area(area);
+            let (lx, rx) = (node.left.as_deref().unwrap(), node.right.as_deref().unwrap());
+            let (lx_leaves, rx_leaves) = match leaves_counts {
+                Some(ref counts) => (
+                    counts.get(&(lx as *const AreaNode<T>)).copied().unwrap_or(0),
+                    counts.get(&(rx as *const AreaNode<T>)).copied().unwrap_or(0),
+                ),
+                _ => (1, 1),
+            };
+
+            let (is_lx_ignored, is_rx_ignored) = (
+                lx.id.map_or(true, |id| Self::is_ignored(ignored_ids, id)),
+                rx.id.map_or(true, |id| Self::is_ignored(ignored_ids, id)),
+            );
+
+            let lx_area = match rx_leaves > 0 || !is_rx_ignored {
+                true => min_area,
+                _ => area,
+            };
+
+            let rx_area = match lx_leaves > 0 || !is_lx_ignored {
+                true => max_area,
+                _ => area,
+            };
+
+            stack.push((rx, rx_area));
+            stack.push((lx, lx_area));
+        }
+
+        leaves
+    }
+
+    fn get_leaves_counts(
+        &self,
+        leaf_counts: &mut HashMap<*const AreaNode<T>, usize>,
+        ignored_ids: Option<&HashSet<T>>,
+    ) -> usize {
+        if self.is_leaf() {
+            let ignored = self.id.map_or(true, |id| Self::is_ignored(ignored_ids, id));
+            return if ignored { 0 } else { 1 };
+        }
+
+        let left_leaves = self.left.as_ref().unwrap().get_leaves_counts(leaf_counts, ignored_ids);
+        let right_leaves = self.right.as_ref().unwrap().get_leaves_counts(leaf_counts, ignored_ids);
+
+        let total_leaves = left_leaves + right_leaves;
+
+        // INFO: using the node address as key
+        leaf_counts.insert(self as *const AreaNode<T>, total_leaves);
+
+        total_leaves
+    }
+
+    fn is_ignored(ignore_ids: Option<&HashSet<T>>, id: T) -> bool {
+        ignore_ids.map_or(false, |ids| ids.contains(&id))
     }
 }
 

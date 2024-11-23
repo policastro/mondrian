@@ -4,7 +4,7 @@ use super::tm_configs::TilesManagerConfig;
 use super::window_animation_player::WindowAnimationPlayer;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
-use crate::app::mondrian_message::{IntermonitorMoveOp, IntramonitorMoveOp};
+use crate::app::mondrian_message::{IntermonitorMoveOp, IntramonitorMoveOp, WindowTileState};
 use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
 use crate::win32::api::window::get_foreground_window;
@@ -21,7 +21,8 @@ type Error = TilesManagerError;
 
 pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,
-    unmanaged_wins: HashSet<isize>,
+    floating_wins: HashSet<isize>,
+    ignored_wins: HashSet<isize>,
     config: TilesManagerConfig,
     animation_player: WindowAnimationPlayer,
 }
@@ -62,7 +63,8 @@ impl TilesManager {
             on_update_complete,
         );
         TilesManager {
-            unmanaged_wins: HashSet::new(),
+            floating_wins: HashSet::new(),
+            ignored_wins: HashSet::new(),
             containers,
             config,
             animation_player,
@@ -70,7 +72,8 @@ impl TilesManager {
     }
 
     pub fn add(&mut self, win: WindowRef, update: bool) -> Result<(), Error> {
-        if self.unmanaged_wins.contains(&win.hwnd.0) {
+        let tile_state = self.get_window_tile_state(win.hwnd);
+        if tile_state.is_some_and(|s| matches!(s, WindowTileState::Floating | WindowTileState::Ignored)) {
             return Ok(());
         }
 
@@ -92,12 +95,9 @@ impl TilesManager {
     }
 
     pub fn remove(&mut self, hwnd: HWND, skip_focalized: bool, update: bool) -> Result<(), Error> {
-        if self.unmanaged_wins.contains(&hwnd.0) {
+        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
             return Ok(());
-        }
-
-        if !self.has_window(hwnd) {
-            return Err(Error::NoWindowFound);
         }
 
         let c = self.containers.find_mut(hwnd.0, false);
@@ -105,7 +105,7 @@ impl TilesManager {
             return Ok(());
         }
 
-        let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindowFound)?;
+        let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindow)?;
         c.iter_mut().for_each(|(_, t)| t.remove(hwnd.0));
 
         if get_foreground_window().is_none() {
@@ -153,7 +153,7 @@ impl TilesManager {
     }
 
     pub fn focus_at(&mut self, direction: Direction) -> Result<(), Error> {
-        let leaf = self.find_at(direction, false).ok_or(Error::NoWindowFound)?;
+        let leaf = self.find_at(direction, false).ok_or(Error::NoWindow)?;
         WindowRef::new(HWND(leaf.id)).focus();
         Ok(())
     }
@@ -165,12 +165,9 @@ impl TilesManager {
         intra_op: IntraOp,
         inter_op: InterOp,
     ) -> Result<(), Error> {
-        if self.unmanaged_wins.contains(&hwnd.0) {
+        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
             return Ok(());
-        }
-
-        if !self.has_window(hwnd) {
-            return Err(Error::NoWindow);
         }
 
         const C_ERR: Error = Error::ContainerNotFound { refresh: true };
@@ -241,7 +238,7 @@ impl TilesManager {
         let curr = get_foreground_window().ok_or(Error::NoWindow)?;
         let c = self.containers.find(curr.0, true).and_then(|c| c.get_active());
         let src_leaf = c.and_then(|t| t.find_leaf(curr.0, 0)).ok_or(Error::Generic)?;
-        let trg_leaf = self.find_at(direction, false).ok_or(Error::NoWindowFound)?;
+        let trg_leaf = self.find_at(direction, false).ok_or(Error::NoWindow)?;
 
         let cs = &mut self.containers;
         if cs.is_same_container(src_leaf.viewbox.get_center(), trg_leaf.viewbox.get_center()) {
@@ -302,7 +299,8 @@ impl TilesManager {
     }
 
     pub(crate) fn on_resize(&mut self, hwnd: HWND, delta: (i32, i32, i32, i32), animate: bool) -> Result<(), Error> {
-        if self.unmanaged_wins.contains(&hwnd.0) {
+        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
             return Ok(());
         }
 
@@ -318,7 +316,7 @@ impl TilesManager {
         };
 
         let c = self.containers.find_mut(hwnd.0, true).ok_or(Error::NoWindow)?;
-        let t = c.get_active_mut().ok_or(Error::NoWindowFound)?;
+        let t = c.get_active_mut().ok_or(Error::NoWindow)?;
         let area = t.find_leaf(hwnd.0, 0).ok_or(Error::Generic)?.viewbox;
         let center = area.get_center();
 
@@ -357,7 +355,7 @@ impl TilesManager {
         let hwnd = get_foreground_window().ok_or(Error::NoWindow)?;
         let area = WindowRef::new(hwnd).get_window_box();
         let center = area.ok_or(Error::NoWindowsInfo)?.get_center();
-        let c = self.containers.find_at_mut(center).ok_or(Error::NoWindowFound)?;
+        let c = self.containers.find_at_mut(center).ok_or(Error::NoWindow)?;
 
         if c.is_focalized() && c.get_active_mut().ok_or(Error::Generic)?.has(hwnd.0) {
             c.unfocalize();
@@ -371,26 +369,42 @@ impl TilesManager {
             let _ = self.release(Some(false), Some(hwnd));
         }
 
-        self.update(false);
+        self.update(true);
         Ok(())
     }
 
     pub(crate) fn release(&mut self, release: Option<bool>, window: Option<HWND>) -> Result<(), Error> {
         let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
-        let is_managed = self.has_window(hwnd);
-        let is_unmanaged = self.unmanaged_wins.contains(&hwnd.0);
+        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
 
-        if !is_managed && !is_unmanaged {
-            return Err(Error::NoWindow);
+        if matches!(tile_state, WindowTileState::Ignored) {
+            return Ok(());
         }
 
-        let release = release.unwrap_or(!is_unmanaged);
-        if release {
+        if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
             self.remove(hwnd, false, false)?;
-            self.unmanaged_wins.insert(hwnd.0);
+            self.floating_wins.insert(hwnd.0);
         } else {
-            self.unmanaged_wins.remove(&hwnd.0);
+            self.floating_wins.remove(&hwnd.0);
             self.add(WindowRef::new(hwnd), false)?;
+        }
+
+        self.update(true);
+        Ok(())
+    }
+
+    pub(crate) fn ignore(&mut self, window: Option<HWND>, ignore: Option<bool>) -> Result<(), Error> {
+        let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
+        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+
+        if matches!(tile_state, WindowTileState::Floating) {
+            return Ok(());
+        }
+
+        if ignore.unwrap_or(!matches!(tile_state, WindowTileState::Ignored)) {
+            self.ignored_wins.insert(hwnd.0);
+        } else {
+            self.ignored_wins.remove(&hwnd.0);
         }
 
         self.update(true);
@@ -406,7 +420,7 @@ impl TilesManager {
             };
 
             if let Some(c) = c.get_active_mut() {
-                let _ = c.update(border_pad, tile_pad, anim_player);
+                let _ = c.update(border_pad, tile_pad, anim_player, &self.ignored_wins);
             }
         });
         let animation = self.config.get_animations().filter(|_| animate);
@@ -430,14 +444,32 @@ impl TilesManager {
         }
     }
 
-    pub fn get_managed_windows(&self) -> HashSet<isize> {
+    pub fn get_managed_windows(&self) -> HashMap<isize, WindowTileState> {
         let cs = self.containers.values();
-        cs.flat_map(|c| c.iter().flat_map(|(_, t)| t.get_ids())).collect()
+        cs.flat_map(|c| c.iter().flat_map(|(_, t)| t.get_ids()))
+            .filter_map(|hwnd| self.get_window_tile_state(HWND(hwnd)).map(|state| (hwnd, state)))
+            .collect()
     }
 
     pub fn has_window(&self, hwnd: HWND) -> bool {
         let mut cs = self.containers.values();
         cs.any(|c| c.get(ContainerType::Normal.into()).unwrap().has(hwnd.0))
+    }
+
+    fn get_window_tile_state(&self, hwnd: HWND) -> Option<WindowTileState> {
+        let is_managed = self.has_window(hwnd);
+        let is_floating = self.floating_wins.contains(&hwnd.0);
+        let is_ignored = self.ignored_wins.contains(&hwnd.0);
+
+        if is_managed && !is_floating && !is_ignored {
+            Some(WindowTileState::Normal)
+        } else if is_floating {
+            Some(WindowTileState::Floating)
+        } else if is_ignored {
+            Some(WindowTileState::Ignored)
+        } else {
+            None
+        }
     }
 }
 
@@ -453,7 +485,6 @@ pub enum TilesManagerError {
     NoWindowsInfo,
     ContainerNotFound { refresh: bool },
     NoWindow,
-    NoWindowFound,
 }
 
 trait FocalizableContainer {

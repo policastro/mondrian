@@ -5,11 +5,17 @@ use crate::app::structs::point::Point;
 use crate::app::structs::{area::Area, direction::Direction};
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
+use std::collections::HashSet;
 use std::{collections::HashMap, hash::Hash};
 
 pub trait ContainerLayer {
-    fn update(&mut self, border_pad: i16, tile_pad: (i16, i16), animator: &mut WindowAnimationPlayer)
-        -> Result<(), ()>;
+    fn update(
+        &mut self,
+        border_pad: i16,
+        tile_pad: (i16, i16),
+        animator: &mut WindowAnimationPlayer,
+        ignored_wins: &HashSet<isize>,
+    ) -> Result<(), ()>;
     fn contains(&self, point: (i32, i32)) -> bool;
 }
 
@@ -19,14 +25,15 @@ impl ContainerLayer for WinTree {
         border_pad: i16,
         tile_pad: (i16, i16),
         animation_player: &mut WindowAnimationPlayer,
+        ignored_wins: &HashSet<isize>,
     ) -> Result<(), ()> {
-        let leaves: Vec<AreaLeaf<isize>> = self.leaves(border_pad);
+        let leaves: Vec<AreaLeaf<isize>> = self.leaves(border_pad, ignored_wins);
 
         for leaf in &leaves {
             let win_ref = WindowRef::from(leaf.id);
             if !win_ref.is_visible() {
                 self.remove(win_ref.hwnd.0);
-                return self.update(border_pad, tile_pad, animation_player);
+                return self.update(border_pad, tile_pad, animation_player, ignored_wins);
             };
             let area = leaf.viewbox.pad_xy(tile_pad);
             win_ref.restore(false);

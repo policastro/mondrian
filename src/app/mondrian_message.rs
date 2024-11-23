@@ -4,7 +4,7 @@ use crate::modules::tiles_manager::lib::tm_command::TMCommand;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::str::FromStr;
 use windows::Win32::Foundation::HWND;
 
@@ -102,6 +102,13 @@ impl From<WindowEvent> for MondrianMessage {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum WindowTileState {
+    Ignored,
+    Normal,
+    Floating,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum MondrianMessage {
     RefreshConfig,
     OpenConfig,
@@ -115,7 +122,7 @@ pub enum MondrianMessage {
     Invert,
     Pause(Option<bool>),
     PauseModule(String, Option<bool>),
-    UpdatedWindows(HashSet<isize>, TMCommand),
+    UpdatedWindows(HashMap<isize, WindowTileState>, TMCommand),
     CoreUpdateStart,
     CoreUpdateError,
     CoreUpdateComplete,

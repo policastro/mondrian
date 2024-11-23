@@ -5,7 +5,7 @@ use super::{
     leaf::AreaLeaf,
     node::AreaNode,
 };
-use std::{fmt::Debug, hash::Hash};
+use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 pub type WinTree = AreaTree<isize>;
 
@@ -16,7 +16,7 @@ pub struct AreaTree<T: Copy + Eq + Hash> {
     ids_map: std::collections::HashMap<T, AreaLeaf<T>>,
 }
 
-impl<T: Copy + Eq + Hash> AreaTree<T> {
+impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
     pub fn new(area: Area, strategy: LayoutStrategyEnum) -> AreaTree<T> {
         AreaTree {
             root: AreaNode::new(None, Orientation::Horizontal, 50),
@@ -58,8 +58,8 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
         }
     }
 
-    pub fn leaves(&self, padding: i16) -> Vec<AreaLeaf<T>> {
-        self.root.get_all_leaves(self.area.pad_full(padding))
+    pub fn leaves(&self, padding: i16, ignored_wins: &HashSet<T>) -> Vec<AreaLeaf<T>> {
+        self.root.leaves(self.area.pad_full(padding), Some(ignored_wins))
     }
 
     pub fn find_leaf(&self, id: T, padding: i16) -> Option<AreaLeaf<T>> {
@@ -176,7 +176,7 @@ impl<T: Copy + Eq + Hash> AreaTree<T> {
 
     fn update_map(&mut self) {
         self.ids_map = std::collections::HashMap::new();
-        self.root.get_all_leaves(self.area).iter().for_each(|leaf| {
+        self.root.leaves(self.area, None).iter().for_each(|leaf| {
             self.ids_map.insert(leaf.id, *leaf);
         })
     }
