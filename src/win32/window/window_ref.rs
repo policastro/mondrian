@@ -2,8 +2,8 @@ use windows::Win32::{
     Foundation::HWND,
     Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
-        IsIconic, IsWindowVisible, SetWindowPos, SET_WINDOW_POS_FLAGS, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE,
-        SW_SHOWNORMAL,
+        IsIconic, IsWindowVisible, SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SET_WINDOW_POS_FLAGS, SWP_NOMOVE,
+        SWP_NOSIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL,
     },
 };
 
@@ -168,5 +168,15 @@ impl WindowObjHandler for WindowRef {
 
     fn restore(&self, activate: bool) -> bool {
         show_window(self.hwnd, if activate { SW_RESTORE } else { SW_SHOWNOACTIVATE })
+    }
+
+    fn set_topmost(&self, topmost: bool) -> Result<(), ()> {
+        let hwnd_flag = if topmost { HWND_TOPMOST } else { HWND_NOTOPMOST };
+        unsafe {
+            match SetWindowPos(self.hwnd, hwnd_flag, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(()),
+            }
+        }
     }
 }

@@ -181,6 +181,7 @@ impl WindowAnimationPlayer {
         windows.iter().for_each(|(window, trg_area)| {
             let (pos, size) = (trg_area.get_origin(), trg_area.get_size());
             let _ = window.resize_and_move(pos, size, true, flags);
+            let _ = window.set_topmost(false);
             let _ = window.redraw();
         });
         if let Some(hwnd) = get_foreground_window() {

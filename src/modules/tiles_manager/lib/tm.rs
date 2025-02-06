@@ -394,9 +394,11 @@ impl TilesManager {
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
             self.remove(hwnd, false, false)?;
             self.floating_wins.insert(hwnd.0);
+            let _ = WindowRef::new(hwnd).set_topmost(true);
         } else {
             self.floating_wins.remove(&hwnd.0);
             self.add(WindowRef::new(hwnd), false)?;
+            let _ = WindowRef::new(hwnd).set_topmost(false);
         }
 
         self.update(true);

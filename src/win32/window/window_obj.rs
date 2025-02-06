@@ -25,4 +25,5 @@ pub trait WindowObjHandler {
     fn redraw(&self) -> Result<(), ()>;
     fn minimize(&self) -> bool;
     fn restore(&self, activate: bool) -> bool;
+    fn set_topmost(&self, topmost: bool) -> Result<(), ()>;
 }
