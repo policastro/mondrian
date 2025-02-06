@@ -3,7 +3,7 @@ name = "mondrian"
 authors = ["Pasquale Policastro"]
 description = "A tiling window manager for Windows 11"
 license = "GPL-3.0"
-version = "0.1.2"
+version = "0.3.0"
 edition = "2021"
 default-run = "mondrian"
 
