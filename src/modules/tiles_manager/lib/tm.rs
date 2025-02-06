@@ -493,17 +493,6 @@ impl TilesManager {
 enum ContainerType {
     Normal(u8),
     Focalized,
-    Empty,
-}
-
-trait NormalContainer {
-    fn iter_normal(&self);
-}
-
-impl NormalContainer for Container<String> {
-    fn iter_normal(&self) {
-        self.iter().filter(|(k, _)| k.starts_with("normal-"));
-    }
 }
 
 trait FocalizableContainer {
@@ -538,7 +527,6 @@ impl From<ContainerType> for String {
         match val {
             ContainerType::Normal(i) => format!("normal-{}", i),
             ContainerType::Focalized => String::from("focalized"),
-            ContainerType::Empty => String::from("empty"),
         }
     }
 }
