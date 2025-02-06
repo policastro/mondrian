@@ -189,8 +189,8 @@ impl ConfigurableModule for TilesManagerModule {
 fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
-            WindowEvent::Maximized(hwnd) => tm.ignore(Some(hwnd), Some(true)),
-            WindowEvent::Unmaximized(hwnd) => tm.ignore(Some(hwnd), Some(false)),
+            WindowEvent::Maximized(hwnd) => tm.on_maximize(Some(hwnd), true),
+            WindowEvent::Unmaximized(hwnd) => tm.on_maximize(Some(hwnd), false),
             WindowEvent::Opened(hwnd) | WindowEvent::Restored(hwnd) => tm.add(WindowRef::new(hwnd), true),
             WindowEvent::Closed(hwnd) | WindowEvent::Minimized(hwnd) => {
                 let minimized = matches!(window_event, WindowEvent::Minimized(_));

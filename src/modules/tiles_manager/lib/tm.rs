@@ -22,7 +22,7 @@ type Error = TilesManagerError;
 pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,
     floating_wins: HashSet<isize>,
-    ignored_wins: HashSet<isize>,
+    maximized_wins: HashSet<isize>,
     config: TilesManagerConfig,
     animation_player: WindowAnimationPlayer,
 }
@@ -47,9 +47,9 @@ impl TilesManager {
             .map(|m| (m.monitor.id, m.monitor.into(), m.layout))
             .map(|(id, w, l)| {
                 let mut c = Container::<String>::new();
-                c.add(ContainerType::Normal.into(), WinTree::new(w, l.clone()));
+                c.add(ContainerType::Normal(0).into(), WinTree::new(w, l.clone()));
                 c.add(ContainerType::Focalized.into(), WinTree::new(w, l));
-                let _ = c.set_active(ContainerType::Normal.into());
+                let _ = c.set_active(ContainerType::Normal(0).into());
                 (id, c)
             })
             .collect();
@@ -64,7 +64,7 @@ impl TilesManager {
         );
         TilesManager {
             floating_wins: HashSet::new(),
-            ignored_wins: HashSet::new(),
+            maximized_wins: HashSet::new(),
             containers,
             config,
             animation_player,
@@ -91,13 +91,18 @@ impl TilesManager {
         c.unfocalize();
         c.get_active_mut().ok_or(Error::NoWindowsInfo)?.insert(win.hwnd.0);
 
+        // INFO: if the monitor has a maximized window, restore it
+        if let Some(maximized_win) = self.maximized_wins.iter().find(|w| c.has(**w)) {
+            self.on_maximize(Some(HWND(*maximized_win)), false)?;
+        }
+
         self.update_if(update);
         Ok(())
     }
 
     pub fn remove(&mut self, hwnd: HWND, skip_focalized: bool, update: bool) -> Result<(), Error> {
         let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
-        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
+        if matches!(tile_state, WindowTileState::Floating) {
             return Ok(());
         }
 
@@ -108,6 +113,10 @@ impl TilesManager {
 
         let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindow)?;
         c.iter_mut().for_each(|(_, t)| t.remove(hwnd.0));
+
+        if matches!(tile_state, WindowTileState::Ignored) {
+            self.maximized_wins.remove(&hwnd.0);
+        }
 
         if get_foreground_window().is_none() {
             self.focus_next();
@@ -394,7 +403,7 @@ impl TilesManager {
         Ok(())
     }
 
-    pub(crate) fn ignore(&mut self, window: Option<HWND>, ignore: Option<bool>) -> Result<(), Error> {
+    pub(crate) fn on_maximize(&mut self, window: Option<HWND>, maximize: bool) -> Result<(), Error> {
         let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
         let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
 
@@ -402,10 +411,10 @@ impl TilesManager {
             return Ok(());
         }
 
-        if ignore.unwrap_or(!matches!(tile_state, WindowTileState::Ignored)) {
-            self.ignored_wins.insert(hwnd.0);
+        if maximize {
+            self.maximized_wins.insert(hwnd.0);
         } else {
-            self.ignored_wins.remove(&hwnd.0);
+            self.maximized_wins.remove(&hwnd.0);
         }
 
         self.update(true);
@@ -420,8 +429,13 @@ impl TilesManager {
                 false => (self.config.get_border_pad(), self.config.get_tile_pad_xy()),
             };
 
+            // INFO: prevent updates when the monitor has a maximized window
+            if self.maximized_wins.iter().any(|w| c.has(*w)) {
+                return;
+            }
+
             if let Some(c) = c.get_active_mut() {
-                let _ = c.update(border_pad, tile_pad, anim_player, &self.ignored_wins);
+                let _ = c.update(border_pad, tile_pad, anim_player, &self.maximized_wins);
             }
         });
         let animation = self.config.get_animations().filter(|_| animate);
@@ -454,13 +468,13 @@ impl TilesManager {
 
     pub fn has_window(&self, hwnd: HWND) -> bool {
         let mut cs = self.containers.values();
-        cs.any(|c| c.get(ContainerType::Normal.into()).unwrap().has(hwnd.0))
+        cs.any(|c| c.get(ContainerType::Normal(0).into()).unwrap().has(hwnd.0))
     }
 
     fn get_window_tile_state(&self, hwnd: HWND) -> Option<WindowTileState> {
         let is_managed = self.has_window(hwnd);
         let is_floating = self.floating_wins.contains(&hwnd.0);
-        let is_ignored = self.ignored_wins.contains(&hwnd.0);
+        let is_ignored = self.maximized_wins.contains(&hwnd.0);
 
         if is_managed && !is_floating && !is_ignored {
             Some(WindowTileState::Normal)
@@ -475,17 +489,19 @@ impl TilesManager {
 }
 
 enum ContainerType {
-    Normal,
+    Normal(u8),
     Focalized,
+    Empty,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TilesManagerError {
-    Generic,
-    WindowAlreadyAdded,
-    NoWindowsInfo,
-    ContainerNotFound { refresh: bool },
-    NoWindow,
+trait NormalContainer {
+    fn iter_normal(&self);
+}
+
+impl NormalContainer for Container<String> {
+    fn iter_normal(&self) {
+        self.iter().filter(|(k, _)| k.starts_with("normal-"));
+    }
 }
 
 trait FocalizableContainer {
@@ -506,7 +522,7 @@ impl FocalizableContainer for Container<String> {
     fn unfocalize(&mut self) {
         if self.is_focalized() {
             self.get_active_mut().expect("Active should be Some").clear();
-            let _ = self.set_active(ContainerType::Normal.into());
+            let _ = self.set_active(ContainerType::Normal(0).into());
         }
     }
 
@@ -518,10 +534,20 @@ impl FocalizableContainer for Container<String> {
 impl From<ContainerType> for String {
     fn from(val: ContainerType) -> Self {
         match val {
-            ContainerType::Normal => String::from("Normal"),
-            ContainerType::Focalized => String::from("Focalized"),
+            ContainerType::Normal(i) => format!("normal-{}", i),
+            ContainerType::Focalized => String::from("focalized"),
+            ContainerType::Empty => String::from("empty"),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TilesManagerError {
+    Generic,
+    WindowAlreadyAdded,
+    NoWindowsInfo,
+    ContainerNotFound { refresh: bool },
+    NoWindow,
 }
 
 impl TilesManagerError {
