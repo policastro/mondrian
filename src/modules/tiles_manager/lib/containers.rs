@@ -14,7 +14,7 @@ pub trait ContainerLayer {
         border_pad: i16,
         tile_pad: (i16, i16),
         animator: &mut WindowAnimationPlayer,
-        ignored_wins: &HashSet<isize>,
+        ignored_wins: &HashSet<WindowRef>,
     ) -> Result<(), ()>;
     fn contains(&self, point: (i32, i32)) -> bool;
 }
@@ -25,20 +25,19 @@ impl ContainerLayer for WinTree {
         border_pad: i16,
         tile_pad: (i16, i16),
         animation_player: &mut WindowAnimationPlayer,
-        ignored_wins: &HashSet<isize>,
+        ignored_wins: &HashSet<WindowRef>,
     ) -> Result<(), ()> {
-        let leaves: Vec<AreaLeaf<isize>> = self.leaves(border_pad, ignored_wins);
+        let leaves: Vec<AreaLeaf<WindowRef>> = self.leaves(border_pad, ignored_wins);
 
         for leaf in &leaves {
-            let win_ref = WindowRef::from(leaf.id);
-            if !win_ref.is_visible() {
-                self.remove(win_ref.hwnd.0);
+            if !leaf.id.is_visible() {
+                self.remove(leaf.id);
                 return self.update(border_pad, tile_pad, animation_player, ignored_wins);
             };
             let area = leaf.viewbox.pad_xy(tile_pad);
-            win_ref.restore(false);
-            let area = win_ref.adjust_area(area);
-            animation_player.queue(win_ref, area);
+            leaf.id.restore(false);
+            let area = leaf.id.adjust_area(area);
+            animation_player.queue(leaf.id, area);
         }
         Ok(())
     }
@@ -94,8 +93,8 @@ impl<K: Clone + Eq + Hash> Container<K> {
         self.get_active().is_some_and(|t| t.contains(point))
     }
 
-    pub fn has(&self, hwnd: isize) -> bool {
-        self.get_active().is_some_and(|t| t.has(hwnd))
+    pub fn has(&self, win: WindowRef) -> bool {
+        self.get_active().is_some_and(|t| t.has(win))
     }
 
     pub fn iter(&self) -> std::collections::hash_map::Iter<'_, K, WinTree> {
@@ -111,9 +110,9 @@ pub(super) trait Containers<U: Clone + Eq + Hash> {
     fn find_at(&self, point: (i32, i32)) -> Option<&Container<U>>;
     fn find_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
     fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
-    fn find(&self, hwnd: isize, only_active: bool) -> Option<&Container<U>>;
-    fn find_key(&self, hwnd: isize, only_active: bool) -> Option<isize>;
-    fn find_mut(&mut self, hwnd: isize, only_active: bool) -> Option<&mut Container<U>>;
+    fn find(&self, win: WindowRef, only_active: bool) -> Option<&Container<U>>;
+    fn find_key(&self, win: WindowRef, only_active: bool) -> Option<isize>;
+    fn find_mut(&mut self, win: WindowRef, only_active: bool) -> Option<&mut Container<U>>;
     fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool;
     fn find_closest_at(&self, ref_point: (i32, i32), direction: Direction) -> Option<&Container<U>>;
     fn find_closest_at_mut(&mut self, ref_point: (i32, i32), direction: Direction) -> Option<&mut Container<U>>;
@@ -136,28 +135,28 @@ impl Containers<String> for HashMap<isize, Container<String>> {
         })
     }
 
-    fn find_key(&self, hwnd: isize, only_active: bool) -> Option<isize> {
+    fn find_key(&self, win: WindowRef, only_active: bool) -> Option<isize> {
         let mut e = self.iter();
         match only_active {
-            true => e.find(|(_k, c)| c.get_active().is_some_and(|t| t.has(hwnd))),
-            false => e.find(|(_k, c)| c.iter().any(|w| w.1.has(hwnd))),
+            true => e.find(|(_k, c)| c.get_active().is_some_and(|t| t.has(win))),
+            false => e.find(|(_k, c)| c.iter().any(|w| w.1.has(win))),
         }
         .map(|(k, _)| *k)
     }
 
-    fn find(&self, hwnd: isize, only_active: bool) -> Option<&Container<String>> {
+    fn find(&self, win: WindowRef, only_active: bool) -> Option<&Container<String>> {
         let mut v = self.values();
         match only_active {
-            true => v.find(|c| c.get_active().is_some_and(|t| t.has(hwnd))),
-            false => v.find(|c| c.iter().any(|w| w.1.has(hwnd))),
+            true => v.find(|c| c.get_active().is_some_and(|t| t.has(win))),
+            false => v.find(|c| c.iter().any(|w| w.1.has(win))),
         }
     }
 
-    fn find_mut(&mut self, hwnd: isize, only_active: bool) -> Option<&mut Container<String>> {
+    fn find_mut(&mut self, win: WindowRef, only_active: bool) -> Option<&mut Container<String>> {
         let mut v = self.values_mut();
         match only_active {
-            true => v.find(|c| c.get_active().is_some_and(|t| t.has(hwnd))),
-            false => v.find(|c| c.iter().any(|w| w.1.has(hwnd))),
+            true => v.find(|c| c.get_active().is_some_and(|t| t.has(win))),
+            false => v.find(|c| c.iter().any(|w| w.1.has(win))),
         }
     }
 

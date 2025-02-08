@@ -13,7 +13,6 @@ use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
-use windows::Win32::Foundation::HWND;
 
 type IntraOp = IntramonitorMoveOp;
 type InterOp = IntermonitorMoveOp;
@@ -21,8 +20,8 @@ type Error = TilesManagerError;
 
 pub struct TilesManager {
     containers: HashMap<isize, Container<String>>,
-    floating_wins: HashSet<isize>,
-    maximized_wins: HashSet<isize>,
+    floating_wins: HashSet<WindowRef>,
+    maximized_wins: HashSet<WindowRef>,
     config: TilesManagerConfig,
     animation_player: WindowAnimationPlayer,
 }
@@ -72,13 +71,13 @@ impl TilesManager {
     }
 
     pub fn add(&mut self, win: WindowRef, update: bool) -> Result<(), Error> {
-        let tile_state = self.get_window_tile_state(win.hwnd);
+        let tile_state = self.get_window_tile_state(win);
         if tile_state.is_some_and(|s| matches!(s, WindowTileState::Floating | WindowTileState::Ignored)) {
             return Ok(());
         }
 
-        if let Some(c) = self.containers.find_mut(win.hwnd.0, false) {
-            match c.is_focalized() && !c.has(win.hwnd.0) {
+        if let Some(c) = self.containers.find_mut(win, false) {
+            match c.is_focalized() && !c.has(win) {
                 true => c.unfocalize(),
                 false => return Err(Error::WindowAlreadyAdded),
             }
@@ -89,33 +88,33 @@ impl TilesManager {
         let c = self.containers.find_at_or_near_mut(center);
         let c = c.ok_or(Error::NoWindowsInfo)?;
         c.unfocalize();
-        c.get_active_mut().ok_or(Error::NoWindowsInfo)?.insert(win.hwnd.0);
+        c.get_active_mut().ok_or(Error::NoWindowsInfo)?.insert(win);
 
         // INFO: if the monitor has a maximized window, restore it
         if let Some(maximized_win) = self.maximized_wins.iter().find(|w| c.has(**w)) {
-            self.on_maximize(Some(HWND(*maximized_win)), false)?;
+            self.on_maximize(Some(*maximized_win), false)?;
         }
 
         self.update_if(update);
         Ok(())
     }
 
-    pub fn remove(&mut self, hwnd: HWND, skip_focalized: bool, update: bool) -> Result<(), Error> {
-        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+    pub fn remove(&mut self, win: WindowRef, skip_focalized: bool, update: bool) -> Result<(), Error> {
+        let tile_state = self.get_window_tile_state(win).ok_or(Error::NoWindow)?;
         if matches!(tile_state, WindowTileState::Floating) {
             return Ok(());
         }
 
-        let c = self.containers.find_mut(hwnd.0, false);
+        let c = self.containers.find_mut(win, false);
         if skip_focalized && c.is_some_and(|c| c.is_focalized()) {
             return Ok(());
         }
 
-        let c = self.containers.find_mut(hwnd.0, false).ok_or(Error::NoWindow)?;
-        c.iter_mut().for_each(|(_, t)| t.remove(hwnd.0));
+        let c = self.containers.find_mut(win, false).ok_or(Error::NoWindow)?;
+        c.iter_mut().for_each(|(_, t)| t.remove(win));
 
         if matches!(tile_state, WindowTileState::Ignored) {
-            self.maximized_wins.remove(&hwnd.0);
+            self.maximized_wins.remove(&win);
         }
 
         if get_foreground_window().is_none() {
@@ -126,10 +125,10 @@ impl TilesManager {
         Ok(())
     }
 
-    fn find_at(&self, direction: Direction, same_monitor: bool) -> Option<AreaLeaf<isize>> {
-        let current = get_foreground_window()?;
-        let src_c = self.containers.find(current.0, true)?;
-        let src_area = src_c.get_active()?.find_leaf(current.0, 0)?.viewbox;
+    fn find_at(&self, direction: Direction, same_monitor: bool) -> Option<AreaLeaf<WindowRef>> {
+        let current = get_foreground_window()?.into();
+        let src_c = self.containers.find(current, true)?;
+        let src_area = src_c.get_active()?.find_leaf(current, 0)?.viewbox;
         let point = match direction {
             Direction::Right => src_area.get_ne_corner().with_offset(1, 1), // INFO: prefer up
             Direction::Down => src_area.get_se_corner().with_offset(-1, 1), // INFO: prefer right
@@ -159,23 +158,23 @@ impl TilesManager {
             false => params?.0.get_active()?,
         };
 
-        t.find_leaf_at(params?.1, 0).filter(|w| w.id != current.0)
+        t.find_leaf_at(params?.1, 0).filter(|w| w.id != current)
     }
 
     pub fn focus_at(&mut self, direction: Direction) -> Result<(), Error> {
         let leaf = self.find_at(direction, false).ok_or(Error::NoWindow)?;
-        WindowRef::new(HWND(leaf.id)).focus();
+        leaf.id.focus();
         Ok(())
     }
 
     pub fn on_move(
         &mut self,
-        hwnd: HWND,
+        win: WindowRef,
         target: (i32, i32),
         intra_op: IntraOp,
         inter_op: InterOp,
     ) -> Result<(), Error> {
-        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+        let tile_state = self.get_window_tile_state(win).ok_or(Error::NoWindow)?;
         if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
             return Ok(());
         }
@@ -183,8 +182,8 @@ impl TilesManager {
         const C_ERR: Error = Error::ContainerNotFound { refresh: true };
 
         let cs = &mut self.containers;
-        let src_leaf = cs.find(hwnd.0, true).and_then(|c| c.get_active());
-        let src_leaf = src_leaf.and_then(|t| t.find_leaf(hwnd.0, 0)).ok_or(Error::Generic)?;
+        let src_leaf = cs.find(win, true).and_then(|c| c.get_active());
+        let src_leaf = src_leaf.and_then(|t| t.find_leaf(win, 0)).ok_or(Error::Generic)?;
         let trg_leaf = cs.find_at(target).and_then(|c| c.get_active());
         let trg_leaf = trg_leaf.and_then(|t| t.find_leaf_at(target, 0));
 
@@ -245,9 +244,9 @@ impl TilesManager {
     }
 
     pub(crate) fn move_focused(&mut self, direction: Direction) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
-        let c = self.containers.find(curr.0, true).and_then(|c| c.get_active());
-        let src_leaf = c.and_then(|t| t.find_leaf(curr.0, 0)).ok_or(Error::Generic)?;
+        let curr = Self::get_foreground().ok_or(Error::NoWindow)?;
+        let c = self.containers.find(curr, true).and_then(|c| c.get_active());
+        let src_leaf = c.and_then(|t| t.find_leaf(curr, 0)).ok_or(Error::Generic)?;
         let trg_leaf = self.find_at(direction, false).ok_or(Error::NoWindow)?;
 
         let cs = &mut self.containers;
@@ -272,15 +271,15 @@ impl TilesManager {
 
     pub(crate) fn insert_focused(&mut self, direction: Direction) -> Result<(), Error> {
         const C_ERR: Error = Error::ContainerNotFound { refresh: false };
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+        let curr = Self::get_foreground().ok_or(Error::NoWindow)?;
 
-        let src_c_key = self.containers.find_key(curr.0, true).ok_or(C_ERR)?;
+        let src_c_key = self.containers.find_key(curr, true).ok_or(C_ERR)?;
 
         let src_leaf = self
             .containers
             .get(&src_c_key)
             .and_then(|c| c.get_active())
-            .and_then(|t| t.find_leaf(curr.0, 0))
+            .and_then(|t| t.find_leaf(curr, 0))
             .ok_or(C_ERR)?;
 
         self.containers
@@ -300,12 +299,12 @@ impl TilesManager {
     }
 
     pub(crate) fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+        let curr = get_foreground_window().ok_or(Error::NoWindow)?.into();
         if !self.has_window(curr) {
             return Err(Error::NoWindow);
         }
 
-        let orig_area = WindowRef::new(curr).get_window_box().ok_or(Error::NoWindowsInfo)?;
+        let orig_area = curr.get_window_box().ok_or(Error::NoWindowsInfo)?;
         let size = size as i16;
         let has_neigh1 = self.find_at(direction, true).is_some();
         let has_neigh2 = self.find_at(direction.opposite(), true).is_some();
@@ -327,9 +326,9 @@ impl TilesManager {
     }
 
     pub(crate) fn invert_orientation(&mut self) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
-        let c = self.containers.find_mut(curr.0, true).and_then(|c| c.get_active_mut());
-        let center = WindowRef::new(curr).get_window_box().map(|a| a.get_center());
+        let curr = Self::get_foreground().ok_or(Error::NoWindow)?;
+        let c = self.containers.find_mut(curr, true).and_then(|c| c.get_active_mut());
+        let center = curr.get_window_box().map(|a| a.get_center());
         let center = center.ok_or(Error::NoWindowsInfo)?;
         c.ok_or(Error::Generic)?.switch_subtree_orientations(center);
 
@@ -337,8 +336,13 @@ impl TilesManager {
         Ok(())
     }
 
-    pub(crate) fn on_resize(&mut self, hwnd: HWND, delta: (i32, i32, i32, i32), animate: bool) -> Result<(), Error> {
-        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+    pub(crate) fn on_resize(
+        &mut self,
+        win: WindowRef,
+        delta: (i32, i32, i32, i32),
+        animate: bool,
+    ) -> Result<(), Error> {
+        let tile_state = self.get_window_tile_state(win).ok_or(Error::NoWindow)?;
         if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
             return Ok(());
         }
@@ -354,9 +358,9 @@ impl TilesManager {
             false => None,
         };
 
-        let c = self.containers.find_mut(hwnd.0, true).ok_or(Error::NoWindow)?;
+        let c = self.containers.find_mut(win, true).ok_or(Error::NoWindow)?;
         let t = c.get_active_mut().ok_or(Error::NoWindow)?;
-        let area = t.find_leaf(hwnd.0, 0).ok_or(Error::Generic)?.viewbox;
+        let area = t.find_leaf(win, 0).ok_or(Error::Generic)?.viewbox;
         let center = area.get_center();
 
         let clamp_values = Some((10, 90));
@@ -391,51 +395,51 @@ impl TilesManager {
     }
 
     pub(crate) fn focalize_focused(&mut self) -> Result<(), Error> {
-        let hwnd = get_foreground_window().ok_or(Error::NoWindow)?;
-        let area = WindowRef::new(hwnd).get_window_box();
+        let curr_win = Self::get_foreground().ok_or(Error::NoWindow)?;
+        let area = curr_win.get_window_box();
         let center = area.ok_or(Error::NoWindowsInfo)?.get_center();
         let c = self.containers.find_at_mut(center).ok_or(Error::NoWindow)?;
 
-        if c.is_focalized() && c.get_active_mut().ok_or(Error::Generic)?.has(hwnd.0) {
+        if c.is_focalized() && c.get_active_mut().ok_or(Error::Generic)?.has(curr_win) {
             c.unfocalize();
         } else {
             let wins = c.get_active().ok_or(Error::Generic)?.get_ids();
-            let wins = wins.iter().filter(|h| **h != hwnd.0).map(|h| WindowRef::new(HWND(*h)));
+            let wins = wins.iter().filter(|h| **h != curr_win);
             wins.for_each(|w| {
                 w.minimize();
             });
-            c.focalize(hwnd.0);
-            let _ = self.release(Some(false), Some(hwnd));
+            c.focalize(curr_win);
+            let _ = self.release(Some(false), Some(curr_win));
         }
 
         self.update(true);
         Ok(())
     }
 
-    pub(crate) fn release(&mut self, release: Option<bool>, window: Option<HWND>) -> Result<(), Error> {
-        let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
-        let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
+    pub(crate) fn release(&mut self, release: Option<bool>, window: Option<WindowRef>) -> Result<(), Error> {
+        let window = window.or_else(Self::get_foreground).ok_or(Error::NoWindow)?;
+        let tile_state = self.get_window_tile_state(window).ok_or(Error::NoWindow)?;
 
         if matches!(tile_state, WindowTileState::Ignored) {
             return Ok(());
         }
 
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
-            self.remove(hwnd, false, false)?;
-            self.floating_wins.insert(hwnd.0);
-            let _ = WindowRef::new(hwnd).set_topmost(true);
+            self.remove(window, false, false)?;
+            self.floating_wins.insert(window);
+            let _ = window.set_topmost(true);
         } else {
-            self.floating_wins.remove(&hwnd.0);
-            self.add(WindowRef::new(hwnd), false)?;
-            let _ = WindowRef::new(hwnd).set_topmost(false);
+            self.floating_wins.remove(&window);
+            self.add(window, false)?;
+            let _ = window.set_topmost(false);
         }
 
         self.update(true);
         Ok(())
     }
 
-    pub(crate) fn on_maximize(&mut self, window: Option<HWND>, maximize: bool) -> Result<(), Error> {
-        let hwnd = window.or_else(get_foreground_window).ok_or(Error::NoWindow)?;
+    pub(crate) fn on_maximize(&mut self, window: Option<WindowRef>, maximize: bool) -> Result<(), Error> {
+        let hwnd = window.or_else(Self::get_foreground).ok_or(Error::NoWindow)?;
         let tile_state = self.get_window_tile_state(hwnd).ok_or(Error::NoWindow)?;
 
         if matches!(tile_state, WindowTileState::Floating) {
@@ -443,13 +447,17 @@ impl TilesManager {
         }
 
         if maximize {
-            self.maximized_wins.insert(hwnd.0);
+            self.maximized_wins.insert(hwnd);
         } else {
-            self.maximized_wins.remove(&hwnd.0);
+            self.maximized_wins.remove(&hwnd);
         }
 
         self.update(true);
         Ok(())
+    }
+
+    fn get_foreground() -> Option<WindowRef> {
+        get_foreground_window().map(WindowRef::new)
     }
 
     pub fn update(&mut self, animate: bool) {
@@ -480,7 +488,7 @@ impl TilesManager {
     fn focus_next(&mut self) {
         let directions = [Direction::Right, Direction::Down, Direction::Left, Direction::Up];
         if let Some(leaf) = directions.iter().find_map(|d| self.find_at(*d, false)) {
-            WindowRef::new(HWND(leaf.id)).focus();
+            leaf.id.focus();
         }
     }
 
@@ -493,19 +501,19 @@ impl TilesManager {
     pub fn get_managed_windows(&self) -> HashMap<isize, WindowTileState> {
         let cs = self.containers.values();
         cs.flat_map(|c| c.iter().flat_map(|(_, t)| t.get_ids()))
-            .filter_map(|hwnd| self.get_window_tile_state(HWND(hwnd)).map(|state| (hwnd, state)))
+            .filter_map(|win| self.get_window_tile_state(win).map(|state| (win.hwnd.0, state)))
             .collect()
     }
 
-    pub fn has_window(&self, hwnd: HWND) -> bool {
+    pub fn has_window(&self, window: WindowRef) -> bool {
         let mut cs = self.containers.values();
-        cs.any(|c| c.get(ContainerType::Normal(0).into()).unwrap().has(hwnd.0))
+        cs.any(|c| c.get(ContainerType::Normal(0).into()).unwrap().has(window))
     }
 
-    fn get_window_tile_state(&self, hwnd: HWND) -> Option<WindowTileState> {
-        let is_managed = self.has_window(hwnd);
-        let is_floating = self.floating_wins.contains(&hwnd.0);
-        let is_ignored = self.maximized_wins.contains(&hwnd.0);
+    fn get_window_tile_state(&self, window: WindowRef) -> Option<WindowTileState> {
+        let is_managed = self.has_window(window);
+        let is_floating = self.floating_wins.contains(&window);
+        let is_ignored = self.maximized_wins.contains(&window);
 
         if is_managed && !is_floating && !is_ignored {
             Some(WindowTileState::Normal)
@@ -525,13 +533,13 @@ enum ContainerType {
 }
 
 trait FocalizableContainer {
-    fn focalize(&mut self, win: isize);
+    fn focalize(&mut self, win: WindowRef);
     fn unfocalize(&mut self);
     fn is_focalized(&self) -> bool;
 }
 
 impl FocalizableContainer for Container<String> {
-    fn focalize(&mut self, win: isize) {
+    fn focalize(&mut self, win: WindowRef) {
         let _ = self.set_active(ContainerType::Focalized.into());
         if let Some(c) = self.get_active_mut() {
             c.clear();

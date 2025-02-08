@@ -189,19 +189,19 @@ impl ConfigurableModule for TilesManagerModule {
 fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
-            WindowEvent::Maximized(hwnd) => tm.on_maximize(Some(hwnd), true),
-            WindowEvent::Unmaximized(hwnd) => tm.on_maximize(Some(hwnd), false),
+            WindowEvent::Maximized(hwnd) => tm.on_maximize(Some(hwnd.into()), true),
+            WindowEvent::Unmaximized(hwnd) => tm.on_maximize(Some(hwnd.into()), false),
             WindowEvent::Opened(hwnd) | WindowEvent::Restored(hwnd) => tm.add(WindowRef::new(hwnd), true),
             WindowEvent::Closed(hwnd) | WindowEvent::Minimized(hwnd) => {
                 let minimized = matches!(window_event, WindowEvent::Minimized(_));
-                tm.remove(hwnd, minimized, true)
+                tm.remove(hwnd.into(), minimized, true)
             }
             WindowEvent::StartMoveSize(_) => {
                 tm.cancel_animation();
                 Ok(())
             }
-            WindowEvent::Moved(hwnd, coords, intra, inter) => tm.on_move(hwnd, coords, intra, inter),
-            WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd, c_area.get_shift(&p_area), true),
+            WindowEvent::Moved(hwnd, coords, intra, inter) => tm.on_move(hwnd.into(), coords, intra, inter),
+            WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area), true),
         },
         TMCommand::Focus(direction) => tm.focus_at(direction),
         TMCommand::Minimize => tm.minimize_focused(),

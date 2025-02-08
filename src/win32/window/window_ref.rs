@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use windows::Win32::{
     Foundation::HWND,
     Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
@@ -20,9 +22,39 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq)]
 pub struct WindowRef {
     pub hwnd: HWND,
+}
+
+impl Hash for WindowRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hwnd.0.hash(state);
+    }
+}
+
+impl PartialEq for WindowRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.hwnd.0 == other.hwnd.0
+    }
+}
+
+impl From<HWND> for WindowRef {
+    fn from(hwnd: HWND) -> Self {
+        WindowRef { hwnd }
+    }
+}
+
+impl From<isize> for WindowRef {
+    fn from(hwnd: isize) -> Self {
+        HWND(hwnd).into()
+    }
+}
+
+impl From<WindowRef> for WindowSnapshot {
+    fn from(val: WindowRef) -> Self {
+        val.snapshot()
+    }
 }
 
 impl WindowRef {
@@ -67,24 +99,6 @@ impl WindowRef {
             width: (area.width as i32 + th.2).max(0) as u16,
             height: (area.height as i32 + th.3).max(0) as u16,
         }
-    }
-}
-
-impl PartialEq for WindowRef {
-    fn eq(&self, other: &Self) -> bool {
-        self.hwnd.0 == other.hwnd.0
-    }
-}
-
-impl From<isize> for WindowRef {
-    fn from(hwnd: isize) -> Self {
-        WindowRef { hwnd: HWND(hwnd) }
-    }
-}
-
-impl From<WindowRef> for WindowSnapshot {
-    fn from(val: WindowRef) -> Self {
-        val.snapshot()
     }
 }
 

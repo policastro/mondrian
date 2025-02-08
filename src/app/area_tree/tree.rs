@@ -1,4 +1,7 @@
-use crate::app::structs::{area::Area, orientation::Orientation};
+use crate::{
+    app::structs::{area::Area, orientation::Orientation},
+    win32::window::window_ref::WindowRef,
+};
 
 use super::{
     layout_strategy::{LayoutStrategy, LayoutStrategyEnum, TreeOperation},
@@ -7,7 +10,7 @@ use super::{
 };
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
-pub type WinTree = AreaTree<isize>;
+pub type WinTree = AreaTree<WindowRef>;
 
 pub struct AreaTree<T: Copy + Eq + Hash> {
     root: AreaNode<T>,
