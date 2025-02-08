@@ -23,6 +23,7 @@ By default, the application doesn't log any messages to a file. To enable loggin
 #### Moving windows
 
 You can swap two windows in the same monitor just by dragging one of them into the other. While dragging, you can:
+
 - hold `ALT`, to swap the windows and to invert the direction of the tiles;
 
 When the window is dragged to another monitor, by default it will be inserted. In this case, you can:
@@ -37,6 +38,7 @@ By changing the `insert_in_monitor` configuration option to `false`, the window 
 
 If you drag a window while holding `CTRL`, you can place the window freely based on the cursor position relative to an other window.
 In particular:
+
 - if the cursor is at the top of an other window (i.e. <=20% of its height), the moving window will be placed above it;
 - if the cursor is at the bottom of an other window (i.e. >=80% of its height), the moving window will be placed below it;
 - if the cursor is to the left of an other window (i.e. <=50% of its width), the moving window will be placed to the left of it;
@@ -48,7 +50,7 @@ You can set the `free_move_in_monitor` configuration option to `true` if you wan
 
 Below a table that shows the keybindings for moving/swapping windows in different monitors, depending on the values of the `insert_in_monitor` and `free_move_in_monitor` configuration options:
 
-| `insert_in_monitor` | `free_move_in_monitor` |     No key     |     `CTRL`     |   `SHIFT`    |            `ALT`             | 
+| `insert_in_monitor` | `free_move_in_monitor` |     No key     |     `CTRL`     |   `SHIFT`    |            `ALT`             |
 | :-----------------: | :--------------------: | :------------: | :------------: | :----------: | :--------------------------: |
 |       `false`       |     `false`/`true`     |     swaps      | inserts freely | inserts auto | inserts auto + inverts tiles |
 |       `true`        |        `false`         |  inserts auto  | inserts freely |    swaps     | inserts auto + inverts tiles |
@@ -123,7 +125,7 @@ bindings = [
 ]
 ```
 
-The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, or any combination of them joined by `+` (e.g. `ALT+SHIFT`). This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
+The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN`[^1] or any combination of them joined by `+` (e.g. `ALT+SHIFT`). This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
 
 The **available keys** are:
 
@@ -139,7 +141,9 @@ The **available actions** are:
 - `retile`: re-tiles the windows;
 - `minimize`: minimizes the focused window;
 - `focus <left|right|up|down>`: focuses the window in the specified direction;
-- `move <left|right|up|down>`: moves the focused window in the specified direction;
+- `move <left|right|up|down>`: swaps the focused window with the window in the specified direction;
+- `insert <left|right|up|down>`: adds the focused window in the monitor in the specified direction;
+- `moveinsert <left|right|up|down>`: first tries the `move` and then the `insert` action if no window is found in the specified direction;
 - `resize <left|right|up|down> <40-250>`: resizes the focused window in the specified direction by the specified amount;
 - `invert`: inverts the orientation of the focused window and the neighboring windows;
 - `release`: removes the focused window from the tiling manager, or adds it back;
@@ -163,6 +167,8 @@ bindings = [
     { modifier = "CTRL+ALT", key = "left", action = "focus left" }   # when pressing CTRL+ALT+Left, the action will be "focus left"
 ]
 ```
+
+[^1]: when a keybinding uses `WIN` as its only modifier, the start menu will be opened. This is a known issue and will be fixed in the future. As a workaround, you can combine `WIN` with other modifiers (e.g. `WIN+CTRL` or `WIN+CTRL+ALT`).
 
 #### Ignore windows with `core.rules` <a name="core-rules-guide"></a>
 
