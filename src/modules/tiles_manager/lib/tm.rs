@@ -270,6 +270,35 @@ impl TilesManager {
         Ok(())
     }
 
+    pub(crate) fn insert_focused(&mut self, direction: Direction) -> Result<(), Error> {
+        const C_ERR: Error = Error::ContainerNotFound { refresh: false };
+        let curr = get_foreground_window().ok_or(Error::NoWindow)?;
+
+        let src_c_key = self.containers.find_key(curr.0, true).ok_or(C_ERR)?;
+
+        let src_leaf = self
+            .containers
+            .get(&src_c_key)
+            .and_then(|c| c.get_active())
+            .and_then(|t| t.find_leaf(curr.0, 0))
+            .ok_or(C_ERR)?;
+
+        self.containers
+            .find_closest_at_mut(src_leaf.viewbox.get_center(), direction)
+            .and_then(|c| c.get_active_mut())
+            .ok_or(C_ERR)?
+            .insert(src_leaf.id);
+
+        self.containers
+            .get_mut(&src_c_key)
+            .ok_or(C_ERR)?
+            .iter_mut()
+            .for_each(|(_, t)| t.remove(src_leaf.id));
+
+        self.update(true);
+        Ok(())
+    }
+
     pub(crate) fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error> {
         let curr = get_foreground_window().ok_or(Error::NoWindow)?;
         if !self.has_window(curr) {

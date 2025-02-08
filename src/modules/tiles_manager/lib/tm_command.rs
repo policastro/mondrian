@@ -7,7 +7,8 @@ use crate::app::{
 pub enum TMCommand {
     WindowEvent(WindowEvent),
     Focus(Direction),
-    Move(Direction),
+    Insert(Direction),
+    Move(Direction, bool),
     Resize(Direction, u8),
     Release(Option<bool>),
     Update(bool),
@@ -37,7 +38,9 @@ impl TryFrom<&MondrianMessage> for TMCommand {
         match msg {
             MondrianMessage::Minimize => Ok(TMCommand::Minimize),
             MondrianMessage::Focus(direction) => Ok(TMCommand::Focus(*direction)),
-            MondrianMessage::Move(direction) => Ok(TMCommand::Move(*direction)),
+            MondrianMessage::Move(direction) => Ok(TMCommand::Move(*direction, false)),
+            MondrianMessage::Insert(direction) => Ok(TMCommand::Insert(*direction)),
+            MondrianMessage::MoveInsert(direction) => Ok(TMCommand::Move(*direction, true)),
             MondrianMessage::Release(b) => Ok(TMCommand::Release(*b)),
             MondrianMessage::Resize(d, s) => Ok(TMCommand::Resize(*d, *s)),
             MondrianMessage::Focalize => Ok(TMCommand::Focalize),

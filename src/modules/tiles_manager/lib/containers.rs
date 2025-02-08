@@ -112,9 +112,11 @@ pub(super) trait Containers<U: Clone + Eq + Hash> {
     fn find_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
     fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
     fn find(&self, hwnd: isize, only_active: bool) -> Option<&Container<U>>;
+    fn find_key(&self, hwnd: isize, only_active: bool) -> Option<isize>;
     fn find_mut(&mut self, hwnd: isize, only_active: bool) -> Option<&mut Container<U>>;
     fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool;
     fn find_closest_at(&self, ref_point: (i32, i32), direction: Direction) -> Option<&Container<U>>;
+    fn find_closest_at_mut(&mut self, ref_point: (i32, i32), direction: Direction) -> Option<&mut Container<U>>;
 }
 
 impl Containers<String> for HashMap<isize, Container<String>> {
@@ -132,6 +134,15 @@ impl Containers<String> for HashMap<isize, Container<String>> {
             let dist2 = calc_distance(point, b.get_active().unwrap().area);
             dist1.cmp(&dist2)
         })
+    }
+
+    fn find_key(&self, hwnd: isize, only_active: bool) -> Option<isize> {
+        let mut e = self.iter();
+        match only_active {
+            true => e.find(|(_k, c)| c.get_active().is_some_and(|t| t.has(hwnd))),
+            false => e.find(|(_k, c)| c.iter().any(|w| w.1.has(hwnd))),
+        }
+        .map(|(k, _)| *k)
     }
 
     fn find(&self, hwnd: isize, only_active: bool) -> Option<&Container<String>> {
@@ -169,6 +180,46 @@ impl Containers<String> for HashMap<isize, Container<String>> {
 
         let closest = self
             .iter()
+            .filter(|(k, c)| {
+                // Filter out the same monitor
+                if **k == ref_id {
+                    return false;
+                };
+
+                // Filter out the ones that are not in the same direction
+                let area = c.get_active().expect("Container must have an active tree").area;
+                match limit_direction {
+                    Direction::Right => area.x >= point.0,
+                    Direction::Down => area.y >= point.1,
+                    Direction::Left => area.x + i32::from(area.width) <= point.0,
+                    Direction::Up => area.y + i32::from(area.height) <= point.1,
+                }
+            })
+            .min_by(|a, b| {
+                let dist1 = calc_distance(point, a.1.get_active().unwrap().area);
+                let dist2 = calc_distance(point, b.1.get_active().unwrap().area);
+                dist1.cmp(&dist2)
+            });
+
+        closest.map(|c| c.1)
+    }
+
+    fn find_closest_at_mut(
+        &mut self,
+        ref_point: (i32, i32),
+        limit_direction: Direction,
+    ) -> Option<&mut Container<String>> {
+        let ref_id = *self.iter().find(|c| c.1.contains(ref_point))?.0;
+        let ref_area = self.get(&ref_id)?.get_active()?.area;
+        let point = match limit_direction {
+            Direction::Right => ref_area.get_ne_corner(),
+            Direction::Down => ref_area.get_se_corner(),
+            Direction::Left => ref_area.get_sw_corner(),
+            Direction::Up => ref_area.get_nw_corner(),
+        };
+
+        let closest = self
+            .iter_mut()
             .filter(|(k, c)| {
                 // Filter out the same monitor
                 if **k == ref_id {

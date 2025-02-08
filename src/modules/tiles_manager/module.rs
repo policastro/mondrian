@@ -205,7 +205,11 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
         },
         TMCommand::Focus(direction) => tm.focus_at(direction),
         TMCommand::Minimize => tm.minimize_focused(),
-        TMCommand::Move(direction) => tm.move_focused(direction),
+        TMCommand::Insert(direction) => tm.insert_focused(direction),
+        TMCommand::Move(direction, insert_if_empty) => match tm.move_focused(direction) {
+            Err(_) if insert_if_empty => tm.insert_focused(direction),
+            res => res,
+        },
         TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
         TMCommand::Invert => tm.invert_orientation(),
         TMCommand::Release(b) => tm.release(b, None),
