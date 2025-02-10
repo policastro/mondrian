@@ -27,6 +27,7 @@ widestring = "1.1.0"
 log-panics = "2.1.0"
 inputbot = { git = "https://github.com/obv-mikhail/InputBot", rev = "71cd597" }
 lazy_static = "1.5.0"
+winvd = "0.0.48"
 
 [dependencies.windows]
 version = "0.57"

@@ -1,13 +1,13 @@
 use super::configs::CoreModuleConfigs;
-use super::lib::monitor_layout::MonitorLayout;
-use super::lib::tm::TilesManager;
-use super::lib::tm_command::TMCommand;
-use super::lib::tm_configs::TilesManagerConfig;
+use super::lib::tm::command::TMCommand;
+use super::lib::tm::configs::TilesManagerConfig;
+use super::lib::tm::error::TilesManagerError;
+use super::lib::tm::manager::{TilesManager, TilesManagerBase};
+use super::lib::tm::public::TilesManagerOperations;
 use crate::app::config::app_configs::AppConfigs;
-use crate::app::mondrian_message::{MondrianMessage, WindowEvent};
+use crate::app::mondrian_message::{MondrianMessage, SystemEvent, WindowEvent};
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::{ConfigurableModule, Module};
-use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -45,11 +45,6 @@ impl TilesManagerModule {
     }
 
     fn start_tiles_manager(&mut self, event_receiver: Receiver<TMCommand>) {
-        let monitors = enum_display_monitors()
-            .into_iter()
-            .map(|monitor| MonitorLayout::new(monitor.clone(), self.configs.get_layout(Some(&monitor.name))))
-            .collect();
-
         let tm_configs = TilesManagerConfig::from(&self.configs);
 
         let app_tx = self.bus_tx.clone();
@@ -71,13 +66,7 @@ impl TilesManagerModule {
             app_tx.send(MondrianMessage::CoreUpdateComplete).unwrap();
         };
 
-        let mut tm = TilesManager::new(
-            monitors,
-            Some(tm_configs),
-            on_update_start,
-            on_update_error,
-            on_update_complete,
-        );
+        let mut tm = TilesManager::new(Some(tm_configs), on_update_start, on_update_error, on_update_complete);
         let tx = self.bus_tx.clone();
 
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
@@ -162,7 +151,7 @@ impl ModuleImpl for TilesManagerModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianMessage::MonitorsLayoutChanged => {
+            MondrianMessage::SystemEvent(evt) if *evt == SystemEvent::MonitorsLayoutChanged => {
                 Module::restart(self);
             }
             MondrianMessage::Quit => Module::stop(self),
@@ -187,14 +176,15 @@ impl ConfigurableModule for TilesManagerModule {
 }
 
 fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
+    let _ = tm.check_for_vd_changes();
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
-            WindowEvent::Maximized(hwnd) => tm.on_maximize(Some(hwnd.into()), true),
-            WindowEvent::Unmaximized(hwnd) => tm.on_maximize(Some(hwnd.into()), false),
-            WindowEvent::Opened(hwnd) | WindowEvent::Restored(hwnd) => tm.add(WindowRef::new(hwnd), true),
+            WindowEvent::Maximized(hwnd) => tm.on_maximize(hwnd.into(), true),
+            WindowEvent::Unmaximized(hwnd) => tm.on_maximize(hwnd.into(), false),
+            WindowEvent::Opened(hwnd) | WindowEvent::Restored(hwnd) => tm.add(WindowRef::new(hwnd)),
             WindowEvent::Closed(hwnd) | WindowEvent::Minimized(hwnd) => {
                 let minimized = matches!(window_event, WindowEvent::Minimized(_));
-                tm.remove(hwnd.into(), minimized, true)
+                tm.remove(hwnd.into(), minimized)
             }
             WindowEvent::StartMoveSize(_) => {
                 tm.cancel_animation();
@@ -203,32 +193,35 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
             WindowEvent::Moved(hwnd, coords, intra, inter) => tm.on_move(hwnd.into(), coords, intra, inter),
             WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area), true),
         },
-        TMCommand::Focus(direction) => tm.focus_at(direction),
+        TMCommand::SystemEvent(evt) => match evt {
+            SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),
+            SystemEvent::VirtualDesktopRemoved { destroyed, fallback } => tm.on_vd_destroyed(destroyed, fallback),
+            SystemEvent::VirtualDesktopChanged { old, new } => tm.on_vd_changed(old, new),
+            _ => Ok(()),
+        },
+        TMCommand::Focus(direction) => tm.change_focus(direction),
         TMCommand::Minimize => tm.minimize_focused(),
-        TMCommand::Insert(direction) => tm.insert_focused(direction),
-        TMCommand::Move(direction, insert_if_empty) => match tm.move_focused(direction) {
-            Err(_) if insert_if_empty => tm.insert_focused(direction),
+        TMCommand::Insert(direction) => tm.move_focused(direction),
+        TMCommand::Move(direction, insert_if_empty) => match tm.swap_focused(direction) {
+            Err(TilesManagerError::NoWindow) if insert_if_empty => tm.move_focused(direction),
             res => res,
         },
         TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
         TMCommand::Invert => tm.invert_orientation(),
-        TMCommand::Release(b) => tm.release(b, None),
+        TMCommand::Release(b) => tm.release_focused(b),
         TMCommand::Focalize => tm.focalize_focused(),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
             Ok(())
         }
-        TMCommand::Update(animate) => {
-            tm.update(animate);
-            Ok(())
-        }
+        TMCommand::Update(animate) => tm.update_layout(animate),
         TMCommand::Quit => return false,
     };
 
     match res {
         Err(error) if error.require_refresh() => {
-            tm.update(true);
+            let _ = tm.update_layout(true);
             log::error!("{:?}", error)
         }
         Err(error) if error.is_warn() => log::warn!("{:?}", error),

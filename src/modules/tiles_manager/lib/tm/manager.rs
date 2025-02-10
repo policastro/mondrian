@@ -1,0 +1,214 @@
+use super::configs::TilesManagerConfig;
+use super::error::TilesManagerError;
+use super::operations::FocalizedMap;
+use crate::app::area_tree::tree::WinTree;
+use crate::app::mondrian_message::WindowTileState;
+use crate::app::structs::area::Area;
+use crate::modules::tiles_manager::lib::containers::Container;
+use crate::modules::tiles_manager::lib::containers::Containers;
+use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
+use crate::win32::api::monitor::enum_display_monitors;
+use crate::win32::window::window_obj::WindowObjHandler;
+use crate::win32::window::window_ref::WindowRef;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::time::Duration;
+use winvd::Desktop;
+use winvd::{get_current_desktop, get_desktops};
+
+type Error = TilesManagerError;
+
+pub struct TilesManager {
+    pub inactive_trees: HashMap<ContainerKey, WinTree>,
+    pub active_trees: HashMap<ContainerKey, WinTree>,
+    pub focalized_wins: HashMap<ContainerKey, WindowRef>,
+    pub floating_wins: HashSet<WindowRef>,
+    pub maximized_wins: HashSet<WindowRef>,
+    pub config: TilesManagerConfig,
+    pub animation_player: WindowAnimationPlayer,
+    pub(crate) current_vd: Option<Desktop>,
+}
+
+pub trait TilesManagerBase {
+    fn new<S, E, C>(
+        config: Option<TilesManagerConfig>,
+        on_update_start: S,
+        on_update_error: E,
+        on_update_complete: C,
+    ) -> Self
+    where
+        S: Fn() + Sync + Send + 'static,
+        E: Fn() + Sync + Send + 'static,
+        C: Fn() + Sync + Send + 'static;
+    fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState>;
+    fn get_managed_windows(&self) -> HashMap<isize, WindowTileState>;
+    fn cancel_animation(&mut self);
+    fn update_tm(&mut self) -> Result<(), Error>;
+    fn update_layout(&mut self, animate: bool) -> Result<(), Error>;
+}
+
+impl TilesManagerBase for TilesManager {
+    /// Creates a new [`TilesManager`].
+    fn new<S, E, C>(
+        config: Option<TilesManagerConfig>,
+        on_update_start: S,
+        on_update_error: E,
+        on_update_complete: C,
+    ) -> Self
+    where
+        S: Fn() + Sync + Send + 'static,
+        E: Fn() + Sync + Send + 'static,
+        C: Fn() + Sync + Send + 'static,
+    {
+        let config = config.unwrap_or_default();
+        let animation_duration = Duration::from_millis(config.get_animation_duration().into());
+        let animation_player = WindowAnimationPlayer::new(
+            animation_duration,
+            config.get_framerate(),
+            on_update_start,
+            on_update_error,
+            on_update_complete,
+        );
+
+        let mut tm = TilesManager {
+            floating_wins: HashSet::new(),
+            maximized_wins: HashSet::new(),
+            inactive_trees: HashMap::new(),
+            active_trees: HashMap::new(),
+            focalized_wins: HashMap::new(),
+            current_vd: None,
+            config,
+            animation_player,
+        };
+
+        let _ = tm.update_tm();
+        tm
+    }
+
+    fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState> {
+        let is_managed = self.active_trees.find(window).is_some();
+        let is_floating = self.floating_wins.contains(&window);
+        let is_ignored = self.maximized_wins.contains(&window);
+        let is_focalized = self
+            .active_trees
+            .find(window)
+            .is_some_and(|e| self.focalized_wins.matches(&e.key, window));
+
+        if is_managed && !is_floating && !is_ignored && !is_focalized {
+            Some(WindowTileState::Normal)
+        } else if is_floating {
+            Some(WindowTileState::Floating)
+        } else if is_focalized {
+            Some(WindowTileState::Focalized)
+        } else if is_ignored {
+            Some(WindowTileState::Ignored)
+        } else {
+            None
+        }
+    }
+
+    fn get_managed_windows(&self) -> HashMap<isize, WindowTileState> {
+        self.active_trees
+            .values()
+            .flat_map(|c| c.get_ids())
+            .filter_map(|win| self.get_window_state(win).map(|state| (win.hwnd.0, state)))
+            .collect()
+    }
+
+    fn cancel_animation(&mut self) {
+        self.animation_player.cancel();
+    }
+
+    fn update_tm(&mut self) -> Result<(), Error> {
+        let vds: Vec<u128> = get_desktops()
+            .expect("Failed to get desktops")
+            .into_iter()
+            .filter(|d| d.get_id().is_ok())
+            .map(|d| d.get_id().expect("Failed to get id").to_u128())
+            .collect();
+
+        let monitors = enum_display_monitors();
+
+        let keys: Vec<(ContainerKey, Area)> = vds
+            .iter()
+            .flat_map(|vd| monitors.iter().map(|m| (*vd, m)))
+            .map(|(vd, m)| (ContainerKey::new(vd, m.id, String::new()), (*m).clone().into()))
+            .collect();
+
+        let containers: HashMap<ContainerKey, WinTree> = keys
+            .into_iter()
+            .map(|(k, m)| {
+                let container = if let Some(c) = self.active_trees.remove(&k) {
+                    return (k, c);
+                } else if let Some(c) = self.inactive_trees.remove(&k) {
+                    return (k, c);
+                } else {
+                    WinTree::new(m, self.config.layout_strategy.clone())
+                };
+
+                (k, container)
+            })
+            .collect();
+
+        let current_vd = get_current_desktop().map_err(|_| Error::Generic)?;
+        self.current_vd = Some(current_vd);
+
+        let current_vd_id = current_vd.get_id().map_err(|_| Error::Generic)?.to_u128();
+
+        (self.active_trees, self.inactive_trees) = containers
+            .into_iter()
+            .partition(|(k, _)| k.virtual_desktop == current_vd_id);
+
+        Ok(())
+    }
+
+    fn update_layout(&mut self, animate: bool) -> Result<(), Error> {
+        let anim_player = &mut self.animation_player;
+        self.active_trees.iter_mut().for_each(|(k, c)| {
+            let (border_pad, tile_pad) = match self.focalized_wins.contains_key(k) {
+                true => (self.config.get_focalized_pad(), (0, 0)),
+                false => (self.config.get_border_pad(), self.config.get_tile_pad_xy()),
+            };
+
+            // INFO: prevent updates when the monitor has a maximized window
+            if self.maximized_wins.iter().any(|w| c.has(*w)) {
+                return;
+            }
+
+            let ignored = match self.focalized_wins.get(k) {
+                Some(fw) => &c
+                    .get_ids()
+                    .iter()
+                    .filter(|w| w.hwnd != fw.hwnd)
+                    .cloned()
+                    .inspect(|w| {
+                        w.minimize();
+                    })
+                    .collect(),
+                None => &self.maximized_wins,
+            };
+
+            let _ = c.update(border_pad, tile_pad, anim_player, ignored);
+        });
+        let animation = self.config.get_animations().filter(|_| animate);
+        anim_player.play(animation);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub struct ContainerKey {
+    pub virtual_desktop: u128,
+    pub monitor_index: isize,
+    pub layer: String,
+}
+
+impl ContainerKey {
+    pub fn new(virtual_desktop: u128, monitor_index: isize, layer: String) -> Self {
+        ContainerKey {
+            virtual_desktop,
+            monitor_index,
+            layer,
+        }
+    }
+}

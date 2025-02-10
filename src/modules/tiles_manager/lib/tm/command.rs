@@ -1,11 +1,12 @@
 use crate::app::{
-    mondrian_message::{MondrianMessage, WindowEvent},
+    mondrian_message::{MondrianMessage, SystemEvent, WindowEvent},
     structs::direction::Direction,
 };
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TMCommand {
     WindowEvent(WindowEvent),
+    SystemEvent(SystemEvent),
     Focus(Direction),
     Insert(Direction),
     Move(Direction, bool),
@@ -47,6 +48,7 @@ impl TryFrom<&MondrianMessage> for TMCommand {
             MondrianMessage::Invert => Ok(TMCommand::Invert),
             MondrianMessage::ListManagedWindows => Ok(TMCommand::ListManagedWindows),
             MondrianMessage::WindowEvent(event) => Ok(TMCommand::WindowEvent(*event)),
+            MondrianMessage::SystemEvent(event) => Ok(TMCommand::SystemEvent(*event)),
             _ => Err(()),
         }
     }

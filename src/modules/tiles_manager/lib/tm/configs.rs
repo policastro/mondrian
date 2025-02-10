@@ -1,15 +1,18 @@
-use super::super::configs::CoreModuleConfigs;
-
-use super::window_animation_player::WindowAnimation;
+use crate::{
+    app::{area_tree::layout_strategy::LayoutStrategyEnum, config::win_matcher::WinMatcher},
+    modules::tiles_manager::{configs::CoreModuleConfigs, lib::window_animation_player::WindowAnimation},
+};
 
 #[derive(Default)]
 pub struct TilesManagerConfig {
     tiles_padding: i8,
     border_padding: i8,
     focalized_padding: i8,
-    animations_duration: u32,
-    animations_framerate: u8,
-    animation_type: Option<WindowAnimation>,
+    pub filter: WinMatcher,
+    pub layout_strategy: LayoutStrategyEnum,
+    pub animations_duration: u32,
+    pub animations_framerate: u8,
+    pub animation_type: Option<WindowAnimation>,
 }
 
 impl TilesManagerConfig {
@@ -17,6 +20,8 @@ impl TilesManagerConfig {
         tiles_padding: u8,
         border_padding: u8,
         focalized_padding: u8,
+        filter: WinMatcher,
+        layout_strategy: LayoutStrategyEnum,
         animations_configs: AnimationConfigs,
     ) -> Self {
         let max_i8: u8 = i8::MAX.try_into().expect("max_i8 out of range");
@@ -26,6 +31,8 @@ impl TilesManagerConfig {
             tiles_padding: i8::try_from(tiles_padding).expect("tiles_padding out of range"),
             border_padding: i8::try_from(border_padding).expect("border_padding out of range"),
             focalized_padding: i8::try_from(focalized_padding).expect("focalized_padding out of range"),
+            filter,
+            layout_strategy,
             animations_duration: animations_configs.duration,
             animations_framerate: animations_configs.framerate,
             animation_type: animations_configs.anim_type,
@@ -75,6 +82,8 @@ impl From<&CoreModuleConfigs> for TilesManagerConfig {
             configs.tiles_padding,
             configs.border_padding,
             configs.focalized_padding,
+            configs.filter.clone(),
+            configs.layout_strategy.clone(),
             AnimationConfigs {
                 duration: configs.animations_duration,
                 framerate: configs.animations_framerate,

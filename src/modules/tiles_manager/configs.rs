@@ -1,6 +1,7 @@
 use super::lib::window_animation_player::WindowAnimation;
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::config::app_configs::AppConfigs;
+use crate::app::config::win_matcher::WinMatcher;
 
 pub struct CoreModuleConfigs {
     pub layout_strategy: LayoutStrategyEnum,
@@ -11,6 +12,7 @@ pub struct CoreModuleConfigs {
     pub animations_duration: u32,
     pub animations_framerate: u8,
     pub animation_type: Option<WindowAnimation>,
+    pub filter: WinMatcher,
 }
 
 impl Default for CoreModuleConfigs {
@@ -24,14 +26,8 @@ impl Default for CoreModuleConfigs {
             animations_duration: 500,
             animations_framerate: 60,
             animation_type: None,
+            filter: WinMatcher::default(),
         }
-    }
-}
-
-impl CoreModuleConfigs {
-    pub fn get_layout(&self, _display_name: Option<&String>) -> LayoutStrategyEnum {
-        // TODO: implement display_name support
-        self.layout_strategy.clone()
     }
 }
 
@@ -46,6 +42,7 @@ impl From<&AppConfigs> for CoreModuleConfigs {
             animations_duration: app_configs.layout.animations_duration,
             animations_framerate: app_configs.layout.animations_framerate,
             animation_type: app_configs.layout.animation_type.clone(),
+            filter: app_configs.get_filters().unwrap_or_default(),
         }
     }
 }

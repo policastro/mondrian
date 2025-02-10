@@ -1,4 +1,5 @@
 use crate::app::mondrian_message::MondrianMessage;
+use crate::app::mondrian_message::SystemEvent;
 use crate::win32::api::window::create_window;
 use lazy_static::lazy_static;
 use std::ffi::OsStr;
@@ -45,7 +46,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lpa
         WM_DISPLAYCHANGE => {
             let tx = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Sender<MondrianMessage>;
             if !tx.is_null() {
-                let res = (*tx).send(MondrianMessage::MonitorsLayoutChanged);
+                let res = (*tx).send(SystemEvent::MonitorsLayoutChanged.into());
                 res.expect("Failed to send message");
             }
             LRESULT(0)

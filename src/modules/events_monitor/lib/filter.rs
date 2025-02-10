@@ -7,7 +7,7 @@ pub fn skip_window(event: &WindowEvent, win_match: &win_matcher::WinMatcher) -> 
         WindowEvent::Closed(_) => false,
         command => {
             let info = WindowRef::new(command.get_hwnd()).snapshot();
-            if win_match.matches(&info) {
+            if win_match.matches(info.clone()) {
                 log::trace!("[excluded][{:?}]: {}", event, info);
                 return true;
             }

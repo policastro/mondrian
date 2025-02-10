@@ -1,12 +1,14 @@
+use crate::modules::tiles_manager::lib::tm::command::TMCommand;
+
 use super::structs::area::Area;
 use super::structs::direction::Direction;
-use crate::modules::tiles_manager::lib::tm_command::TMCommand;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::str::FromStr;
 use windows::Win32::Foundation::HWND;
+use winvd::Desktop;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum IntermonitorMoveOp {
@@ -67,6 +69,20 @@ impl IntermonitorMoveOp {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
+pub enum SystemEvent {
+    MonitorsLayoutChanged,
+    VirtualDesktopChanged { old: Desktop, new: Desktop },
+    VirtualDesktopCreated { desktop: Desktop },
+    VirtualDesktopRemoved { destroyed: Desktop, fallback: Desktop },
+}
+
+impl From<SystemEvent> for MondrianMessage {
+    fn from(event: SystemEvent) -> Self {
+        MondrianMessage::SystemEvent(event)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum WindowEvent {
     Opened(HWND),
     Closed(HWND),
@@ -106,13 +122,13 @@ pub enum WindowTileState {
     Ignored,
     Normal,
     Floating,
+    Focalized,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MondrianMessage {
     RefreshConfig,
     OpenConfig,
-    MonitorsLayoutChanged,
     Retile,
     Configure,
     Focus(Direction),
@@ -134,6 +150,7 @@ pub enum MondrianMessage {
     About,
     Quit,
     WindowEvent(WindowEvent),
+    SystemEvent(SystemEvent),
 }
 
 impl<'de> serde::Deserialize<'de> for MondrianMessage {

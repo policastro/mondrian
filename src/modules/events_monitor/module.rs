@@ -6,6 +6,7 @@ use super::lib::open_event_handler::OpenCloseEventHandler;
 use super::lib::position_event_handler::PositionEventHandler;
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
+use crate::app::mondrian_message::SystemEvent;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
@@ -17,9 +18,13 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
+use winvd::listen_desktop_events;
+use winvd::DesktopEvent;
+use winvd::DesktopEventThread;
 
 pub struct EventsMonitorModule {
     win_events_thread_id: Arc<AtomicU32>,
+    win_vd_events_thread: Option<DesktopEventThread>,
     win_events_thread: Option<thread::JoinHandle<()>>,
     configs: EventMonitorModuleConfigs,
     running: Arc<AtomicBool>,
@@ -31,6 +36,7 @@ impl EventsMonitorModule {
     pub fn new(bus_tx: Sender<MondrianMessage>) -> Self {
         EventsMonitorModule {
             configs: EventMonitorModuleConfigs::default(),
+            win_vd_events_thread: None,
             win_events_thread: None,
             win_events_thread_id: Arc::new(AtomicU32::new(0)),
             running: Arc::new(AtomicBool::new(false)),
@@ -45,6 +51,34 @@ impl EventsMonitorModule {
             self.configs.default_insert_in_monitor,
             self.configs.default_free_move_in_monitor,
         );
+
+        let (winvd_tx, winvd_rx) = std::sync::mpsc::channel::<DesktopEvent>();
+        let bus_tx = self.bus_tx.clone();
+        self.win_vd_events_thread = listen_desktop_events(winvd_tx).ok();
+        let _winvd_thread = thread::spawn(move || {
+            for event in winvd_rx {
+                match event {
+                    DesktopEvent::DesktopChanged { new, old } => {
+                        let _ = bus_tx
+                            .send(SystemEvent::VirtualDesktopChanged { old, new }.into())
+                            .inspect_err(|_| log::error!("Error sending VirtualDesktopChanged message"));
+                    }
+                    DesktopEvent::DesktopCreated(desktop) => {
+                        let _ = bus_tx
+                            .send(SystemEvent::VirtualDesktopCreated { desktop }.into())
+                            .inspect_err(|_| log::error!("Error sending VirtualDesktopChanged message"));
+                    }
+                    DesktopEvent::DesktopDestroyed { destroyed, fallback } => {
+                        let _ = bus_tx
+                            .send(SystemEvent::VirtualDesktopRemoved { destroyed, fallback }.into())
+                            .inspect_err(|_| log::error!("Error sending VirtualDesktopRemoved message"));
+                    }
+                    other => {
+                        log::trace!("Virtual Desktops event: {other:?}");
+                    }
+                }
+            }
+        });
 
         let win_events_thread_id = self.win_events_thread_id.clone();
         let bus_tx = self.bus_tx.clone();
@@ -101,6 +135,8 @@ impl ModuleImpl for EventsMonitorModule {
             thread.join().unwrap();
         };
 
+        self.win_vd_events_thread.take();
+
         log::trace!("EventsMonitorModule stopped");
     }
 
@@ -135,7 +171,7 @@ impl ModuleImpl for EventsMonitorModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianMessage::MonitorsLayoutChanged => {
+            MondrianMessage::SystemEvent(evt) if *evt == SystemEvent::MonitorsLayoutChanged => {
                 Module::restart(self);
             }
             MondrianMessage::Quit => Module::stop(self),

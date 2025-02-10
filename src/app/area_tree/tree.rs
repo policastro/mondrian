@@ -172,11 +172,6 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
         self.ids_map.keys().cloned().collect()
     }
 
-    pub fn clear(&mut self) {
-        self.ids_map.clear();
-        self.root = AreaNode::new(None, Orientation::Horizontal, 50);
-    }
-
     fn update_map(&mut self) {
         self.ids_map = std::collections::HashMap::new();
         self.root.leaves(self.area, None).iter().for_each(|leaf| {

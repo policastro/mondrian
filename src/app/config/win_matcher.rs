@@ -9,23 +9,66 @@ pub enum WinMatcher {
     All(Vec<WinMatcher>),
 }
 
+impl Default for WinMatcher {
+    fn default() -> Self {
+        WinMatcher::Any(vec![])
+    }
+}
+
 impl WinMatcher {
-    fn match_value(&self, query: &str, value: Option<String>) -> bool {
+    fn match_value(&self, query: &str, value: &Option<String>) -> bool {
         match query.starts_with('/') && query.ends_with('/') {
             true => {
                 let re = regex::Regex::new(&query[1..query.len() - 1]).unwrap();
-                value.map_or(false, |v| re.is_match(&v))
+                value.as_ref().map_or(false, |v| re.is_match(v))
             }
-            false => value.map_or(false, |v| v.contains(query)),
+            false => value.as_ref().map_or(false, |v| v.contains(query)),
         }
     }
-    pub fn matches(&self, window: &impl WindowObjInfo) -> bool {
+
+    pub fn matches<T: WindowObjInfo>(&self, window: T) -> bool {
+        self.matches_internal(&mut window.into())
+    }
+
+    fn matches_internal<T: WindowObjInfo>(&self, window: &mut WinMatcherTarget<T>) -> bool {
         match self {
-            WinMatcher::Exename(query) => self.match_value(query, window.get_exe_name()),
-            WinMatcher::Title(query) => self.match_value(query, window.get_title()),
-            WinMatcher::Classname(query) => self.match_value(query, window.get_class_name()),
-            WinMatcher::Any(filters) => filters.iter().any(|f| f.matches(window)),
-            WinMatcher::All(filters) => filters.iter().all(|f| f.matches(window)),
+            WinMatcher::Exename(query) => self.match_value(query, window.exe_name()),
+            WinMatcher::Title(query) => self.match_value(query, window.title()),
+            WinMatcher::Classname(query) => self.match_value(query, window.class_name()),
+            WinMatcher::Any(filters) => filters.iter().any(|f| f.matches_internal(window)),
+            WinMatcher::All(filters) => filters.iter().all(|f| f.matches_internal(window)),
         }
+    }
+}
+
+pub struct WinMatcherTarget<T: WindowObjInfo> {
+    win_obj: T,
+    title: Option<Option<String>>,
+    class_name: Option<Option<String>>,
+    exe_name: Option<Option<String>>,
+}
+
+impl<T: WindowObjInfo> From<T> for WinMatcherTarget<T> {
+    fn from(value: T) -> Self {
+        WinMatcherTarget {
+            win_obj: value,
+            title: None,
+            class_name: None,
+            exe_name: None,
+        }
+    }
+}
+
+impl<T: WindowObjInfo> WinMatcherTarget<T> {
+    pub fn title(&mut self) -> &Option<String> {
+        self.title.get_or_insert_with(|| self.win_obj.get_title())
+    }
+
+    pub fn class_name(&mut self) -> &Option<String> {
+        self.class_name.get_or_insert_with(|| self.win_obj.get_class_name())
+    }
+
+    pub fn exe_name(&mut self) -> &Option<String> {
+        self.exe_name.get_or_insert_with(|| self.win_obj.get_exe_name())
     }
 }

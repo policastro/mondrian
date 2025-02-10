@@ -8,7 +8,13 @@ use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashSet;
 use std::{collections::HashMap, hash::Hash};
 
-pub trait ContainerLayer {
+#[derive(Debug)]
+pub struct ContainerEntry<K, V> {
+    pub key: K,
+    pub value: V,
+}
+
+pub trait Container {
     fn update(
         &mut self,
         border_pad: i16,
@@ -19,7 +25,27 @@ pub trait ContainerLayer {
     fn contains(&self, point: (i32, i32)) -> bool;
 }
 
-impl ContainerLayer for WinTree {
+pub(super) trait Containers<K, U: Clone + Eq + Hash> {
+    fn find(&self, win: WindowRef) -> Option<ContainerEntry<K, &WinTree>>;
+    fn find_mut(&mut self, win: WindowRef) -> Option<ContainerEntry<K, &mut WinTree>>;
+    fn find_at(&self, point: (i32, i32)) -> Option<ContainerEntry<K, &WinTree>>;
+    fn find_at_mut(&mut self, point: (i32, i32)) -> Option<ContainerEntry<K, &mut WinTree>>;
+    fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<ContainerEntry<K, &mut WinTree>>;
+    fn find_closest_at(&self, ref_point: (i32, i32), direction: Direction) -> Option<ContainerEntry<K, &WinTree>>;
+    fn find_closest_at_mut(
+        &mut self,
+        ref_point: (i32, i32),
+        direction: Direction,
+    ) -> Option<ContainerEntry<K, &mut WinTree>>;
+}
+
+impl<K, V> ContainerEntry<K, V> {
+    pub fn new(key: K, value: V) -> Self {
+        Self { key, value }
+    }
+}
+
+impl Container for WinTree {
     fn update(
         &mut self,
         border_pad: i16,
@@ -47,129 +73,49 @@ impl ContainerLayer for WinTree {
     }
 }
 
-#[derive(Debug)]
-pub(super) struct Container<K: Clone + Eq + Hash> {
-    map: HashMap<K, WinTree>,
-    active: Option<K>,
-}
-
-impl<K: Clone + Eq + Hash> Container<K> {
-    pub fn new() -> Self {
-        Container {
-            map: HashMap::new(),
-            active: None,
-        }
+impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
+    fn find(&self, win: WindowRef) -> Option<ContainerEntry<K, &WinTree>> {
+        self.iter()
+            .find(|c| c.1.has(win))
+            .map(|c| ContainerEntry::new(c.0.clone(), c.1))
     }
 
-    pub fn add(&mut self, key: K, tree: WinTree) -> Option<WinTree> {
-        self.map.insert(key, tree)
+    fn find_mut(&mut self, win: WindowRef) -> Option<ContainerEntry<K, &mut WinTree>> {
+        self.iter_mut()
+            .find(|c| c.1.has(win))
+            .map(|c| ContainerEntry::new(c.0.clone(), c.1))
     }
 
-    pub fn get(&self, key: K) -> Option<&WinTree> {
-        self.map.get(&key)
+    fn find_at(&self, point: (i32, i32)) -> Option<ContainerEntry<K, &WinTree>> {
+        self.iter()
+            .find(|c| c.1.contains(point))
+            .map(|(k, v)| ContainerEntry::new(k.clone(), v))
     }
 
-    pub fn get_mut(&mut self, key: K) -> Option<&mut WinTree> {
-        self.map.get_mut(&key)
+    fn find_at_mut(&mut self, point: (i32, i32)) -> Option<ContainerEntry<K, &mut WinTree>> {
+        self.iter_mut()
+            .find(|c| c.1.contains(point))
+            .map(|v| ContainerEntry::new(v.0.clone(), v.1))
     }
 
-    pub fn get_active(&self) -> Option<&WinTree> {
-        self.get(self.active.clone()?)
-    }
-
-    pub fn get_active_mut(&mut self) -> Option<&mut WinTree> {
-        self.get_mut(self.active.clone()?)
-    }
-
-    pub fn set_active(&mut self, key: K) -> Result<(), ()> {
-        self.map.get(&key).map(|_| self.active = Some(key)).ok_or(())
-    }
-
-    pub fn is_active(&self, key: K) -> bool {
-        self.active.clone() == Some(key)
-    }
-
-    pub fn contains(&self, point: (i32, i32)) -> bool {
-        self.get_active().is_some_and(|t| t.contains(point))
-    }
-
-    pub fn has(&self, win: WindowRef) -> bool {
-        self.get_active().is_some_and(|t| t.has(win))
-    }
-
-    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, K, WinTree> {
-        self.map.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> std::collections::hash_map::IterMut<'_, K, WinTree> {
-        self.map.iter_mut()
-    }
-}
-
-pub(super) trait Containers<U: Clone + Eq + Hash> {
-    fn find_at(&self, point: (i32, i32)) -> Option<&Container<U>>;
-    fn find_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
-    fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<U>>;
-    fn find(&self, win: WindowRef, only_active: bool) -> Option<&Container<U>>;
-    fn find_key(&self, win: WindowRef, only_active: bool) -> Option<isize>;
-    fn find_mut(&mut self, win: WindowRef, only_active: bool) -> Option<&mut Container<U>>;
-    fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool;
-    fn find_closest_at(&self, ref_point: (i32, i32), direction: Direction) -> Option<&Container<U>>;
-    fn find_closest_at_mut(&mut self, ref_point: (i32, i32), direction: Direction) -> Option<&mut Container<U>>;
-}
-
-impl Containers<String> for HashMap<isize, Container<String>> {
-    fn find_at(&self, point: (i32, i32)) -> Option<&Container<String>> {
-        self.values().find(|c| c.contains(point))
-    }
-
-    fn find_at_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<String>> {
-        self.values_mut().find(|c| c.contains(point))
-    }
-
-    fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<&mut Container<String>> {
-        self.values_mut().min_by(|a, b| {
-            let dist1 = calc_distance(point, a.get_active().unwrap().area);
-            let dist2 = calc_distance(point, b.get_active().unwrap().area);
-            dist1.cmp(&dist2)
-        })
-    }
-
-    fn find_key(&self, win: WindowRef, only_active: bool) -> Option<isize> {
-        let mut e = self.iter();
-        match only_active {
-            true => e.find(|(_k, c)| c.get_active().is_some_and(|t| t.has(win))),
-            false => e.find(|(_k, c)| c.iter().any(|w| w.1.has(win))),
-        }
-        .map(|(k, _)| *k)
-    }
-
-    fn find(&self, win: WindowRef, only_active: bool) -> Option<&Container<String>> {
-        let mut v = self.values();
-        match only_active {
-            true => v.find(|c| c.get_active().is_some_and(|t| t.has(win))),
-            false => v.find(|c| c.iter().any(|w| w.1.has(win))),
-        }
-    }
-
-    fn find_mut(&mut self, win: WindowRef, only_active: bool) -> Option<&mut Container<String>> {
-        let mut v = self.values_mut();
-        match only_active {
-            true => v.find(|c| c.get_active().is_some_and(|t| t.has(win))),
-            false => v.find(|c| c.iter().any(|w| w.1.has(win))),
-        }
-    }
-
-    fn is_same_container(&self, point1: (i32, i32), point2: (i32, i32)) -> bool {
-        let c1 = self.iter().find(|c| c.1.contains(point1));
-        let c2 = self.iter().find(|c| c.1.contains(point2));
-        c1.is_some_and(|c1| c2.is_some_and(|c2| c1.0 == c2.0))
+    fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<ContainerEntry<K, &mut WinTree>> {
+        self.iter_mut()
+            .min_by(|a, b| {
+                let dist1 = calc_distance(point, a.1.area);
+                let dist2 = calc_distance(point, b.1.area);
+                dist1.cmp(&dist2)
+            })
+            .map(|(k, v)| ContainerEntry::new(k.clone(), v))
     }
 
     // NOTE: finds the closest container in the given direction, ignoring the one in which the ref_point is
-    fn find_closest_at(&self, ref_point: (i32, i32), limit_direction: Direction) -> Option<&Container<String>> {
-        let ref_id = *self.iter().find(|c| c.1.contains(ref_point))?.0;
-        let ref_area = self.get(&ref_id)?.get_active()?.area;
+    fn find_closest_at(
+        &self,
+        ref_point: (i32, i32),
+        limit_direction: Direction,
+    ) -> Option<ContainerEntry<K, &WinTree>> {
+        let ref_id = (*self.iter().find(|c| c.1.contains(ref_point))?.0).clone();
+        let ref_area = self.get(&ref_id)?.area;
         let point = match limit_direction {
             Direction::Right => ref_area.get_ne_corner(),
             Direction::Down => ref_area.get_se_corner(),
@@ -186,7 +132,7 @@ impl Containers<String> for HashMap<isize, Container<String>> {
                 };
 
                 // Filter out the ones that are not in the same direction
-                let area = c.get_active().expect("Container must have an active tree").area;
+                let area = c.area;
                 match limit_direction {
                     Direction::Right => area.x >= point.0,
                     Direction::Down => area.y >= point.1,
@@ -195,21 +141,21 @@ impl Containers<String> for HashMap<isize, Container<String>> {
                 }
             })
             .min_by(|a, b| {
-                let dist1 = calc_distance(point, a.1.get_active().unwrap().area);
-                let dist2 = calc_distance(point, b.1.get_active().unwrap().area);
+                let dist1 = calc_distance(point, a.1.area);
+                let dist2 = calc_distance(point, b.1.area);
                 dist1.cmp(&dist2)
             });
 
-        closest.map(|c| c.1)
+        closest.map(|c| ContainerEntry::new(c.0.clone(), c.1))
     }
 
     fn find_closest_at_mut(
         &mut self,
         ref_point: (i32, i32),
         limit_direction: Direction,
-    ) -> Option<&mut Container<String>> {
-        let ref_id = *self.iter().find(|c| c.1.contains(ref_point))?.0;
-        let ref_area = self.get(&ref_id)?.get_active()?.area;
+    ) -> Option<ContainerEntry<K, &mut WinTree>> {
+        let ref_id = (*self.iter().find(|c| c.1.contains(ref_point))?.0).clone();
+        let ref_area = self.get(&ref_id)?.area;
         let point = match limit_direction {
             Direction::Right => ref_area.get_ne_corner(),
             Direction::Down => ref_area.get_se_corner(),
@@ -226,7 +172,7 @@ impl Containers<String> for HashMap<isize, Container<String>> {
                 };
 
                 // Filter out the ones that are not in the same direction
-                let area = c.get_active().expect("Container must have an active tree").area;
+                let area = c.area;
                 match limit_direction {
                     Direction::Right => area.x >= point.0,
                     Direction::Down => area.y >= point.1,
@@ -235,12 +181,12 @@ impl Containers<String> for HashMap<isize, Container<String>> {
                 }
             })
             .min_by(|a, b| {
-                let dist1 = calc_distance(point, a.1.get_active().unwrap().area);
-                let dist2 = calc_distance(point, b.1.get_active().unwrap().area);
+                let dist1 = calc_distance(point, a.1.area);
+                let dist2 = calc_distance(point, b.1.area);
                 dist1.cmp(&dist2)
             });
 
-        closest.map(|c| c.1)
+        closest.map(|c| ContainerEntry::new(c.0.clone(), c.1))
     }
 }
 

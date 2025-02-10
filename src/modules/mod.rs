@@ -16,10 +16,15 @@ pub mod tiles_manager {
     pub mod module;
     pub(crate) mod lib {
         pub mod containers;
-        pub mod monitor_layout;
-        pub mod tm;
-        pub mod tm_command;
-        pub mod tm_configs;
+        pub mod tm {
+            pub mod command;
+            pub mod configs;
+            pub mod error;
+            pub mod manager;
+            pub mod operations;
+            pub mod public;
+        }
+        pub mod utils;
         pub mod window_animation_player;
     }
 }
