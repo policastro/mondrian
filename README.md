@@ -168,7 +168,7 @@ bindings = [
 ]
 ```
 
-[^1]: when a keybinding uses `WIN` as its only modifier, the start menu will be opened. This is a known issue and will be fixed in the future. As a workaround, you can combine `WIN` with other modifiers (e.g. `WIN+CTRL` or `WIN+CTRL+ALT`).
+[^1]: when a keybinding uses `WIN` as its only modifier, the start menu opens. This is a known issue and will be fixed in the future. As a workaround, you can combine `WIN` with other modifiers (e.g. `WIN+CTRL`, `WIN+CTRL+ALT`, ...).
 
 #### Ignore windows with `core.rules` <a name="core-rules-guide"></a>
 
