@@ -98,9 +98,10 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
         &mut self,
         orig_point1: (i32, i32),
         orig_point2: (i32, i32),
-        grow_ratio: f32,
+        growth: i32,
         clamp_values: Option<(u8, u8)>,
     ) {
+        let growth = growth.clamp(i16::MIN.into(), i16::MAX.into()) as i16;
         let clamp_values = clamp_values.unwrap_or((0, 100));
         assert!(clamp_values.0 <= 100 && clamp_values.1 <= 100);
         assert!(clamp_values.0 <= clamp_values.1);
@@ -108,23 +109,16 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
             .root
             .find_lowest_common_ancestor(orig_point1, orig_point2, self.area);
 
-        if let Some(ancestor) = ancestor {
-            let is_less = (orig_point1.0 < orig_point2.0, orig_point1.1 < orig_point2.1);
+        if let Some((node, area)) = ancestor {
+            let min_area = area.split(node.ratio, node.orientation).0;
+            let min_area_pad = min_area.pad((0, -growth), (0, -growth));
 
-            let ratio_to_consider = match (ancestor.orientation, is_less) {
-                (Orientation::Vertical, (true, _)) => ancestor.ratio,
-                (Orientation::Vertical, (false, _)) => 100u8.saturating_sub(ancestor.ratio),
-                (Orientation::Horizontal, (_, true)) => ancestor.ratio,
-                (Orientation::Horizontal, (_, false)) => 100u8.saturating_sub(ancestor.ratio),
+            let new_ratio = match node.orientation {
+                Orientation::Horizontal => (min_area_pad.height as f32 / area.height as f32) * 100f32,
+                Orientation::Vertical => (min_area_pad.width as f32 / area.width as f32) * 100f32,
             };
 
-            let real_grow_ratio = (grow_ratio * ratio_to_consider as f32) / 100f32;
-            ancestor.ratio = match real_grow_ratio < 0f32 {
-                true => ancestor.ratio.saturating_sub(real_grow_ratio.abs().round() as u8),
-                false => ancestor.ratio.saturating_add(real_grow_ratio.round() as u8),
-            };
-
-            ancestor.ratio = ancestor.ratio.clamp(clamp_values.0, clamp_values.1);
+            node.ratio = new_ratio.clamp(clamp_values.0 as f32, clamp_values.1 as f32) as u8;
             self.update_map();
         }
     }

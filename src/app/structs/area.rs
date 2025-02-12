@@ -114,10 +114,7 @@ impl Area {
         )
     }
 
-    pub fn pad(&self, padding_x: Option<(i16, i16)>, padding_y: Option<(i16, i16)>) -> Area {
-        let padding_x = padding_x.unwrap_or((0, 0));
-        let padding_y = padding_y.unwrap_or((0, 0));
-
+    pub fn pad(&self, padding_x: (i16, i16), padding_y: (i16, i16)) -> Area {
         let new_width = Self::add_to_dimension(self.width, padding_x.0 + padding_x.1);
         let new_height = Self::add_to_dimension(self.height, padding_y.0 + padding_y.1);
 
@@ -130,11 +127,11 @@ impl Area {
     }
 
     pub fn pad_full(&self, padding: i16) -> Area {
-        self.pad(Some((padding, padding)), Some((padding, padding)))
+        self.pad((padding, padding), (padding, padding))
     }
 
     pub fn pad_xy(&self, (px, py): (i16, i16)) -> Area {
-        self.pad(Some((px, px)), Some((py, py)))
+        self.pad((px, px), (py, py))
     }
 
     fn get_percent(value: u16, percent: u8) -> u16 {

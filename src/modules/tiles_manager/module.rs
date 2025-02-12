@@ -191,7 +191,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
                 Ok(())
             }
             WindowEvent::Moved(hwnd, coords, intra, inter) => tm.on_move(hwnd.into(), coords, intra, inter),
-            WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area), true),
+            WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area)),
         },
         TMCommand::SystemEvent(evt) => match evt {
             SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),

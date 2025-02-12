@@ -168,7 +168,7 @@ impl<T: Copy> AreaNode<T> {
         point1: (i32, i32),
         point2: (i32, i32),
         area: Area,
-    ) -> Option<&mut AreaNode<T>> {
+    ) -> Option<(&mut AreaNode<T>, Area)> {
         if self.is_leaf() {
             return None;
         }
@@ -179,7 +179,7 @@ impl<T: Copy> AreaNode<T> {
             let (min_area, max_area) = curr_area.split(curr_node.ratio, curr_node.orientation);
             let is_left = (min_area.contains(point1), min_area.contains(point2));
             if is_left.0 != is_left.1 {
-                return Some(curr_node);
+                return Some((curr_node, curr_area));
             }
 
             (curr_node, curr_area) = match is_left.0 {
@@ -188,7 +188,7 @@ impl<T: Copy> AreaNode<T> {
             };
         }
 
-        Some(curr_node)
+        Some((curr_node, curr_area))
     }
 
     pub fn find_parent_mut(&mut self, point: (i32, i32), area: Area) -> Option<&mut AreaNode<T>> {

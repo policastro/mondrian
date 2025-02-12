@@ -37,7 +37,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
         intra_op: IntraOp,
         inter_op: InterOp,
     ) -> Result<(), Error>;
-    fn on_resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32), animate: bool) -> Result<(), Error>;
+    fn on_resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error>;
@@ -135,7 +135,7 @@ impl TilesManagerOperations for TilesManager {
             Direction::Down => ((0, 0), get_pad(has_neigh1, has_neigh2, (0, size), (-size, 0))),
         };
 
-        let area = orig_area.pad(Some(padding.0), Some(padding.1));
+        let area = orig_area.pad(padding.0, padding.1);
         self.resize(curr, orig_area.get_shift(&area))?;
         self.update_layout(true)
     }
@@ -234,9 +234,9 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
-    fn on_resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32), animate: bool) -> Result<(), Error> {
+    fn on_resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
         self.resize(win, delta)?;
-        self.update_layout(animate)
+        self.update_layout(true)
     }
 
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {

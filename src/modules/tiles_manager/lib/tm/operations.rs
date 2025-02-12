@@ -276,23 +276,23 @@ impl TilesManagerInternalOperations for TilesManager {
         let center = area.get_center();
 
         let clamp_values = Some((10, 90));
-        let padding = self.config.get_tile_pad_xy();
+
         if resize_w && has_w_neigh.is_some() {
-            let growth = (delta.2.saturating_add(padding.0.into()) as f32 / area.width as f32) * 100f32;
-            let (x, growth_perc) = match resize_left {
+            let growth = delta.2;
+            let (x, growth) = match resize_left {
                 true => (area.get_left_center().0.saturating_sub(20), -growth),
                 false => (area.get_right_center().0.saturating_add(20), growth),
             };
-            t.resize_ancestor(center, (x, center.1), growth_perc, clamp_values);
+            t.resize_ancestor(center, (x, center.1), growth, clamp_values);
         }
 
         if resize_h && has_h_neigh.is_some() {
-            let growth = (delta.3 as f32 / area.height as f32) * 100f32;
-            let (y, growth_perc) = match resize_up {
+            let growth = delta.3;
+            let (y, growth) = match resize_up {
                 true => (area.get_top_center().1.saturating_sub(20), -growth),
                 false => (area.get_bottom_center().1.saturating_add(20), growth),
             };
-            t.resize_ancestor(center, (center.0, y), growth_perc, clamp_values);
+            t.resize_ancestor(center, (center.0, y), growth, clamp_values);
         }
 
         Ok(())
