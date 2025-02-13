@@ -8,6 +8,7 @@ _Mondrian_ is a tiling window manager built with Rust for Windows 11.
 - Keybindings;
 - Multi-monitor support;
 - Mouse movements support (moving/resizing windows);
+- Compatible with Virtual Desktops;
 - System tray application;
 - Multiple animations;
 - Highly customizable.
