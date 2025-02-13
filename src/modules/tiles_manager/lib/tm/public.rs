@@ -179,7 +179,7 @@ impl TilesManagerOperations for TilesManager {
         inter_op: InterOp,
     ) -> Result<(), Error> {
         let tile_state = self.get_window_state(win).ok_or(Error::NoWindow)?;
-        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
             return Ok(());
         }
 
@@ -244,6 +244,28 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
+    fn check_for_vd_changes(&mut self) -> Result<(), Error> {
+        let current_vd = self.current_vd.as_ref().ok_or(Error::Generic)?;
+        let active_vd = get_current_desktop().map_err(|_| Error::Generic)?;
+
+        if current_vd
+            .get_id()
+            .is_ok_and(|id| active_vd.get_id().is_ok_and(|id2| id != id2))
+        {
+            self.on_vd_changed(*current_vd, active_vd)?;
+            let filter = self.config.filter.clone();
+            enum_user_manageable_windows()
+                .iter()
+                .filter(|w| !filter.matches(**w))
+                .for_each(|w| {
+                    let _ = TilesManagerInternalOperations::add(self, *w);
+                });
+            return self.update_layout(true);
+        }
+
+        Ok(())
+    }
+
     fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error> {
         let desktop_id = desktop.get_id().map_err(|_| Error::Generic)?.to_u128();
 
@@ -300,27 +322,5 @@ impl TilesManagerOperations for TilesManager {
 
         self.current_vd = Some(current);
         self.update_layout(true)
-    }
-
-    fn check_for_vd_changes(&mut self) -> Result<(), Error> {
-        let current_vd = self.current_vd.as_ref().ok_or(Error::Generic)?;
-        let active_vd = get_current_desktop().map_err(|_| Error::Generic)?;
-
-        if current_vd
-            .get_id()
-            .is_ok_and(|id| active_vd.get_id().is_ok_and(|id2| id != id2))
-        {
-            self.on_vd_changed(*current_vd, active_vd)?;
-            let filter = self.config.filter.clone();
-            enum_user_manageable_windows()
-                .iter()
-                .filter(|w| !filter.matches(**w))
-                .for_each(|w| {
-                    let _ = TilesManagerInternalOperations::add(self, *w);
-                });
-            return self.update_layout(true);
-        }
-
-        Ok(())
     }
 }

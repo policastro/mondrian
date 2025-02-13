@@ -39,7 +39,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
 impl TilesManagerInternalOperations for TilesManager {
     fn add(&mut self, win: WindowRef) -> Result<(), Error> {
         let tile_state = self.get_window_state(win);
-        if tile_state.is_some_and(|s| matches!(s, WindowTileState::Floating | WindowTileState::Ignored)) {
+        if tile_state.is_some_and(|s| matches!(s, WindowTileState::Floating | WindowTileState::Maximized)) {
             return Ok(());
         }
 
@@ -81,7 +81,7 @@ impl TilesManagerInternalOperations for TilesManager {
         let t = self.active_trees.find_mut(win).ok_or(Error::NoWindow)?.value;
         t.remove(win);
 
-        if matches!(tile_state, WindowTileState::Ignored) {
+        if matches!(tile_state, WindowTileState::Maximized) {
             self.maximized_wins.remove(&win);
         }
 
@@ -91,7 +91,7 @@ impl TilesManagerInternalOperations for TilesManager {
     fn release(&mut self, window: WindowRef, release: Option<bool>) -> Result<(), Error> {
         let tile_state = self.get_window_state(window).ok_or(Error::NoWindow)?;
 
-        if matches!(tile_state, WindowTileState::Ignored) {
+        if matches!(tile_state, WindowTileState::Maximized) {
             return Ok(());
         }
 
@@ -244,7 +244,7 @@ impl TilesManagerInternalOperations for TilesManager {
 
     fn resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
         let tile_state = self.get_window_state(win).ok_or(Error::NoWindow)?;
-        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
             return Ok(());
         }
 
@@ -300,7 +300,7 @@ impl TilesManagerInternalOperations for TilesManager {
 
     fn move_to(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error> {
         let tile_state = self.get_window_state(win).ok_or(Error::NoWindow)?;
-        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Ignored) {
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
             return Ok(());
         }
 

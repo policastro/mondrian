@@ -24,6 +24,7 @@ pub struct TilesManager {
     pub focalized_wins: HashMap<ContainerKey, WindowRef>,
     pub floating_wins: HashSet<WindowRef>,
     pub maximized_wins: HashSet<WindowRef>,
+    pub pause_updates: bool,
     pub config: TilesManagerConfig,
     pub animation_player: WindowAnimationPlayer,
     pub(crate) current_vd: Option<Desktop>,
@@ -45,6 +46,7 @@ pub trait TilesManagerBase {
     fn cancel_animation(&mut self);
     fn update_tm(&mut self) -> Result<(), Error>;
     fn update_layout(&mut self, animate: bool) -> Result<(), Error>;
+    fn pause_updates(&mut self, pause: bool);
 }
 
 impl TilesManagerBase for TilesManager {
@@ -71,6 +73,7 @@ impl TilesManagerBase for TilesManager {
         );
 
         let mut tm = TilesManager {
+            pause_updates: false,
             floating_wins: HashSet::new(),
             maximized_wins: HashSet::new(),
             inactive_trees: HashMap::new(),
@@ -84,24 +87,23 @@ impl TilesManagerBase for TilesManager {
         let _ = tm.update_tm();
         tm
     }
-
     fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState> {
         let is_managed = self.active_trees.find(window).is_some();
         let is_floating = self.floating_wins.contains(&window);
-        let is_ignored = self.maximized_wins.contains(&window);
+        let is_maximized = self.maximized_wins.contains(&window);
         let is_focalized = self
             .active_trees
             .find(window)
             .is_some_and(|e| self.focalized_wins.matches(&e.key, window));
 
-        if is_managed && !is_floating && !is_ignored && !is_focalized {
+        if is_managed && !is_floating && !is_maximized && !is_focalized {
             Some(WindowTileState::Normal)
         } else if is_floating {
             Some(WindowTileState::Floating)
         } else if is_focalized {
             Some(WindowTileState::Focalized)
-        } else if is_ignored {
-            Some(WindowTileState::Ignored)
+        } else if is_maximized {
+            Some(WindowTileState::Maximized)
         } else {
             None
         }
@@ -163,6 +165,9 @@ impl TilesManagerBase for TilesManager {
     }
 
     fn update_layout(&mut self, animate: bool) -> Result<(), Error> {
+        if self.pause_updates {
+            return Ok(());
+        }
         let anim_player = &mut self.animation_player;
         self.active_trees.iter_mut().for_each(|(k, c)| {
             let (border_pad, tile_pad) = match self.focalized_wins.contains_key(k) {
@@ -194,6 +199,14 @@ impl TilesManagerBase for TilesManager {
         anim_player.play(animation);
         Ok(())
     }
+
+    fn pause_updates(&mut self, pause: bool) {
+        self.pause_updates = pause
+    }
+}
+
+impl Drop for TilesManager {
+    fn drop(&mut self) {}
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]

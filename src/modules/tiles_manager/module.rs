@@ -187,11 +187,22 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
                 tm.remove(hwnd.into(), minimized)
             }
             WindowEvent::StartMoveSize(_) => {
+                tm.pause_updates(true);
                 tm.cancel_animation();
                 Ok(())
             }
-            WindowEvent::Moved(hwnd, coords, intra, inter) => tm.on_move(hwnd.into(), coords, intra, inter),
-            WindowEvent::Resized(hwnd, p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area)),
+            WindowEvent::NoMoveSize(_) => {
+                tm.pause_updates(false);
+                Ok(())
+            }
+            WindowEvent::Moved(hwnd, coords, intra, inter) => {
+                tm.pause_updates(false);
+                tm.on_move(hwnd.into(), coords, intra, inter)
+            }
+            WindowEvent::Resized(hwnd, p_area, c_area) => {
+                tm.pause_updates(false);
+                tm.on_resize(hwnd.into(), c_area.get_shift(&p_area))
+            }
         },
         TMCommand::SystemEvent(evt) => match evt {
             SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),

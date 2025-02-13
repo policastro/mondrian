@@ -96,13 +96,17 @@ impl WindowsEventDispatcher {
     fn dispatch(&mut self, event: &WindowsEvent) {
         if let Some(handlers) = self.events_map.get(&event.event) {
             handlers.iter().for_each(|i| {
-                self.handlers.get_mut(i).expect("Handler not found").handle(event);
+                if let Some(h) = self.handlers.get_mut(i) {
+                    h.handle(event);
+                }
             })
         }
 
         if let Some(handlers) = self.events_map.get(&0) {
             handlers.iter().for_each(|i| {
-                self.handlers.get_mut(i).expect("Handler not found").handle(event);
+                if let Some(h) = self.handlers.get_mut(i) {
+                    h.handle(event);
+                }
             })
         }
     }

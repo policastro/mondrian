@@ -9,6 +9,8 @@ use crate::app::structs::point::Point;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::get_window_minmax_size;
+use crate::win32::api::window::is_fullscreen;
+use crate::win32::api::window::is_maximized;
 use crate::win32::api::window::is_user_managable_window;
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
@@ -26,7 +28,7 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZESTART;
 pub struct PositionEventHandler {
     sender: Sender<MondrianMessage>,
     filter: WinMatcher,
-    windows: HashMap<isize, Area>,
+    windows: HashMap<isize, (Area, bool)>,
     default_insert_in_monitor: bool,
     default_free_move_in_monitor: bool,
 }
@@ -52,12 +54,14 @@ impl PositionEventHandler {
             return; // NOTE: already in movesize
         }
 
+        // NOTE: check is_maximized as first operation
+        let is_maximized = self.is_maximized(hwnd);
         let area = WindowRef::new(hwnd).get_window_box();
         if let Some(area) = area {
             let event = WindowEvent::StartMoveSize(hwnd);
             if !skip_window(&event, &self.filter) {
                 self.sender.send(event.into()).expect("Failed to send event");
-                self.windows.insert(hwnd.0, area);
+                self.windows.insert(hwnd.0, (area, is_maximized));
             }
         }
     }
@@ -71,7 +75,7 @@ impl PositionEventHandler {
 
         let dest_point = get_cursor_pos();
 
-        let prev_area = match self.windows.remove(&hwnd.0) {
+        let (prev_area, was_maximized) = match self.windows.remove(&hwnd.0) {
             Some(prev_area) => prev_area,
             None => return,
         };
@@ -89,6 +93,15 @@ impl PositionEventHandler {
         let intramon_op = IntramonitorMoveOp::calc(alt, ctrl);
         let intermon_op = IntermonitorMoveOp::calc(def_insert, def_free_move, alt, shift, ctrl);
 
+        if was_maximized {
+            let win_event = match self.is_maximized(hwnd) {
+                true => WindowEvent::NoMoveSize(hwnd),
+                false => WindowEvent::Moved(hwnd, dest_point, intramon_op, intermon_op),
+            };
+            self.send(win_event);
+            return;
+        }
+
         let is_shrinking = pw > w || ph > h;
         let is_resizing = (pw != w || ph != h) && w != min_w && h != min_h;
         if is_shrinking || is_resizing {
@@ -105,6 +118,12 @@ impl PositionEventHandler {
         };
 
         self.send(win_event);
+    }
+
+    fn is_maximized(&self, hwnd: HWND) -> bool {
+        let is_maximized = is_maximized(hwnd);
+        let is_fullscreen = if is_maximized { false } else { is_fullscreen(hwnd) };
+        is_maximized || is_fullscreen
     }
 
     fn send(&self, event: WindowEvent) {

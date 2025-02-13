@@ -121,7 +121,7 @@ impl ModuleImpl for OverlaysModule {
                     let overlays = self.overlays.as_mut().expect("Overlays not initialized");
                     let win_set = windows
                         .iter()
-                        .filter(|w| !matches!(*w.1, WindowTileState::Ignored))
+                        .filter(|w| !matches!(*w.1, WindowTileState::Maximized))
                         .map(|w| *(w.0))
                         .collect();
                     overlays.lock().unwrap().rebuild(&win_set);
