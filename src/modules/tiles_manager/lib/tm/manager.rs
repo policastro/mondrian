@@ -213,7 +213,7 @@ impl Drop for TilesManager {
 pub struct ContainerKey {
     pub virtual_desktop: u128,
     pub monitor_index: isize,
-    pub layer: String,
+    pub layer: String, // TODO: support for multiple layers
 }
 
 impl ContainerKey {

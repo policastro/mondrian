@@ -278,9 +278,7 @@ impl TilesManagerOperations for TilesManager {
             })
             .collect();
 
-        self.inactive_trees.extend(self.active_trees.drain());
-        self.active_trees.extend(containers);
-
+        self.inactive_trees.extend(containers);
         self.update_layout(true)
     }
 
@@ -307,7 +305,7 @@ impl TilesManagerOperations for TilesManager {
 
         self.inactive_trees.extend(self.active_trees.drain());
 
-        let keys_to_activate: Vec<ContainerKey> = self
+        let active_keys: Vec<ContainerKey> = self
             .inactive_trees
             .keys()
             .filter(|k| k.virtual_desktop == curr_desk_id)
@@ -315,7 +313,7 @@ impl TilesManagerOperations for TilesManager {
             .collect();
 
         self.active_trees.extend(
-            keys_to_activate
+            active_keys
                 .into_iter()
                 .map(|k| (k.clone(), self.inactive_trees.remove(&(k.clone())).unwrap())),
         );
