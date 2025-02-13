@@ -275,12 +275,12 @@ impl WindowAnimation {
                 true => t,
                 false => match t < 0.5 {
                     true => 2.0f32.powf(20.0 * t - 10.0) / 2.0,
-                    false => 2.0 - 2.0f32.powf(-20.0 * t + 10.0) / 2.0,
+                    false => (2.0 - 2.0f32.powf(-20.0 * t + 10.0)) / 2.0,
                 },
             },
             Self::EaseInOutCirc => match t < 0.5 {
                 true => (1.0 - (1.0 - (2.0 * t).powf(2.0)).sqrt()) / 2.0,
-                false => ((1.0 + (-2.0 * t - 2.0).powf(2.0)).sqrt() + 1.0) / 2.0,
+                false => (1.0 + (1.0 - (-2.0 * t + 2.0).powf(2.0)).sqrt()) / 2.0,
             },
             Self::EaseInOutBack => Self::ease_in_out_back(t),
             Self::EaseInOutElastic => Self::ease_in_out_elastic(t),
@@ -299,7 +299,7 @@ impl WindowAnimation {
     fn ease_in_back(t: f32) -> f32 {
         const C1: f32 = 1.70158;
         const C3: f32 = C1 + 1.0;
-        C3 * t.powi(3) + C1 * t.powi(2)
+        C3 * t.powi(3) - C1 * t.powi(2)
     }
 
     fn ease_in_elastic(t: f32) -> f32 {
