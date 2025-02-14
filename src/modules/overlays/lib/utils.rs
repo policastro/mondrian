@@ -1,9 +1,11 @@
 pub mod overlay {
+    use crate::app::structs::area::Area;
     use crate::modules::overlays::lib::color::Color;
     use crate::modules::overlays::lib::overlay::OverlayParams;
     use crate::win32::api::window::create_window;
-    use crate::win32::api::window::get_window_box;
     use crate::win32::api::window::show_window;
+    use crate::win32::window::window_obj::WindowObjInfo;
+    use crate::win32::window::window_ref::WindowRef;
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use windows::core::PCWSTR;
@@ -99,7 +101,8 @@ pub mod overlay {
         let style = WS_POPUP;
 
         let b = get_box_from_target(target.unwrap_or(HWND(0)), params.get_thickness(), params.get_padding());
-        let hwnd = create_window(ex_style, cs_ptr, style, b.unwrap_or_default(), target, hmod, params);
+        let b = b.unwrap_or_default().into();
+        let hwnd = create_window(ex_style, cs_ptr, style, b, target, hmod, params);
         let hwnd = hwnd.unwrap_or(HWND(0));
         show_window(hwnd, SW_SHOWNOACTIVATE);
 
@@ -109,12 +112,12 @@ pub mod overlay {
         hwnd
     }
 
-    pub fn get_box_from_target(target: HWND, thickness: u8, padding: u8) -> Option<(i32, i32, i32, i32)> {
-        let offset = (thickness as i32) / 2;
-        let shift1 = offset + (padding as i32);
-        let shift2 = offset + 2 * (padding as i32);
-        let b = get_window_box(target)?;
-        Some((b[0] + 7 - shift1, b[1] - shift1, b[2] - 10 + shift2, b[3] - 5 + shift2))
+    pub fn get_box_from_target(target: HWND, thickness: u8, padding: u8) -> Option<Area> {
+        let shift1 = ((thickness as i16) / 2) + (padding as i16);
+        let shift2 = thickness as i16 + 2 * (padding as i16);
+        let win = WindowRef::new(target);
+        let visible_area = win.get_visible_area();
+        Some(visible_area?.shift((-shift1, -shift1, shift2, shift2)))
     }
 
     pub fn draw_overlay(hwnd: HWND, thickness: i32, color: Color) {

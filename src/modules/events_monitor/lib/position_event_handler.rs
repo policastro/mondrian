@@ -56,7 +56,7 @@ impl PositionEventHandler {
 
         // NOTE: check is_maximized as first operation
         let is_maximized = self.is_maximized(hwnd);
-        let area = WindowRef::new(hwnd).get_window_box();
+        let area = WindowRef::new(hwnd).get_area();
         if let Some(area) = area {
             let event = WindowEvent::StartMoveSize(hwnd);
             if !skip_window(&event, &self.filter) {
@@ -80,7 +80,7 @@ impl PositionEventHandler {
             None => return,
         };
 
-        let curr_area = match WindowRef::new(hwnd).get_window_box() {
+        let curr_area = match WindowRef::new(hwnd).get_area() {
             Some(area) => area,
             None => return,
         };

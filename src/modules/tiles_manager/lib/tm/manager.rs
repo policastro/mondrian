@@ -13,8 +13,9 @@ use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
+use winvd::get_current_desktop;
+use winvd::get_desktops;
 use winvd::Desktop;
-use winvd::{get_current_desktop, get_desktops};
 
 type Error = TilesManagerError;
 

@@ -114,6 +114,15 @@ impl Area {
         )
     }
 
+    pub fn shift(&self, shift: (i16, i16, i16, i16)) -> Area {
+        Area::new(
+            self.x + i32::from(shift.0),
+            self.y + i32::from(shift.1),
+            (self.width as i16 + shift.2).max(0) as u16,
+            (self.height as i16 + shift.3).max(0) as u16,
+        )
+    }
+
     pub fn pad(&self, padding_x: (i16, i16), padding_y: (i16, i16)) -> Area {
         let new_width = Self::add_to_dimension(self.width, padding_x.0 + padding_x.1);
         let new_height = Self::add_to_dimension(self.height, padding_y.0 + padding_y.1);
@@ -144,6 +153,34 @@ impl Area {
             true => value.saturating_sub(delta.unsigned_abs()),
             false => value.saturating_add(delta.unsigned_abs()),
         }
+    }
+}
+
+impl From<(i32, i32, u16, u16)> for Area {
+    fn from(val: (i32, i32, u16, u16)) -> Self {
+        Area {
+            x: val.0,
+            y: val.1,
+            width: val.2,
+            height: val.3,
+        }
+    }
+}
+
+impl From<(i32, i32, i32, i32)> for Area {
+    fn from(val: (i32, i32, i32, i32)) -> Self {
+        Area {
+            x: val.0,
+            y: val.1,
+            width: val.2.max(0) as u16,
+            height: val.3.max(0) as u16,
+        }
+    }
+}
+
+impl From<Area> for (i32, i32, i32, i32) {
+    fn from(val: Area) -> Self {
+        (val.x, val.y, val.width as i32, val.height as i32)
     }
 }
 

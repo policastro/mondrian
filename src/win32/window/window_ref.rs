@@ -17,8 +17,8 @@ use crate::win32::api::window::{get_dpi_for_window, get_dwmwa_extended_frame_bou
 use crate::{
     app::structs::area::Area,
     win32::api::window::{
-        focus, get_class_name, get_executable_name, get_window_box, get_window_rect, get_window_style,
-        get_window_title, is_window_cloaked, show_window,
+        focus, get_class_name, get_executable_name, get_window_box, get_window_style, get_window_title,
+        is_window_cloaked, show_window,
     },
 };
 
@@ -67,37 +67,14 @@ impl WindowRef {
             hwnd: self.hwnd,
             exe_name: self.get_exe_name(),
             title: self.get_title(),
-            viewarea: self.get_window_box(),
+            area: self.get_area(),
+            visible_area: self.get_visible_area(),
+            borders: self.get_borders(),
             class_name: self.get_class_name(),
             style: self.get_window_style(),
             visible: self.is_visible(),
             iconic: self.is_iconic(),
             cloaked: self.is_cloaked(),
-        }
-    }
-
-    pub fn adjust_area(&self, area: Area) -> Area {
-        let w = match get_window_rect(self.hwnd) {
-            Some(w) => w,
-            _ => return area,
-        };
-
-        // INFO: used to find windows invisible borders
-        let frame = get_dwmwa_extended_frame_bounds(self.hwnd).unwrap_or([0, 0, 0, 0]);
-        let dpi: f32 = get_dpi_for_window(self.hwnd) as f32 / 96.0;
-        let th = (
-            ((frame[0] as f32 / dpi) - w[0] as f32).round() as i32,
-            ((frame[1] as f32 / dpi) - w[1] as f32).round() as i32,
-            ((frame[2] as f32 / dpi) - w[2] as f32).round() as i32,
-            ((frame[3] as f32 / dpi) - w[3] as f32).round() as i32,
-        );
-        let th = (th.0, th.1, th.0 - th.2, th.1 - th.3);
-
-        Area {
-            x: area.x - th.0,
-            y: area.y - th.1,
-            width: (area.width as i32 + th.2).max(0) as u16,
-            height: (area.height as i32 + th.3).max(0) as u16,
         }
     }
 }
@@ -111,10 +88,39 @@ impl WindowObjInfo for WindowRef {
         get_executable_name(self.hwnd)
     }
 
-    fn get_window_box(&self) -> Option<Area> {
-        // INFO: some apps (like Windows settings) have negative values (-8)
-        get_window_box(self.hwnd)
-            .map(|b| Area::new(b[0], b[1], b[2].try_into().unwrap_or(0), b[3].try_into().unwrap_or(0)))
+    fn get_area(&self) -> Option<Area> {
+        let b = get_window_box(self.hwnd)?;
+        Some(Area::new(
+            b[0],
+            b[1],
+            b[2].clamp(0, u16::MAX as i32) as u16,
+            b[3].clamp(0, u16::MAX as i32) as u16,
+        ))
+    }
+
+    fn get_visible_area(&self) -> Option<Area> {
+        let frame = get_dwmwa_extended_frame_bounds(self.hwnd)?;
+        let dpi: f32 = get_dpi_for_window(self.hwnd) as f32 / 96.0;
+        let frame = frame.map(|x| x as f32 / dpi);
+
+        Some(Area::new(
+            frame[0].round() as i32,
+            frame[1].round() as i32,
+            (frame[2] - frame[0]).round().clamp(0.0, u16::MAX as f32) as u16,
+            (frame[3] - frame[1]).round().clamp(0.0, u16::MAX as f32) as u16,
+        ))
+    }
+
+    fn get_borders(&self) -> Option<(i32, i32, i32, i32)> {
+        let area = self.get_area()?;
+        let visible = self.get_visible_area()?;
+        let (l, t) = (visible.x - area.x, visible.y - area.y);
+        Some((
+            l,
+            t,
+            (area.width as i32 - visible.width as i32) - l,
+            (area.height as i32 - visible.height as i32) - t,
+        ))
     }
 
     fn get_class_name(&self) -> Option<String> {

@@ -114,7 +114,7 @@ impl TilesManagerOperations for TilesManager {
             return Err(Error::NoWindow);
         }
 
-        let orig_area = curr.get_window_box().ok_or(Error::NoWindowsInfo)?;
+        let orig_area = curr.get_area().ok_or(Error::NoWindowsInfo)?;
         let size = size as i16;
         let has_neigh1 = self
             .find_neighbour(curr, direction, MonitorSearchStrategy::Same)
@@ -157,7 +157,7 @@ impl TilesManagerOperations for TilesManager {
     fn invert_orientation(&mut self) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
         let t = self.active_trees.find_mut(curr).ok_or(Error::Generic)?.value;
-        let center = curr.get_window_box().ok_or(Error::NoWindowsInfo)?.get_center();
+        let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
         t.switch_subtree_orientations(center);
 
         self.update_layout(true)

@@ -47,7 +47,7 @@ impl TilesManagerInternalOperations for TilesManager {
             return Err(Error::WindowAlreadyAdded);
         }
 
-        let center = win.get_window_box().map(|a| a.get_center());
+        let center = win.get_area().map(|a| a.get_center());
         let center = center.ok_or(Error::NoWindowsInfo)?;
         let c = self.active_trees.find_at_or_near_mut(center);
         let c = c.ok_or(Error::NoWindowsInfo)?;

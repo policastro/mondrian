@@ -48,7 +48,7 @@ impl WinEventHandler for OpenCloseEventHandler {
         // INFO: bigger windows first
         let mut wins: Vec<(u32, HWND)> = enum_user_manageable_windows()
             .into_iter()
-            .map(|w| (w.get_window_box().unwrap_or_default().get_area(), w.hwnd))
+            .map(|w| (w.get_area().unwrap_or_default().get_area(), w.hwnd))
             .collect();
         wins.sort_by(|a, b| a.0.cmp(&b.0).reverse());
         wins.into_iter().for_each(|w| self.send_open_event(w.1));

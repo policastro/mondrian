@@ -100,7 +100,7 @@ impl WindowAnimationPlayer {
                 .clone()
                 .into_iter()
                 .filter_map(|(w, t)| {
-                    let src_area: Area = w.get_window_box()?;
+                    let src_area: Area = w.get_area()?;
                     if src_area == t {
                         return None;
                     };

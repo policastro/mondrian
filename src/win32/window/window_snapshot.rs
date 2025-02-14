@@ -15,7 +15,9 @@ pub struct WindowSnapshot {
     pub(crate) style: u32,
     pub(crate) iconic: bool,
     pub(crate) visible: bool,
-    pub(crate) viewarea: Option<Area>,
+    pub(crate) area: Option<Area>,
+    pub(crate) visible_area: Option<Area>,
+    pub(crate) borders: Option<(i32, i32, i32, i32)>,
     pub(crate) cloaked: bool,
 }
 
@@ -28,12 +30,20 @@ impl WindowObjInfo for WindowSnapshot {
         self.exe_name.clone()
     }
 
-    fn get_window_box(&self) -> Option<Area> {
-        self.viewarea
-    }
-
     fn get_class_name(&self) -> Option<String> {
         self.class_name.clone()
+    }
+
+    fn get_area(&self) -> Option<Area> {
+        self.area
+    }
+
+    fn get_visible_area(&self) -> Option<Area> {
+        self.area
+    }
+
+    fn get_borders(&self) -> Option<(i32, i32, i32, i32)> {
+        self.borders
     }
 
     fn is_visible(&self) -> bool {
@@ -44,12 +54,12 @@ impl WindowObjInfo for WindowSnapshot {
         self.iconic
     }
 
-    fn get_window_style(&self) -> u32 {
-        self.style
-    }
-
     fn is_cloaked(&self) -> bool {
         self.cloaked
+    }
+
+    fn get_window_style(&self) -> u32 {
+        self.style
     }
 }
 
@@ -64,10 +74,12 @@ impl Debug for WindowSnapshot {
             .field("iconic", &self.iconic)
             .field("style", &self.style)
             .field("cloaked", &self.cloaked)
+            .field("area", &self.area.map_or("/".to_string(), |a| format!("{:?}", a)))
             .field(
-                "viewarea",
-                &self.viewarea.map_or("/".to_string(), |a| format!("{:?}", a)),
+                "visible_area",
+                &self.visible_area.map_or("/".to_string(), |a| format!("{:?}", a)),
             )
+            .field("borders", &self.borders.map_or("/".to_string(), |b| format!("{:?}", b)))
             .finish()
     }
 }
@@ -77,7 +89,7 @@ impl Display for WindowSnapshot {
         let title = default_str(self.title.as_ref());
         let exe = default_str(self.exe_name.as_ref());
         let class = default_str(self.class_name.as_ref());
-        let area = self.viewarea.map_or("/".to_string(), |a| {
+        let area = self.area.map_or("/".to_string(), |a| {
             format!("({}, {}, {}, {})", a.x, a.y, a.width, a.height)
         });
         let visible = if self.visible { "v" } else { "!v" };

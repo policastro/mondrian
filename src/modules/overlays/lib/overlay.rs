@@ -130,7 +130,7 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
 
     fn move_overlay_to_target(overlay: HWND, target: HWND, thickness: u8, padding: u8) {
         let (x, y, cx, cy) = match utils::overlay::get_box_from_target(target, thickness, padding) {
-            Some(b) => b,
+            Some(b) => b.into(),
             None => return,
         };
         let flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW | SWP_NOACTIVATE;

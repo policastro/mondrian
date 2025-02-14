@@ -6,7 +6,9 @@ pub trait WindowObjInfo {
     fn get_title(&self) -> Option<String>;
     fn get_exe_name(&self) -> Option<String>;
     fn get_class_name(&self) -> Option<String>;
-    fn get_window_box(&self) -> Option<Area>;
+    fn get_area(&self) -> Option<Area>;
+    fn get_visible_area(&self) -> Option<Area>;
+    fn get_borders(&self) -> Option<(i32, i32, i32, i32)>;
     fn is_visible(&self) -> bool;
     fn is_iconic(&self) -> bool;
     fn is_cloaked(&self) -> bool;
