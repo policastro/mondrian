@@ -24,13 +24,13 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
         &self,
         window: WindowRef,
         search_strategy: MonitorSearchStrategy,
-    ) -> Option<AreaLeaf<WindowRef>>; // Focalized
+    ) -> Option<AreaLeaf<WindowRef>>;
     fn find_neighbour(
         &self,
         window: WindowRef,
         direction: Direction,
         search_strategy: MonitorSearchStrategy,
-    ) -> Option<AreaLeaf<WindowRef>>; // Focalized
+    ) -> Option<AreaLeaf<WindowRef>>;
     fn swap_windows(&mut self, win1: WindowRef, win2: WindowRef) -> Result<(), Error>;
     fn resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
     fn move_to(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error>;

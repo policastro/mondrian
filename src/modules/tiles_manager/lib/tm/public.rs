@@ -252,15 +252,7 @@ impl TilesManagerOperations for TilesManager {
             .get_id()
             .is_ok_and(|id| active_vd.get_id().is_ok_and(|id2| id != id2))
         {
-            self.on_vd_changed(*current_vd, active_vd)?;
-            let filter = self.config.filter.clone();
-            enum_user_manageable_windows()
-                .iter()
-                .filter(|w| !filter.matches(**w))
-                .for_each(|w| {
-                    let _ = TilesManagerInternalOperations::add(self, *w);
-                });
-            return self.update_layout(true);
+            self.on_vd_changed(*current_vd, active_vd)?
         }
 
         Ok(())
@@ -317,8 +309,15 @@ impl TilesManagerOperations for TilesManager {
                 .into_iter()
                 .map(|k| (k.clone(), self.inactive_trees.remove(&(k.clone())).unwrap())),
         );
-
         self.current_vd = Some(current);
+
+        let filter = self.config.filter.clone();
+        enum_user_manageable_windows()
+            .iter()
+            .filter(|w| !filter.matches(**w))
+            .for_each(|w| {
+                let _ = TilesManagerInternalOperations::add(self, *w);
+            });
         self.update_layout(true)
     }
 }
