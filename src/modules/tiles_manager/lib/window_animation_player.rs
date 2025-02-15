@@ -178,12 +178,15 @@ impl WindowAnimationPlayer {
 
     fn move_windows(windows: &[(WindowRef, Area)]) {
         let flags = SWP_SHOWWINDOW | SWP_NOSENDCHANGING | SWP_NOACTIVATE;
-        windows.iter().for_each(|(window, trg_area)| {
-            let (pos, size) = (trg_area.get_origin(), trg_area.get_size());
-            let _ = window.resize_and_move(pos, size, true, flags);
-            let _ = window.set_topmost(false);
-            let _ = window.redraw();
-        });
+        windows
+            .iter()
+            .filter(|(w, trg_area)| w.get_area().is_some_and(|a| a != *trg_area))
+            .for_each(|(window, trg_area)| {
+                let (pos, size) = (trg_area.get_origin(), trg_area.get_size());
+                let _ = window.resize_and_move(pos, size, true, flags);
+                let _ = window.set_topmost(false);
+                let _ = window.redraw();
+            });
         if let Some(hwnd) = get_foreground_window() {
             WindowRef::new(hwnd).focus();
         }
