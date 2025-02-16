@@ -126,14 +126,19 @@ bindings = [
 ]
 ```
 
-The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN`[^1] or any combination of them joined by `+` (e.g. `ALT+SHIFT`). This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
+The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN`[^1] or any combination of them joined by `+` (e.g. `ALT+SHIFT`).
+This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
+However, if the `key` parameter is a function key (`F1`, `F2`, ...), no modifier will be applied unless explicitly specified in the binding, not even the default one.
 
 The **available keys** are:
 
-- All the alphanumeric keys (`A` to `Z`, `a` to `z`, `0` to `9`);
-- The arrow keys (`up`, `down`, `left`, `right`);
-- The `SPACE` key;
-- The symbols `` ` ``, `'`, `.`, `,`, `;`, `[`, `]`, `-`, `=`, `/`, `\`, .
+- alphanumeric keys (`A` to `Z`, `a` to `z`, `0` to `9`);
+- arrow keys (`up`, `down`, `left`, `right`);
+- `SPACE` key;
+- symbols `` ` ``, `'`, `.`, `,`, `;`, `[`, `]`, `-`, `=`, `/`, `\`;
+- function keys (`F1` to `F24`).
+
+The keys and modifiers are case-insensitive.
 
 The **available actions** are:
 

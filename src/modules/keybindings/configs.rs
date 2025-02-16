@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
 use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
 use inputbot::KeybdKey::*;
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 #[serde(default, try_from = "ExtKeybindingsConfig", into = "ExtKeybindingsConfig")]
@@ -66,11 +65,44 @@ impl From<ExtKeybindingsConfig> for KeybindingsModuleConfigs {
             .clone()
             .into_iter()
             .filter_map(|b| {
-                parse_binding(
-                    b.modifier.clone().unwrap_or(val.default_modifier.clone()),
-                    b.key.clone(),
-                    b.action,
-                )
+                let key = parse_key(b.key.clone().trim().to_uppercase());
+                let modifiers = match key.is_some_and(|k| {
+                    matches!(
+                        k,
+                        F1Key
+                            | F2Key
+                            | F3Key
+                            | F4Key
+                            | F5Key
+                            | F6Key
+                            | F7Key
+                            | F8Key
+                            | F9Key
+                            | F10Key
+                            | F11Key
+                            | F12Key
+                            | F13Key
+                            | F14Key
+                            | F15Key
+                            | F16Key
+                            | F17Key
+                            | F18Key
+                            | F19Key
+                            | F20Key
+                            | F21Key
+                            | F22Key
+                            | F23Key
+                            | F24Key
+                    )
+                }) {
+                    true => parse_modifiers(b.modifier.clone().unwrap_or_default()),
+                    false => parse_modifiers(b.modifier.clone().unwrap_or(val.default_modifier.clone())),
+                };
+
+                match (modifiers, key) {
+                    (Some(m), Some(k)) => Some((m, k, b.action)),
+                    _ => None,
+                }
             })
             .collect();
 
@@ -126,19 +158,17 @@ where
 {
     let is_char = regex::Regex::new(r"^[A-Za-z\d]$").unwrap();
     let is_dir = regex::Regex::new(r"^\b(?i)left|right|up|down\b$").unwrap();
+    let is_fn_key = regex::Regex::new(r"^\b(?i)F[1-9][1-9]?\b$").unwrap();
     let s: String = String::deserialize(deserializer)?;
-    let is_valid = is_char.is_match(&s.to_uppercase()) || is_dir.is_match(&s.to_uppercase());
+    let s = s.trim().to_uppercase();
+    let is_valid_fn = is_fn_key.is_match(&s) && s[1..].parse::<u8>().is_ok_and(|v| v > 0 && v <= 24);
+    let is_valid = is_char.is_match(&s.to_uppercase()) || is_dir.is_match(&s.to_uppercase()) || is_valid_fn;
     match is_valid {
         true => Ok(s.to_uppercase()),
         false => Err(D::Error::custom(format!("Invalid key: {}", s))),
     }
 }
-
-fn parse_binding(
-    modifiers: Vec<String>,
-    key: String,
-    command: MondrianMessage,
-) -> Option<(Vec<inputbot::KeybdKey>, inputbot::KeybdKey, MondrianMessage)> {
+fn parse_modifiers(modifiers: Vec<String>) -> Option<Vec<inputbot::KeybdKey>> {
     let modifiers_input: Vec<inputbot::KeybdKey> = modifiers
         .into_iter()
         .filter_map(|m| match m.to_uppercase().as_str() {
@@ -150,6 +180,9 @@ fn parse_binding(
         })
         .collect();
 
+    Some(modifiers_input)
+}
+fn parse_key(key: String) -> Option<inputbot::KeybdKey> {
     let key_input: Option<inputbot::KeybdKey> = if key.len() == 1 {
         let key = key.chars().next().unwrap();
         inputbot::get_keybd_key(key)
@@ -159,12 +192,33 @@ fn parse_binding(
             "RIGHT" => Some(RightKey),
             "UP" => Some(UpKey),
             "DOWN" => Some(DownKey),
+            "F1" => Some(F1Key),
+            "F2" => Some(F2Key),
+            "F3" => Some(F3Key),
+            "F4" => Some(F4Key),
+            "F5" => Some(F5Key),
+            "F6" => Some(F6Key),
+            "F7" => Some(F7Key),
+            "F8" => Some(F8Key),
+            "F9" => Some(F9Key),
+            "F10" => Some(F10Key),
+            "F11" => Some(F11Key),
+            "F12" => Some(F12Key),
+            "F13" => Some(F13Key),
+            "F14" => Some(F14Key),
+            "F15" => Some(F15Key),
+            "F16" => Some(F16Key),
+            "F17" => Some(F17Key),
+            "F18" => Some(F18Key),
+            "F19" => Some(F19Key),
+            "F20" => Some(F20Key),
+            "F21" => Some(F21Key),
+            "F22" => Some(F22Key),
+            "F23" => Some(F23Key),
+            "F24" => Some(F24Key),
             _ => None,
         }
     };
 
-    match (key_input, modifiers_input.is_empty()) {
-        (Some(key), false) => Some((modifiers_input, key, command)),
-        _ => None,
-    }
+    key_input
 }
