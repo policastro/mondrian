@@ -67,12 +67,13 @@ impl TilesManagerModule {
         };
 
         let mut tm = TilesManager::new(Some(tm_configs), on_update_start, on_update_error, on_update_complete);
+        let configs = self.configs.clone();
         let tx = self.bus_tx.clone();
 
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
             match event_receiver.recv() {
                 Ok(app_event) => {
-                    if !handle_tm(&mut tm, &tx, app_event) {
+                    if !handle_tm(&mut tm, &tx, &configs, app_event) {
                         log::trace!("TilesManager exit!");
                         break;
                     }
@@ -175,7 +176,12 @@ impl ConfigurableModule for TilesManagerModule {
     }
 }
 
-fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
+fn handle_tm(
+    tm: &mut TilesManager,
+    tx: &Sender<MondrianMessage>,
+    configs: &CoreModuleConfigs,
+    event: TMCommand,
+) -> bool {
     let _ = tm.check_for_vd_changes();
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
@@ -210,7 +216,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
             SystemEvent::VirtualDesktopChanged { old, new } => tm.on_vd_changed(old, new),
             _ => Ok(()),
         },
-        TMCommand::Focus(direction) => tm.change_focus(direction),
+        TMCommand::Focus(direction) => tm.change_focus(direction, configs.move_cursor_on_focus),
         TMCommand::Minimize => tm.minimize_focused(),
         TMCommand::Insert(direction) => tm.move_focused(direction),
         TMCommand::Move(direction, insert_if_empty) => match tm.swap_focused(direction) {

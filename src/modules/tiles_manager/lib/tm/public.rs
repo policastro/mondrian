@@ -10,6 +10,7 @@ use crate::app::mondrian_message::{IntermonitorMoveOp, IntramonitorMoveOp, Windo
 use crate::app::structs::direction::Direction;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
+use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::api::window::{enum_user_manageable_windows, get_foreground_window};
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
@@ -29,7 +30,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn minimize_focused(&mut self) -> Result<(), Error>;
     fn focalize_focused(&mut self) -> Result<(), Error>;
     fn invert_orientation(&mut self) -> Result<(), Error>;
-    fn change_focus(&mut self, direction: Direction) -> Result<(), Error>;
+    fn change_focus(&mut self, direction: Direction, center_mouse: bool) -> Result<(), Error>;
     fn on_move(
         &mut self,
         window: WindowRef,
@@ -163,10 +164,15 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
-    fn change_focus(&mut self, direction: Direction) -> Result<(), Error> {
+    fn change_focus(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
         let leaf = self.find_neighbour(curr, direction, MonitorSearchStrategy::Any);
-        leaf.ok_or(Error::NoWindow)?.id.focus();
+        let leaf = leaf.ok_or(Error::NoWindow)?;
+        leaf.id.focus();
+        if center_cursor {
+            let (x, y) = leaf.id.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
+            set_cursor_pos(x, y);
+        }
 
         Ok(())
     }

@@ -105,6 +105,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.inactive.color`        | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                         | `[254, 215, 102]` (or `"#FED766"`) |
 | `advanced.detect_maximized_windows`      | Prevents maximized windows from being managed                               | `true`, `false`                                                                    | `true`                             |
 | `core.rules`                             | Custom rules to exclude windows from being managed                          | check the relative [section](#core-rules-guide) for more info.                     | -                                  |
+| `core.move_cursor_on_focus`              | Moves the mouse cursor to the center of the focused window                  | `true`, `false`                                                                    | `false`                            |
 
 All the options are optional and if not specified, the default values will be used.
 

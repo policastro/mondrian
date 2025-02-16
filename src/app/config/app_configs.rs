@@ -29,6 +29,8 @@ pub struct AppConfigs {
 #[serde(deny_unknown_fields)]
 pub struct Core {
     pub rules: Vec<RuleConfig>,
+    #[serde(default)]
+    pub move_cursor_on_focus: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

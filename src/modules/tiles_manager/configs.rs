@@ -3,6 +3,7 @@ use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::win_matcher::WinMatcher;
 
+#[derive(Debug, Clone)]
 pub struct CoreModuleConfigs {
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
@@ -12,6 +13,7 @@ pub struct CoreModuleConfigs {
     pub animations_duration: u32,
     pub animations_framerate: u8,
     pub animation_type: Option<WindowAnimation>,
+    pub move_cursor_on_focus: bool,
     pub filter: WinMatcher,
 }
 
@@ -26,6 +28,7 @@ impl Default for CoreModuleConfigs {
             animations_duration: 500,
             animations_framerate: 60,
             animation_type: None,
+            move_cursor_on_focus: false,
             filter: WinMatcher::default(),
         }
     }
@@ -42,6 +45,7 @@ impl From<&AppConfigs> for CoreModuleConfigs {
             animations_duration: app_configs.layout.animations_duration,
             animations_framerate: app_configs.layout.animations_framerate,
             animation_type: app_configs.layout.animation_type.clone(),
+            move_cursor_on_focus: app_configs.core.move_cursor_on_focus,
             filter: app_configs.get_filters().unwrap_or_default(),
         }
     }
