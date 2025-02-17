@@ -158,7 +158,7 @@ where
 {
     let is_char = regex::Regex::new(r"^[A-Za-z\d]$").unwrap();
     let is_dir = regex::Regex::new(r"^\b(?i)left|right|up|down\b$").unwrap();
-    let is_fn_key = regex::Regex::new(r"^\b(?i)F[1-9][1-9]?\b$").unwrap();
+    let is_fn_key = regex::Regex::new(r"^\b(?i)F[0-9][0-9]?\b$").unwrap();
     let s: String = String::deserialize(deserializer)?;
     let s = s.trim().to_uppercase();
     let is_valid_fn = is_fn_key.is_match(&s) && s[1..].parse::<u8>().is_ok_and(|v| v > 0 && v <= 24);
