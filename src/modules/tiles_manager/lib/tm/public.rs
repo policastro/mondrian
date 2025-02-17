@@ -12,7 +12,7 @@ use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::api::monitor::enum_display_monitors;
-use crate::win32::api::window::{enum_user_manageable_windows, get_foreground_window};
+use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
 use crate::win32::window::window_ref::WindowRef;
 
@@ -333,13 +333,7 @@ impl TilesManagerOperations for TilesManager {
         );
         self.current_vd = Some(current);
 
-        let filter = self.config.filter.clone();
-        enum_user_manageable_windows()
-            .iter()
-            .filter(|w| !filter.matches(**w))
-            .for_each(|w| {
-                let _ = TilesManagerInternalOperations::add(self, *w);
-            });
+        self.add_open_windows()?;
         self.update_layout(true)
     }
 }

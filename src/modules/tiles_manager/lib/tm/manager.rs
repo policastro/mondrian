@@ -1,6 +1,7 @@
 use super::configs::TilesManagerConfig;
 use super::error::TilesManagerError;
 use super::operations::FocalizedMap;
+use super::operations::TilesManagerInternalOperations;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
@@ -8,7 +9,9 @@ use crate::modules::tiles_manager::lib::containers::Container;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
 use crate::win32::api::monitor::enum_display_monitors;
+use crate::win32::api::window::enum_user_manageable_windows;
 use crate::win32::window::window_obj::WindowObjHandler;
+use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -42,6 +45,7 @@ pub trait TilesManagerBase {
         S: Fn() + Sync + Send + 'static,
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static;
+    fn add_open_windows(&mut self) -> Result<(), Error>;
     fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState>;
     fn get_managed_windows(&self) -> HashMap<isize, WindowTileState>;
     fn cancel_animation(&mut self);
@@ -88,6 +92,29 @@ impl TilesManagerBase for TilesManager {
         let _ = tm.update_tm();
         tm
     }
+
+    fn add_open_windows(&mut self) -> Result<(), Error> {
+        let filter = self.config.filter.clone();
+        let mut wins: Vec<WindowRef> = enum_user_manageable_windows()
+            .into_iter()
+            .filter(|w| !filter.matches(*w))
+            .collect();
+
+        // INFO: bigger windows first
+        wins.sort_by(|a, b| {
+            b.get_area()
+                .unwrap_or_default()
+                .get_area()
+                .cmp(&a.get_area().unwrap_or_default().get_area())
+        });
+
+        for w in wins.iter() {
+            self.add(*w)?;
+        }
+
+        Ok(())
+    }
+
     fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState> {
         let is_managed = self.active_trees.find(window).is_some();
         let is_floating = self.floating_wins.contains(&window);

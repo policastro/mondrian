@@ -67,6 +67,9 @@ impl TilesManagerModule {
         };
 
         let mut tm = TilesManager::new(Some(tm_configs), on_update_start, on_update_error, on_update_complete);
+        let _ = tm.add_open_windows();
+        let _ = tm.update_layout(true);
+
         let configs = self.configs.clone();
         let tx = self.bus_tx.clone();
 
