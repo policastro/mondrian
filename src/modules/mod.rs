@@ -54,6 +54,10 @@ pub mod logger {
     pub mod module;
 }
 
+pub mod file_watcher {
+    pub mod module;
+}
+
 use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
 
 pub trait Module {

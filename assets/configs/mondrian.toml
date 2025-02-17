@@ -73,7 +73,8 @@ inactive.padding = 0         # padding between the overlay and the window
 detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine
 
 [core]
-move_cursor_on_focus = true # if true, the cursor will be moved to the center of the focused window 
+move_cursor_on_focus = false # if true, the cursor will be moved to the center of the focused window 
+core.auto_reload_configs = false # if true, the config will be reloaded when a change is detected
 rules = [
     # { title = "Title", exename = "app.exe", classname = "ApplicationWindow" },                       # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
     # { title = "Title" },                                                                             # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)

@@ -2,6 +2,7 @@ use crate::app::config::app_configs::AppConfigs;
 use crate::app::config::cli_args::CliArgs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::events_monitor::module::EventsMonitorModule;
+use crate::modules::file_watcher::module::FileWatcherModule;
 use crate::modules::keybindings::module::KeybindingsModule;
 use crate::modules::logger::module::LoggerModule;
 use crate::modules::overlays::module::OverlaysModule;
@@ -44,6 +45,7 @@ fn start_app(cfg_file: &PathBuf) {
         Box::new(OverlaysModule::new(bus_tx.clone())),
         Box::new(TrayModule::new(bus_tx.clone())),
         Box::new(KeybindingsModule::new(bus_tx.clone())),
+        Box::new(FileWatcherModule::new(bus_tx.clone(), cfg_file)),
     ];
 
     let mut modules_map: HashMap<String, Box<dyn Module>> = HashMap::new();
@@ -58,6 +60,7 @@ fn start_app(cfg_file: &PathBuf) {
     modules_map.values_mut().for_each(|m| {
         m.handle(&MondrianMessage::Configure, &configs);
         m.start();
+        log::info!("Module '{}' started", m.name());
     });
 
     log::info!("Application started!");
