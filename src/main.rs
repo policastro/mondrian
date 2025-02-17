@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "noconsole", windows_subsystem = "windows")]
+
 mod app;
 mod app_main;
 mod modules;

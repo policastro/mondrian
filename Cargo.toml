@@ -7,10 +7,6 @@ version = "0.6.0"
 edition = "2021"
 default-run = "mondrian"
 
-[[bin]]
-name = "noconsole"
-path = "src/main_nc.rs"
-
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
@@ -48,3 +44,8 @@ features = [
 
 [build-dependencies]
 winresource = "0.1.17"
+
+
+[features]
+default = []
+noconsole = []
