@@ -61,8 +61,8 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
         }
     }
 
-    pub fn leaves(&self, padding: i16, ignored_wins: &HashSet<T>) -> Vec<AreaLeaf<T>> {
-        self.root.leaves(self.area.pad_full(padding), Some(ignored_wins))
+    pub fn leaves(&self, padding: i16, ignored_wins: Option<&HashSet<T>>) -> Vec<AreaLeaf<T>> {
+        self.root.leaves(self.area.pad_full(padding), ignored_wins)
     }
 
     pub fn find_leaf(&self, id: T, padding: i16) -> Option<AreaLeaf<T>> {

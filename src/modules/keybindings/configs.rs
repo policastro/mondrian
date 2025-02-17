@@ -182,6 +182,7 @@ fn parse_modifiers(modifiers: Vec<String>) -> Option<Vec<inputbot::KeybdKey>> {
 
     Some(modifiers_input)
 }
+
 fn parse_key(key: String) -> Option<inputbot::KeybdKey> {
     let key_input: Option<inputbot::KeybdKey> = if key.len() == 1 {
         let key = key.chars().next().unwrap();

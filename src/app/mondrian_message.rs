@@ -147,6 +147,7 @@ pub enum MondrianMessage {
     CoreUpdateError,
     CoreUpdateComplete,
     Focalize,
+    Amplify,
     Minimize,
     ListManagedWindows,
     About,
@@ -170,6 +171,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "invert",
             "release",
             "focalize",
+            "amplify",
             "pause [keybindings|overlays]",
             "quit",
         ];
@@ -191,6 +193,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "invert" => parts.len() == 1,
             "release" => parts.len() == 1,
             "focalize" => parts.len() == 1,
+            "amplify" => parts.len() == 1,
             "pause" => parts.len() <= 2,
             "quit" => parts.len() == 1,
             _ => false,
@@ -232,6 +235,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             }
             "invert" => Ok(MondrianMessage::Invert),
             "focalize" => Ok(MondrianMessage::Focalize),
+            "amplify" => Ok(MondrianMessage::Amplify),
             "release" => Ok(MondrianMessage::Release(None)),
             "pause" => {
                 let command = match parts.get(1).to_owned() {

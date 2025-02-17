@@ -227,6 +227,7 @@ fn handle_tm(
         TMCommand::Invert => tm.invert_orientation(),
         TMCommand::Release(b) => tm.release_focused(b),
         TMCommand::Focalize => tm.focalize_focused(),
+        TMCommand::Amplify => tm.amplify_focused(),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();

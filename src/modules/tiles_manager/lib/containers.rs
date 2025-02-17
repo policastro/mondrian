@@ -53,7 +53,7 @@ impl Container for WinTree {
         animation_player: &mut WindowAnimationPlayer,
         ignored_wins: &HashSet<WindowRef>,
     ) -> Result<(), ()> {
-        let leaves: Vec<AreaLeaf<WindowRef>> = self.leaves(border_pad, ignored_wins);
+        let leaves: Vec<AreaLeaf<WindowRef>> = self.leaves(border_pad, Some(ignored_wins));
 
         for leaf in &leaves {
             if !leaf.id.is_visible() {

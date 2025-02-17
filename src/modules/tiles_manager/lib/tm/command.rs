@@ -18,6 +18,7 @@ pub enum TMCommand {
     ListManagedWindows,
     Minimize,
     Quit,
+    Amplify,
 }
 
 impl TMCommand {
@@ -46,6 +47,7 @@ impl TryFrom<&MondrianMessage> for TMCommand {
             MondrianMessage::Resize(d, s) => Ok(TMCommand::Resize(*d, *s)),
             MondrianMessage::Focalize => Ok(TMCommand::Focalize),
             MondrianMessage::Invert => Ok(TMCommand::Invert),
+            MondrianMessage::Amplify => Ok(TMCommand::Amplify),
             MondrianMessage::ListManagedWindows => Ok(TMCommand::ListManagedWindows),
             MondrianMessage::WindowEvent(event) => Ok(TMCommand::WindowEvent(*event)),
             MondrianMessage::SystemEvent(event) => Ok(TMCommand::SystemEvent(*event)),

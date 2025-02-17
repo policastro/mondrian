@@ -40,6 +40,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     ) -> Result<(), Error>;
     fn on_resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
+    fn amplify_focused(&mut self) -> Result<(), Error>;
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error>;
     fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error>;
@@ -59,7 +60,6 @@ impl TilesManagerOperations for TilesManager {
             false => Ok(()),
         }
     }
-
     fn swap_focused(&mut self, direction: Direction) -> Result<(), Error> {
         let src_win = get_foreground().ok_or(Error::NoWindow)?;
 
@@ -247,6 +247,22 @@ impl TilesManagerOperations for TilesManager {
 
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {
         self.maximize(window, maximize)?;
+        self.update_layout(true)
+    }
+
+    fn amplify_focused(&mut self) -> Result<(), Error> {
+        let curr = get_foreground().ok_or(Error::NoWindow)?;
+        let t = self.active_trees.find_mut(curr).ok_or(Error::NoWindow)?.value;
+        let leaves = t.leaves(0, None);
+        let max_leaf = leaves
+            .iter()
+            .max_by(|a, b| a.viewbox.get_area().cmp(&b.viewbox.get_area()));
+
+        if max_leaf.is_none() || max_leaf.is_some_and(|l| l.id == curr) {
+            return Ok(());
+        }
+
+        self.swap_windows(curr, max_leaf.ok_or(Error::NoWindow)?.id)?;
         self.update_layout(true)
     }
 
