@@ -1,4 +1,5 @@
 use crate::app::config::app_configs::AppConfigs;
+use crate::app::config::assets::Asset;
 use crate::app::config::cli_args::CliArgs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::events_monitor::module::EventsMonitorModule;
@@ -10,7 +11,6 @@ use crate::modules::tiles_manager::module::TilesManagerModule;
 use crate::modules::tray::module::TrayModule;
 use crate::modules::Module;
 use clap::Parser;
-use log4rs::config::RawConfig;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -99,17 +99,21 @@ fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfigs, String> {
     }
 
     if !app_cfg_file.exists() {
-        std::fs::write(app_cfg_file, include_bytes!("../assets/configs/mondrian.toml")).unwrap();
+        let default_cfg = Asset::get_string("./configs/mondrian.toml").map_err(|e| e.to_string())?;
+        std::fs::write(app_cfg_file, default_cfg).map_err(|e| e.to_string())?;
     }
+
     let file_content = std::fs::read_to_string(app_cfg_file).expect("Something went wrong reading the file");
     toml::from_str::<AppConfigs>(&file_content).map_err(|e| e.to_string())
 }
 
 fn init_logger(enable_file: bool) {
-    let config: RawConfig = match enable_file {
-        true => serde_yaml::from_str(include_str!("../assets/configs/mondrian.log.yml")).unwrap(),
-        false => serde_yaml::from_str(include_str!("../assets/configs/mondrian_nofile.log.yml")).unwrap(),
+    let config_str = match enable_file {
+        true => Asset::get_string("./configs/mondrian.log.yml").unwrap(),
+        false => Asset::get_string("./configs/mondrian_nofile.log.yml").unwrap(),
     };
+
+    let config = serde_yaml::from_str(&config_str).unwrap();
     log4rs::init_raw_config(config).unwrap();
     log_panics::init();
 }

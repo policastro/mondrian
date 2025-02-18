@@ -1,26 +1,28 @@
-use tray_icon::{
-    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
-    Icon, TrayIconBuilder,
-};
+use crate::app::config::app_configs::AppConfigs;
+use crate::app::config::assets::Asset;
+use crate::app::mondrian_message::MondrianMessage;
+use crate::modules::module_impl::ModuleImpl;
+use crate::modules::Module;
+use crate::win32::api::misc::get_current_thread_id;
+use crate::win32::api::misc::post_empty_thread_message;
+use crate::win32::win_event_loop::next_win_event_loop_iteration;
+use std::io::Cursor;
+// use image::ImageReader;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicU8;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std::thread;
+use tray_icon::menu::Menu;
+use tray_icon::menu::MenuEvent;
+use tray_icon::menu::MenuItem;
+use tray_icon::menu::PredefinedMenuItem;
+use tray_icon::Icon;
+use tray_icon::TrayIconBuilder;
+use windows::Win32::UI::WindowsAndMessaging::WM_NULL;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
-
-use crate::{
-    app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage},
-    modules::{module_impl::ModuleImpl, Module},
-    win32::{
-        api::misc::{get_current_thread_id, post_empty_thread_message},
-        win_event_loop::next_win_event_loop_iteration,
-    },
-};
-
-use std::{
-    sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering},
-        mpsc::Sender,
-        Arc,
-    },
-    thread,
-};
 
 pub struct TrayModule {
     bus: Sender<MondrianMessage>,
@@ -46,6 +48,19 @@ impl TrayModule {
             pause_flag: Arc::new(AtomicU8::new(Self::PAUSE_UNSET)),
         }
     }
+
+    pub fn refresh_tray(&self) {
+        if self.running.load(Ordering::SeqCst) {
+            post_empty_thread_message(self.main_thread_id.load(Ordering::SeqCst), WM_NULL);
+        }
+    }
+
+    pub fn get_icon(asset_path: &str) -> Option<Icon> {
+        let icon_asset = Asset::get(asset_path)?;
+        let icon_dir = ico::IconDir::read(Cursor::new(icon_asset.data)).ok()?;
+        let icon_rgba = icon_dir.entries()[0].decode().ok()?.rgba_data().to_vec();
+        Icon::from_rgba(icon_rgba, 256, 256).ok()
+    }
 }
 
 impl ModuleImpl for TrayModule {
@@ -60,7 +75,8 @@ impl ModuleImpl for TrayModule {
 
         let main_thread_id = self.main_thread_id.clone();
         let main_thread = thread::spawn(move || {
-            let icon = Icon::from_resource_name("APP_ICON", Some((256, 256))).unwrap();
+            let icon_normal = Self::get_icon("mondrian.ico").unwrap();
+            let icon_gray = Self::get_icon("mondrian_gray.ico").unwrap();
             let tray_menu = Menu::new();
             let retile = MenuItem::with_id("RETILE", "⊞ Retile", true, None);
             let open_config = MenuItem::with_id("OPEN_CONFIG", "⚙️ Open config file", true, None);
@@ -84,10 +100,10 @@ impl ModuleImpl for TrayModule {
                 ])
                 .expect("Failed to append items");
 
-            let _tray_icon = TrayIconBuilder::new()
-                .with_menu(Box::new(tray_menu))
+            let tray_icon = TrayIconBuilder::new()
+                .with_menu(Box::new(tray_menu.clone()))
                 .with_tooltip("Mondrian")
-                .with_icon(icon)
+                .with_icon(icon_normal.clone())
                 .build()
                 .unwrap();
 
@@ -101,7 +117,17 @@ impl ModuleImpl for TrayModule {
                     Self::PAUSE_TOGGLED => pause.set_checked(!pause.is_checked()),
                     _ => {}
                 }
-                pause_flag.store(Self::PAUSE_UNSET, Ordering::Relaxed);
+
+                if !matches!(is_paused, Self::PAUSE_UNSET) {
+                    let (icon, tooltip) = match pause.is_checked() {
+                        true => (Some(icon_gray.clone()), "Mondrian (paused)"),
+                        false => (Some(icon_normal.clone()), "Mondrian"),
+                    };
+
+                    let _ = tray_icon.set_icon(icon);
+                    let _ = tray_icon.set_tooltip(Some(tooltip));
+                    pause_flag.store(Self::PAUSE_UNSET, Ordering::Relaxed);
+                }
 
                 let event_id = MenuEvent::receiver()
                     .try_recv()
@@ -163,16 +189,14 @@ impl ModuleImpl for TrayModule {
         match event {
             MondrianMessage::Pause(pause) => {
                 let pause = match pause {
-                    Some(p) => {
-                        if *p {
-                            Self::PAUSE_ENABLED
-                        } else {
-                            Self::PAUSE_DISABLED
-                        }
-                    }
+                    Some(p) => match *p {
+                        true => Self::PAUSE_ENABLED,
+                        false => Self::PAUSE_DISABLED,
+                    },
                     None => Self::PAUSE_TOGGLED,
                 };
-                self.pause_flag.store(pause, Ordering::Relaxed)
+                self.pause_flag.store(pause, Ordering::Relaxed);
+                self.refresh_tray();
             }
             MondrianMessage::Quit => Module::stop(self),
             _ => {}

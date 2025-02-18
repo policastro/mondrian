@@ -16,6 +16,7 @@ pub mod structs {
 
 pub mod config {
     pub mod app_configs;
+    pub mod assets;
     pub mod cli_args;
     pub mod win_matcher;
 }

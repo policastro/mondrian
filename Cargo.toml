@@ -25,6 +25,8 @@ inputbot = { git = "https://github.com/obv-mikhail/InputBot", rev = "71cd597" }
 lazy_static = "1.5.0"
 winvd = "0.0.48"
 notify-debouncer-mini = "0.6.0"
+ico = "0.4.0"
+rust-embed = "8.5.0"
 
 [dependencies.notify]
 version = "8.0.0"
