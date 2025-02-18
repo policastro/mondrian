@@ -74,7 +74,7 @@ detect_maximized_windows = true # if true, maximized windows will be detected an
 
 [core]
 move_cursor_on_focus = false # if true, the cursor will be moved to the center of the focused window 
-core.auto_reload_configs = false # if true, the config will be reloaded when a change is detected
+auto_reload_configs = false # if true, the config will be reloaded when a change is detected
 rules = [
     # { title = "Title", exename = "app.exe", classname = "ApplicationWindow" },                       # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
     # { title = "Title" },                                                                             # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
