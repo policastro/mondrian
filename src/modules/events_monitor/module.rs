@@ -61,17 +61,17 @@ impl EventsMonitorModule {
                     DesktopEvent::DesktopChanged { new, old } => {
                         let _ = bus_tx
                             .send(SystemEvent::VirtualDesktopChanged { old, new }.into())
-                            .inspect_err(|_| log::error!("Error sending VirtualDesktopChanged message"));
+                            .inspect_err(|_| log::warn!("Error sending VirtualDesktopChanged message"));
                     }
                     DesktopEvent::DesktopCreated(desktop) => {
                         let _ = bus_tx
                             .send(SystemEvent::VirtualDesktopCreated { desktop }.into())
-                            .inspect_err(|_| log::error!("Error sending VirtualDesktopChanged message"));
+                            .inspect_err(|_| log::warn!("Error sending VirtualDesktopChanged message"));
                     }
                     DesktopEvent::DesktopDestroyed { destroyed, fallback } => {
                         let _ = bus_tx
                             .send(SystemEvent::VirtualDesktopRemoved { destroyed, fallback }.into())
-                            .inspect_err(|_| log::error!("Error sending VirtualDesktopRemoved message"));
+                            .inspect_err(|_| log::warn!("Error sending VirtualDesktopRemoved message"));
                     }
                     other => {
                         log::trace!("Virtual Desktops event: {other:?}");

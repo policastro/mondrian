@@ -43,7 +43,7 @@ impl FileWatcherModule {
                         .for_each(|_| bus_tx.send(MondrianMessage::RefreshConfig).unwrap())
                 }
             })
-            .inspect_err(|_| log::error!("Error creating config watcher debouncer"));
+            .inspect_err(|_| log::warn!("Error creating config watcher debouncer"));
 
         if let Ok(mut wd) = watcher_debouncer {
             let res = wd

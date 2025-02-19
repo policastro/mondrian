@@ -11,13 +11,26 @@ use crate::modules::tiles_manager::module::TilesManagerModule;
 use crate::modules::tray::module::TrayModule;
 use crate::modules::Module;
 use clap::Parser;
+use log::LevelFilter;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::append::rolling_file::policy::compound::roll::delete::DeleteRoller;
+use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
+use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
+use log4rs::append::rolling_file::RollingFileAppender;
+use log4rs::config::{Appender, Root};
+use log4rs::encode::pattern::PatternEncoder;
+use log4rs::filter::threshold::ThresholdFilter;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub fn main() {
     let args = CliArgs::parse();
 
-    init_logger(args.log);
+    init_logger(
+        args.is_file_all_enabled(),
+        args.is_file_error_enabled(),
+        args.get_log_level(),
+    );
 
     let cfg_file = dirs::home_dir()
         .expect("Failed to get home dir")
@@ -99,7 +112,7 @@ fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfigs, String> {
     }
 
     if !app_cfg_file.exists() {
-        let default_cfg = Asset::get_string("./configs/mondrian.toml").map_err(|e| e.to_string())?;
+        let default_cfg = Asset::get_string("configs/mondrian.toml").map_err(|e| e.to_string())?;
         std::fs::write(app_cfg_file, default_cfg).map_err(|e| e.to_string())?;
     }
 
@@ -107,13 +120,45 @@ fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfigs, String> {
     toml::from_str::<AppConfigs>(&file_content).map_err(|e| e.to_string())
 }
 
-fn init_logger(enable_file: bool) {
-    let config_str = match enable_file {
-        true => Asset::get_string("./configs/mondrian.log.yml").unwrap(),
-        false => Asset::get_string("./configs/mondrian_nofile.log.yml").unwrap(),
-    };
+fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
+    let pattern = PatternEncoder::new("{h({d(%Y-%m-%d %H:%M:%S)} {({l}):5.5} {f}:{L})}: {m}{n}");
+    let console: ConsoleAppender = ConsoleAppender::builder().encoder(Box::new(pattern.clone())).build();
 
-    let config = serde_yaml::from_str(&config_str).unwrap();
-    log4rs::init_raw_config(config).unwrap();
+    const FILE_SIZE: u64 = 10 * 1024 * 1024; // NOTE: 10 MB
+    let policy = CompoundPolicy::new(Box::new(SizeTrigger::new(FILE_SIZE)), Box::new(DeleteRoller::new()));
+    let file_all_app: RollingFileAppender = RollingFileAppender::builder()
+        .encoder(Box::new(pattern.clone()))
+        .build("./logs/mondrian.log", Box::new(policy))
+        .unwrap();
+
+    let policy = CompoundPolicy::new(Box::new(SizeTrigger::new(FILE_SIZE)), Box::new(DeleteRoller::new()));
+    let file_errors_app: RollingFileAppender = RollingFileAppender::builder()
+        .encoder(Box::new(pattern.clone()))
+        .build("./logs/errors.log", Box::new(policy))
+        .unwrap();
+
+    let mut root_builder = Root::builder().appender("console");
+
+    if file_all {
+        root_builder = root_builder.appender("file_all");
+    }
+
+    if file_errors {
+        root_builder = root_builder.appender("file_errors");
+    }
+
+    let config = log4rs::config::Config::builder()
+        .appender(Appender::builder().build("console", Box::new(console)))
+        .appender(Appender::builder().build("file_all", Box::new(file_all_app)))
+        .appender(
+            Appender::builder()
+                .filter(Box::new(ThresholdFilter::new(LevelFilter::Error)))
+                .build("file_errors", Box::new(file_errors_app)),
+        )
+        .build(root_builder.build(level))
+        .unwrap();
+
+    let _log_config = log4rs::init_config(config).unwrap();
+
     log_panics::init();
 }

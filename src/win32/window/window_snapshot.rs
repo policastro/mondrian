@@ -65,10 +65,14 @@ impl WindowObjInfo for WindowSnapshot {
 
 impl Debug for WindowSnapshot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WindowSnapshot")
-            .field("hwnd", &self.hwnd.0)
-            .field("title", &self.title.clone().unwrap_or("/".to_string()))
-            .field("exe", &self.exe_name.clone().unwrap_or("/".to_string()))
+        let mut dbg = f.debug_struct("WindowSnapshot");
+        dbg.field("hwnd", &self.hwnd.0);
+
+        if cfg!(debug_assertions) {
+            dbg.field("title", &self.title.clone().unwrap_or("/".to_string()));
+        }
+
+        dbg.field("exe", &self.exe_name.clone().unwrap_or("/".to_string()))
             .field("class", &self.class_name.clone().unwrap_or("/".to_string()))
             .field("visible", &self.visible)
             .field("iconic", &self.iconic)
@@ -96,11 +100,19 @@ impl Display for WindowSnapshot {
         let iconic = if self.iconic { "i" } else { "!i" };
         let cloaked = if self.cloaked { "c" } else { "!c" };
         let style = format!("0x{:x}", self.style);
-        write!(
-            f,
-            "[{:?}] {} ({}) -> (class: {}, style: {}, [{}, {}, {}], view: {})",
-            self.hwnd.0, exe, title, class, style, visible, iconic, cloaked, area
-        )
+        if cfg!(debug_assertions) {
+            write!(
+                f,
+                "[{:?}] {} ({}) -> (class: {}, style: {}, [{}, {}, {}], view: {})",
+                self.hwnd.0, exe, title, class, style, visible, iconic, cloaked, area
+            )
+        } else {
+            write!(
+                f,
+                "[{:?}] {} -> (class: {}, style: {}, [{}, {}, {}], view: {})",
+                self.hwnd.0, exe, class, style, visible, iconic, cloaked, area
+            )
+        }
     }
 }
 
