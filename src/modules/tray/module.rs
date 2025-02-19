@@ -83,6 +83,7 @@ impl ModuleImpl for TrayModule {
             let refresh_config = MenuItem::with_id("REFRESH_CONFIG", "⟳ Refresh config", true, None);
             let pause = tray_icon::menu::CheckMenuItem::with_id("PAUSE", "⏯ Pause", true, false, None);
             let separator_1 = PredefinedMenuItem::separator();
+            let open_log_folder = MenuItem::with_id("OPEN_LOG_FOLDER", "📂 Open logs folder", true, None);
             let about = MenuItem::with_id("ABOUT", "ⓘ About", true, None);
             let separator_2 = PredefinedMenuItem::separator();
             let quit = MenuItem::with_id("QUIT", "✖ Quit", true, None);
@@ -94,6 +95,7 @@ impl ModuleImpl for TrayModule {
                     &refresh_config,
                     &pause,
                     &separator_1,
+                    &open_log_folder,
                     &about,
                     &separator_2,
                     &quit,
@@ -137,6 +139,7 @@ impl ModuleImpl for TrayModule {
                     Some("PAUSE") => Some(MondrianMessage::Pause(Some(pause.is_checked()))),
                     Some("RETILE") => Some(MondrianMessage::Retile),
                     Some("REFRESH_CONFIG") => Some(MondrianMessage::RefreshConfig),
+                    Some("OPEN_LOG_FOLDER") => Some(MondrianMessage::OpenLogFolder),
                     Some("OPEN_CONFIG") => Some(MondrianMessage::OpenConfig),
                     Some("ABOUT") => Some(MondrianMessage::About),
                     Some("QUIT") => Some(MondrianMessage::Quit),

@@ -82,6 +82,7 @@ fn start_app(cfg_file: &PathBuf) {
 
         match event.clone() {
             MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
+            MondrianMessage::OpenLogFolder => drop(open::that("logs")),
             MondrianMessage::About => drop(open::that("https://github.com/policastro/mondrian")),
             MondrianMessage::RefreshConfig => {
                 configs = init_configs(cfg_file).unwrap_or_else(|e| {

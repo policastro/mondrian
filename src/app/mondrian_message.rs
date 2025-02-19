@@ -150,6 +150,7 @@ pub enum MondrianMessage {
     Amplify,
     Minimize,
     ListManagedWindows,
+    OpenLogFolder,
     About,
     Quit,
     WindowEvent(WindowEvent),
