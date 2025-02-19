@@ -74,7 +74,7 @@ impl WindowAnimationPlayer {
 
     pub fn play(&mut self, animation: Option<WindowAnimation>) {
         self.cancel();
-        self.previous_foreground = get_foreground_window();
+        self.previous_foreground = get_foreground_window().filter(|fw| self.windows.iter().any(|(w, _)| w.hwnd == *fw));
         if animation.is_none() {
             Self::move_windows(&self.windows);
             self.clear();
@@ -187,9 +187,6 @@ impl WindowAnimationPlayer {
                 let _ = window.set_topmost(false);
                 let _ = window.redraw();
             });
-        if let Some(hwnd) = get_foreground_window() {
-            WindowRef::new(hwnd).focus();
-        }
     }
 }
 

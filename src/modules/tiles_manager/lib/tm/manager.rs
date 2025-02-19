@@ -229,7 +229,10 @@ impl TilesManagerBase for TilesManager {
     }
 
     fn pause_updates(&mut self, pause: bool) {
-        self.pause_updates = pause
+        self.pause_updates = pause;
+        if pause {
+            self.cancel_animation();
+        };
     }
 }
 

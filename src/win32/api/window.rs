@@ -1,6 +1,7 @@
 use crate::win32::api::monitor::get_monitor_info;
 use crate::win32::callbacks::enum_windows::user_managed_windows;
 use crate::win32::window::window_ref::WindowRef;
+use lazy_static::lazy_static;
 use std::ffi::{OsStr, OsString};
 use std::mem::size_of;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
@@ -13,7 +14,9 @@ use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
 use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
-use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, SetFocus, INPUT, INPUT_KEYBOARD};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    SendInput, SetFocus, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_NONAME,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongW,
     GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
@@ -21,6 +24,29 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT, WINDOW_EX_STYLE,
     WINDOW_STYLE, WM_GETMINMAXINFO, WNDCLASSEXW, WNDPROC, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
 };
+
+lazy_static!(
+    static ref EMPTY_INPUT_EVT_DOWN: INPUT = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VK_NONAME, // NOTE: seems unused
+                dwFlags: KEYBD_EVENT_FLAGS(0),
+                ..Default::default()
+            },
+        },
+    };
+    static ref EMPTY_INPUT_EVT_UP: INPUT = INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: VK_NONAME,
+                dwFlags: KEYEVENTF_KEYUP,
+                ..Default::default()
+            },
+        },
+    };
+);
 
 pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
     unsafe { ShowWindow(hwnd, cmd).into() }
@@ -184,11 +210,8 @@ pub fn is_window_cloaked(hwnd: HWND) -> bool {
 
 pub fn focus(hwnd: HWND) {
     unsafe {
-        let event = INPUT {
-            r#type: INPUT_KEYBOARD,
-            ..Default::default()
-        };
-        SendInput(&[event], size_of::<INPUT>() as i32);
+        SendInput(&[*EMPTY_INPUT_EVT_DOWN], size_of::<INPUT>() as i32);
+        SendInput(&[*EMPTY_INPUT_EVT_UP], size_of::<INPUT>() as i32);
         let _ = SetForegroundWindow(hwnd);
         let _ = SetFocus(hwnd);
     };

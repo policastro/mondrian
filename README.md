@@ -128,7 +128,7 @@ bindings = [
 ]
 ```
 
-The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN`[^1] or any combination of them joined by `+` (e.g. `ALT+SHIFT`).
+The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN` or any combination of them joined by `+` (e.g. `ALT+SHIFT`).
 This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
 However, if the `key` parameter is a function key (`F1`, `F2`, ...), no modifier will be applied unless explicitly specified in the binding, not even the default one.
 
@@ -176,8 +176,6 @@ bindings = [
     { modifier = "CTRL+ALT", key = "left", action = "focus left" }   # when pressing CTRL+ALT+Left, the action will be "focus left"
 ]
 ```
-
-[^1]: when a keybinding uses `WIN` as its only modifier, the start menu opens. This is a known issue and will be fixed in the future. As a workaround, you can combine `WIN` with other modifiers (e.g. `WIN+CTRL`, `WIN+CTRL+ALT`, ...).
 
 #### Ignore windows with `core.rules` <a name="core-rules-guide"></a>
 
