@@ -1,7 +1,7 @@
 use super::lib::window_animation_player::WindowAnimation;
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
-use crate::app::config::app_configs::AppConfigs;
-use crate::app::config::win_matcher::WinMatcher;
+use crate::app::configs::AppConfigs;
+use crate::app::structs::win_matcher::WinMatcher;
 
 #[derive(Debug, Clone)]
 pub struct CoreModuleConfigs {

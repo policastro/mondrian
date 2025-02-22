@@ -1,19 +1,16 @@
+use crate::app::configs::AppConfigs;
+use crate::app::mondrian_message::MondrianMessage;
+use crate::modules::module_impl::ModuleImpl;
+use crate::modules::ConfigurableModule;
+use crate::modules::Module;
+use crate::win32::api::misc::get_current_thread_id;
+use crate::win32::api::misc::post_empty_thread_message;
 use inputbot::BlockInput;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std::thread;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
-
-use crate::{
-    app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage},
-    modules::{module_impl::ModuleImpl, ConfigurableModule, Module},
-    win32::api::misc::{get_current_thread_id, post_empty_thread_message},
-};
-use std::{
-    sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc::Sender,
-        Arc,
-    },
-    thread,
-};
 
 use inputbot::KeybdKey::*;
 

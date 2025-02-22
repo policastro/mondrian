@@ -1,7 +1,7 @@
-use crate::{
-    app::{area_tree::layout_strategy::LayoutStrategyEnum, config::win_matcher::WinMatcher},
-    modules::tiles_manager::{configs::CoreModuleConfigs, lib::window_animation_player::WindowAnimation},
-};
+use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::app::structs::win_matcher::WinMatcher;
+use crate::modules::tiles_manager::configs::CoreModuleConfigs;
+use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
 
 #[derive(Default)]
 pub struct TilesManagerConfig {

@@ -1,4 +1,4 @@
-use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
+use crate::app::{configs::AppConfigs, mondrian_message::MondrianMessage};
 use inputbot::KeybdKey::*;
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;

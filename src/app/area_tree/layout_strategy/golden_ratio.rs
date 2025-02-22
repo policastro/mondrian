@@ -1,12 +1,11 @@
-use serde::{Deserialize, Serialize};
-
-use crate::app::{
-    config::app_configs::deserializers,
-    structs::{direction::Direction, orientation::Orientation},
-};
-
-use super::{LayoutStrategy, TreeOperation};
+use super::LayoutStrategy;
+use super::TreeOperation;
+use crate::app::configs::deserializers;
+use crate::app::structs::direction::Direction;
+use crate::app::structs::orientation::Orientation;
+use serde::Deserialize;
 use serde::Deserializer;
+use serde::Serialize;
 
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 #[serde(default)]

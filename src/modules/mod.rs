@@ -58,7 +58,7 @@ pub mod file_watcher {
     pub mod module;
 }
 
-use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
+use crate::app::{configs::AppConfigs, mondrian_message::MondrianMessage};
 
 pub trait Module {
     fn start(&mut self);
@@ -75,7 +75,8 @@ pub trait ConfigurableModule: Module {
 }
 
 pub(in crate::modules) mod module_impl {
-    use crate::app::{config::app_configs::AppConfigs, mondrian_message::MondrianMessage};
+    use crate::app::configs::AppConfigs;
+    use crate::app::mondrian_message::MondrianMessage;
 
     use super::Module;
 

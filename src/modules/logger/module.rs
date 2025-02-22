@@ -1,4 +1,4 @@
-use crate::app::config::app_configs::AppConfigs;
+use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::win32::window::window_ref::WindowRef;

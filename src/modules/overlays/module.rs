@@ -2,7 +2,7 @@ use super::configs::OverlaysModuleConfigs;
 use super::lib::overlay_manager::OverlaysManager;
 use super::lib::overlays_event_handler::OverlayEventHandler;
 use super::lib::utils::overlay::overlay_win_proc;
-use crate::app::config::app_configs::AppConfigs;
+use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::WindowTileState;
 use crate::modules::module_impl::ModuleImpl;

@@ -1,5 +1,4 @@
-use crate::app::config::app_configs::AppConfigs;
-use crate::app::config::win_matcher;
+use crate::app::{configs::AppConfigs, structs::win_matcher};
 
 pub struct EventMonitorModuleConfigs {
     pub default_insert_in_monitor: bool,

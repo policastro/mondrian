@@ -1,7 +1,7 @@
 use super::filter::skip_window;
-use crate::app::config::win_matcher::WinMatcher;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::WindowEvent;
+use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::api::window::is_user_managable_window;
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;

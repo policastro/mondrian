@@ -1,7 +1,7 @@
 use super::color::Color;
 use super::utils;
 use super::utils::overlay::OverlayBase;
-use crate::app::config::app_configs::deserializers;
+use crate::app::configs::deserializers;
 use crate::win32::api::misc::post_empyt_message;
 use crate::win32::api::misc::post_message;
 use crate::win32::api::window::destroy_window;

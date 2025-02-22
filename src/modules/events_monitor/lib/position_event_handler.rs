@@ -1,11 +1,11 @@
 use super::filter::skip_window;
-use crate::app::config::win_matcher::WinMatcher;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::WindowEvent;
 use crate::app::structs::area::Area;
 use crate::app::structs::point::Point;
+use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::get_window_minmax_size;

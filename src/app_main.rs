@@ -1,6 +1,6 @@
-use crate::app::config::app_configs::AppConfigs;
-use crate::app::config::assets::Asset;
-use crate::app::config::cli_args::CliArgs;
+use crate::app::assets::Asset;
+use crate::app::cli_args::CliArgs;
+use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::events_monitor::module::EventsMonitorModule;
 use crate::modules::file_watcher::module::FileWatcherModule;

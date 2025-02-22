@@ -1,5 +1,5 @@
-use crate::app::config::app_configs::AppConfigs;
-use crate::app::config::assets::Asset;
+use crate::app::assets::Asset;
+use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::Module;
@@ -7,7 +7,6 @@ use crate::win32::api::misc::get_current_thread_id;
 use crate::win32::api::misc::post_empty_thread_message;
 use crate::win32::win_event_loop::next_win_event_loop_iteration;
 use std::io::Cursor;
-// use image::ImageReader;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicU8;

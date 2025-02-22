@@ -1,3 +1,6 @@
+pub mod assets;
+pub mod cli_args;
+pub mod configs;
 pub mod mondrian_message;
 
 pub mod area_tree {
@@ -12,11 +15,5 @@ pub mod structs {
     pub mod direction;
     pub mod orientation;
     pub mod point;
-}
-
-pub mod config {
-    pub mod app_configs;
-    pub mod assets;
-    pub mod cli_args;
     pub mod win_matcher;
 }

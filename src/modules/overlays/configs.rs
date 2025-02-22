@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-
-use crate::app::config::app_configs::AppConfigs;
+use crate::app::configs::AppConfigs;
 
 use super::lib::overlay::OverlayParams;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]

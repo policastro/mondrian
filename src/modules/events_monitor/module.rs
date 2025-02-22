@@ -4,7 +4,7 @@ use super::lib::maximize_event_handler::MaximizeEventHandler;
 use super::lib::minimize_event_handler::MinimizeEventHandler;
 use super::lib::open_event_handler::OpenCloseEventHandler;
 use super::lib::position_event_handler::PositionEventHandler;
-use crate::app::config::app_configs::AppConfigs;
+use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::SystemEvent;
 use crate::modules::module_impl::ModuleImpl;
