@@ -13,7 +13,7 @@ use crate::modules::Module;
 use clap::Parser;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
-use log4rs::append::rolling_file::policy::compound::roll::delete::DeleteRoller;
+use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
 use log4rs::append::rolling_file::policy::compound::trigger::size::SizeTrigger;
 use log4rs::append::rolling_file::policy::compound::CompoundPolicy;
 use log4rs::append::rolling_file::RollingFileAppender;
@@ -126,16 +126,32 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
     let console: ConsoleAppender = ConsoleAppender::builder().encoder(Box::new(pattern.clone())).build();
 
     const FILE_SIZE: u64 = 10 * 1024 * 1024; // INFO: 10 MB
-    let policy = CompoundPolicy::new(Box::new(SizeTrigger::new(FILE_SIZE)), Box::new(DeleteRoller::new()));
-    let file_all_app: RollingFileAppender = RollingFileAppender::builder()
+    const NUM_FILES: u32 = 3;
+
+    let file_all_policy = CompoundPolicy::new(
+        Box::new(SizeTrigger::new(FILE_SIZE)),
+        Box::new(
+            FixedWindowRoller::builder()
+                .build("./logs/mondrian.{}.gz", NUM_FILES)
+                .expect("Failed to create roller"),
+        ),
+    );
+    let log_file_all: RollingFileAppender = RollingFileAppender::builder()
         .encoder(Box::new(pattern.clone()))
-        .build("./logs/mondrian.log", Box::new(policy))
+        .build("./logs/mondrian.log", Box::new(file_all_policy))
         .unwrap();
 
-    let policy = CompoundPolicy::new(Box::new(SizeTrigger::new(FILE_SIZE)), Box::new(DeleteRoller::new()));
-    let file_errors_app: RollingFileAppender = RollingFileAppender::builder()
+    let file_errors_policy = CompoundPolicy::new(
+        Box::new(SizeTrigger::new(FILE_SIZE)),
+        Box::new(
+            FixedWindowRoller::builder()
+                .build("./logs/errors.{}.gz", NUM_FILES)
+                .expect("Failed to create roller"),
+        ),
+    );
+    let log_file_errors: RollingFileAppender = RollingFileAppender::builder()
         .encoder(Box::new(pattern.clone()))
-        .build("./logs/errors.log", Box::new(policy))
+        .build("./logs/errors.log", Box::new(file_errors_policy))
         .unwrap();
 
     let mut root_builder = Root::builder().appender("console");
@@ -150,11 +166,11 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
 
     let config = log4rs::config::Config::builder()
         .appender(Appender::builder().build("console", Box::new(console)))
-        .appender(Appender::builder().build("file_all", Box::new(file_all_app)))
+        .appender(Appender::builder().build("file_all", Box::new(log_file_all)))
         .appender(
             Appender::builder()
                 .filter(Box::new(ThresholdFilter::new(LevelFilter::Error)))
-                .build("file_errors", Box::new(file_errors_app)),
+                .build("file_errors", Box::new(log_file_errors)),
         )
         .build(root_builder.build(level))
         .unwrap();

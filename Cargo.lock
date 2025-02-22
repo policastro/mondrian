@@ -1223,6 +1223,7 @@ dependencies = [
  "arc-swap",
  "chrono",
  "derivative",
+ "flate2",
  "fnv",
  "humantime",
  "libc",
@@ -1296,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "mondrian"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "clap",
  "dirs",
