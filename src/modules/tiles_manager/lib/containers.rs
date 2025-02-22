@@ -115,7 +115,7 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
             .map(|(k, v)| ContainerEntry::new(k.clone(), v))
     }
 
-    // NOTE: finds the closest container in the given direction, ignoring the one in which the ref_point is
+    // INFO: finds the closest container in the given direction, ignoring the one in which the ref_point is
     fn find_closest_at(
         &self,
         ref_point: (i32, i32),

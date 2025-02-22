@@ -28,30 +28,29 @@ ratio = 65           # ratio of the first split
 
 [modules.keybindings]
 enabled = true # enables or disables the keybindings module
-default_modifier = "ALT" # default modifier for keybindings, it can be "CTRL", "ALT", "SHIFT" or any combination of them (e.g. "CTRL+ALT+SHIFT")
 bindings = [
     # { key = "X", action = "quit" },                                   # e.g. when pressing <default_modifier>+X, the action will be "quit"
     # { modifier = "CTRL+ALT", key = "R", action = "refresh-config" },  # e.g. when pressing CTRL+ALT+R, the action will be "refresh-config"
     # Navigation
-    { modifier = "CTRL+ALT", key = "left", action = "focus left" },
-    { modifier = "CTRL+ALT", key = "right", action = "focus right" },
-    { modifier = "CTRL+ALT", key = "up", action = "focus up" },
-    { modifier = "CTRL+ALT", key = "down", action = "focus down" },
+    { modifiers = "CTRL+ALT", key = "left", action = "focus left" },
+    { modifiers = "CTRL+ALT", key = "right", action = "focus right" },
+    { modifiers = "CTRL+ALT", key = "up", action = "focus up" },
+    { modifiers = "CTRL+ALT", key = "down", action = "focus down" },
     # Movement
-    { modifier = "CTRL+ALT+SHIFT", key = "left", action = "move left" },
-    { modifier = "CTRL+ALT+SHIFT", key = "right", action = "move right" },
-    { modifier = "CTRL+ALT+SHIFT", key = "up", action = "move up" },
-    { modifier = "CTRL+ALT+SHIFT", key = "down", action = "move down" },
+    { modifiers = "CTRL+ALT+SHIFT", key = "left", action = "move left" },
+    { modifiers = "CTRL+ALT+SHIFT", key = "right", action = "move right" },
+    { modifiers = "CTRL+ALT+SHIFT", key = "up", action = "move up" },
+    { modifiers = "CTRL+ALT+SHIFT", key = "down", action = "move down" },
     # Resize
-    { modifier = "CTRL+SHIFT", key = "left", action = "resize left 150" },
-    { modifier = "CTRL+SHIFT", key = "right", action = "resize right 150" },
-    { modifier = "CTRL+SHIFT", key = "up", action = "resize up 150" },
-    { modifier = "CTRL+SHIFT", key = "down", action = "resize down 150" },
+    { modifiers = "CTRL+SHIFT", key = "left", action = "resize left 150" },
+    { modifiers = "CTRL+SHIFT", key = "right", action = "resize right 150" },
+    { modifiers = "CTRL+SHIFT", key = "up", action = "resize up 150" },
+    { modifiers = "CTRL+SHIFT", key = "down", action = "resize down 150" },
     # Others
-    { key = "r", action = "release" },
-    { key = "f", action = "focalize" },
-    { key = "m", action = "minimize" },
-    { key = "v", action = "invert" },
+    { modifiers = "ALT", key = "r", action = "release" },
+    { modifiers = "ALT", key = "f", action = "focalize" },
+    { modifiers = "ALT", key = "m", action = "minimize" },
+    { modifiers = "ALT", key = "v", action = "invert" },
     { modifier = "ALT+SHIFT", key = "p", action = "pause" },
     { modifier = "ALT+SHIFT", key = "r", action = "refresh-config" },
 ]

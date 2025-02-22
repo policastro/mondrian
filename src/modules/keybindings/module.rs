@@ -6,6 +6,7 @@ use crate::modules::Module;
 use crate::win32::api::misc::get_current_thread_id;
 use crate::win32::api::misc::post_empty_thread_message;
 use inputbot::BlockInput;
+use inputbot::KeybdKey;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -50,40 +51,46 @@ impl ModuleImpl for KeybindingsModule {
 
         let bus = self.bus.clone();
         let main_thread_id = self.main_thread_id.clone();
-        let mut bindings = self.configs.get_grouped_bindings();
+        let mut grouped_bindings = self.configs.group_by_key();
 
         // INFO: when paused, keeps only the bindings to unpause
         if self.paused {
-            bindings.values_mut().for_each(|v| v.retain(|(_, _, p)| *p));
-            bindings.retain(|_, v| !v.is_empty());
+            grouped_bindings.values_mut().for_each(|v| {
+                v.retain(|b| {
+                    matches!(
+                        b.action(),
+                        MondrianMessage::Pause(_) | MondrianMessage::PauseModule(_, _)
+                    )
+                })
+            });
+            grouped_bindings.retain(|_, v| !v.is_empty());
         }
 
-        self.binded_keys = bindings.clone().into_keys().collect();
+        self.binded_keys = grouped_bindings.clone().into_keys().collect();
         if self.binded_keys.is_empty() {
             self.running.store(false, Ordering::SeqCst);
             return;
         }
 
-        for (key, list_mod_command) in bindings {
+        const ALL_MODIFIERS: &[KeybdKey] = &[
+            LAltKey,
+            LControlKey,
+            LShiftKey,
+            LSuper,
+            RAltKey,
+            RControlKey,
+            RShiftKey,
+            RSuper,
+        ];
+        for (key, binding) in grouped_bindings {
             let bus = bus.clone();
             key.blockable_bind(move || {
-                for (m, c, _) in list_mod_command.iter() {
-                    let skip = [
-                        LAltKey,
-                        LControlKey,
-                        LShiftKey,
-                        LSuper,
-                        RAltKey,
-                        RControlKey,
-                        RShiftKey,
-                        RSuper,
-                    ]
-                    .iter()
-                    .filter(|k| !m.contains(k))
-                    .any(|m| m.is_pressed()); // TODO: to be improved
+                for b in binding.iter() {
+                    let (m, a) = (b.modifiers(), b.action());
+                    let skip = ALL_MODIFIERS.iter().filter(|k| !m.contains(k)).any(|m| m.is_pressed()); // INFO: only the binding modifiers must be pressed
 
-                    if m.iter().all(|m| m.is_pressed()) && !skip {
-                        bus.send(c.clone()).expect("Failed to send command");
+                    if !skip && b.are_modifiers_pressed() {
+                        bus.send(a.clone()).inspect_err(|e| log::error!("{}", e)).unwrap();
                         return BlockInput::Block;
                     }
                 }

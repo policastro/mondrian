@@ -82,43 +82,42 @@ If the configuration file does not exist, it will be created automatically when 
 
 #### Configuration options
 
-| **Option**                               | **Description**                                                             | **Values**                                                                         | **Default**                        |
-| ---------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------- |
-| `layout.tiling_strategy`                 | Tiling strategy                                                             | `"golden_ratio"`, `"horizontal"`, `"vertical"`, `"twostep"`, `"squared"`           | `"golden_ratio"`                   |
-| `layout.animations_enabled`              | Enables/disables the animations                                             | `true`, `false`                                                                    | `true`                             |
-| `layout.animations_duration`             | Duration of the animations in ms                                            | 100 - 10000                                                                        | 300                                |
-| `layout.animations_framerate`            | Framerate of the animations                                                 | 10 - 240                                                                           | 60                                 |
-| `layout.animation_type`                  | Animation type                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case)  | `"linear"`                         |
-| `layout.tiles_padding`                   | Padding between tiles                                                       | 0 - 100                                                                            | 12                                 |
-| `layout.border_padding`                  | Padding between border and tiles                                            | 0 - 100                                                                            | 18                                 |
-| `layout.focalized_padding`               | Padding between border and focalized window                                 | 0 - 120                                                                            | 8                                  |
-| `layout.insert_in_monitor`               | If true, moving the window to a new monitor inserts it rather than swapping | `true`, `false`                                                                    | `true`                             |
-| `layout.free_move_in_monitor`            | If true, free moving the window to a new monitor is enabled by default      | `true`, `false`                                                                    | `false`                            |
-| `layout.golden_ratio.ratio`              | The ratio of the first split                                                | 10 - 90                                                                            | 50                                 |
-| `layout.golden_ratio.clockwise`          | Places the windows clockwise or counterclockwise                            | `true`, `false`                                                                    | `true`                             |
-| `layout.golden_ratio.vertical`           | If true, the layout will be vertical                                        | `true`, `false`                                                                    | `false`                            |
-| `layout.twostep.first_step`              | First insertion direction                                                   | `"right"`, `"left"`, `"up"`, `"down"`                                              | `"right"`                          |
-| `layout.twostep.second_step`             | Second insertion direction                                                  | `"right"`, `"left"`, `"up"`, `"down"`                                              | `"down"`                           |
-| `layout.twostep.ratio`                   | Ratio of the first split                                                    | 10 - 90                                                                            | 50                                 |
-| `layout.horizontal.grow_right`           | If true, the layout will grow on the right side                             | `true`, `false`                                                                    | `true`                             |
-| `layout.vertical.grow_down`              | If true, the layout will grow on the bottom side                            | `true`, `false`                                                                    | `true`                             |
-| `modules.keybindings.enabled`            | Enables/disables the keybindings module                                     | `true`, `false`                                                                    | `false`                            |
-| `modules.keybindings.default_modifier`   | Default modifier for keybindings                                            | any combination of `"ALT"`, `"CTRL"`, `"SHIFT"` joined by `+` (e.g. `"ALT+SHIFT"`) | `ALT`                              |
-| `modules.keybindings.bindings`           | Custom keybindings                                                          | check the relative [section](#keybindings-guide) for more info.                    | -                                  |
-| `modules.overlays.enabled`               | Enables/disables the overlays module                                        | `true`, `false`                                                                    | `true`                             |
-| `modules.overlays.update_while_resizing` | Updates the overlays while resizing                                         | `true`, `false`                                                                    | `true`                             |
-| `modules.overlays.active.enabled`        | Enables/disables the overlay for the active window                          | `true`, `false`                                                                    | `true`                             |
-| `modules.overlays.active.thickness`      | Thickness of the border                                                     | 0 - 100                                                                            | 4                                  |
-| `modules.overlays.active.padding`        | Padding between the overlay and the window                                  | 0 - 30                                                                             | 0                                  |
-| `modules.overlays.active.color`          | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                         | `[254, 74, 73]` (or `"#FE4A49"`)   |
-| `modules.overlays.inactive.enabled`      | Enables/disables the overlays for the inactive windows                      | `true`,`false`                                                                     | `true`                             |
-| `modules.overlays.inactive.thickness`    | Thickness of the border                                                     | 0 - 100                                                                            | 4                                  |
-| `modules.overlays.inactive.padding`      | Padding between the overlay and the window                                  | 0 - 30                                                                             | 0                                  |
-| `modules.overlays.inactive.color`        | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                         | `[254, 215, 102]` (or `"#FED766"`) |
-| `advanced.detect_maximized_windows`      | Prevents maximized windows from being managed                               | `true`, `false`                                                                    | `true`                             |
-| `core.rules`                             | Custom rules to exclude windows from being managed                          | check the relative [section](#core-rules-guide) for more info.                     | -                                  |
-| `core.move_cursor_on_focus`              | Moves the mouse cursor to the center of the focused window                  | `true`, `false`                                                                    | `false`                            |
-| `core.auto_reload_configs`               | Reloads the configuration on changes                                        | `true`, `false`                                                                    | `false`                            |
+| **Option**                               | **Description**                                                             | **Values**                                                                        | **Default**                        |
+| ---------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------- |
+| `layout.tiling_strategy`                 | Tiling strategy                                                             | `"golden_ratio"`, `"horizontal"`, `"vertical"`, `"twostep"`, `"squared"`          | `"golden_ratio"`                   |
+| `layout.animations_enabled`              | Enables/disables the animations                                             | `true`, `false`                                                                   | `true`                             |
+| `layout.animations_duration`             | Duration of the animations in ms                                            | 100 - 10000                                                                       | 300                                |
+| `layout.animations_framerate`            | Framerate of the animations                                                 | 10 - 240                                                                          | 60                                 |
+| `layout.animation_type`                  | Animation type                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case) | `"linear"`                         |
+| `layout.tiles_padding`                   | Padding between tiles                                                       | 0 - 100                                                                           | 12                                 |
+| `layout.border_padding`                  | Padding between border and tiles                                            | 0 - 100                                                                           | 18                                 |
+| `layout.focalized_padding`               | Padding between border and focalized window                                 | 0 - 120                                                                           | 8                                  |
+| `layout.insert_in_monitor`               | If true, moving the window to a new monitor inserts it rather than swapping | `true`, `false`                                                                   | `true`                             |
+| `layout.free_move_in_monitor`            | If true, free moving the window to a new monitor is enabled by default      | `true`, `false`                                                                   | `false`                            |
+| `layout.golden_ratio.ratio`              | The ratio of the first split                                                | 10 - 90                                                                           | 50                                 |
+| `layout.golden_ratio.clockwise`          | Places the windows clockwise or counterclockwise                            | `true`, `false`                                                                   | `true`                             |
+| `layout.golden_ratio.vertical`           | If true, the layout will be vertical                                        | `true`, `false`                                                                   | `false`                            |
+| `layout.twostep.first_step`              | First insertion direction                                                   | `"right"`, `"left"`, `"up"`, `"down"`                                             | `"right"`                          |
+| `layout.twostep.second_step`             | Second insertion direction                                                  | `"right"`, `"left"`, `"up"`, `"down"`                                             | `"down"`                           |
+| `layout.twostep.ratio`                   | Ratio of the first split                                                    | 10 - 90                                                                           | 50                                 |
+| `layout.horizontal.grow_right`           | If true, the layout will grow on the right side                             | `true`, `false`                                                                   | `true`                             |
+| `layout.vertical.grow_down`              | If true, the layout will grow on the bottom side                            | `true`, `false`                                                                   | `true`                             |
+| `modules.keybindings.enabled`            | Enables/disables the keybindings module                                     | `true`, `false`                                                                   | `false`                            |
+| `modules.keybindings.bindings`           | Custom keybindings                                                          | check the relative [section](#keybindings-guide) for more info.                   | -                                  |
+| `modules.overlays.enabled`               | Enables/disables the overlays module                                        | `true`, `false`                                                                   | `true`                             |
+| `modules.overlays.update_while_resizing` | Updates the overlays while resizing                                         | `true`, `false`                                                                   | `true`                             |
+| `modules.overlays.active.enabled`        | Enables/disables the overlay for the active window                          | `true`, `false`                                                                   | `true`                             |
+| `modules.overlays.active.thickness`      | Thickness of the border                                                     | 0 - 100                                                                           | 4                                  |
+| `modules.overlays.active.padding`        | Padding between the overlay and the window                                  | 0 - 30                                                                            | 0                                  |
+| `modules.overlays.active.color`          | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[254, 74, 73]` (or `"#FE4A49"`)   |
+| `modules.overlays.inactive.enabled`      | Enables/disables the overlays for the inactive windows                      | `true`,`false`                                                                    | `true`                             |
+| `modules.overlays.inactive.thickness`    | Thickness of the border                                                     | 0 - 100                                                                           | 4                                  |
+| `modules.overlays.inactive.padding`      | Padding between the overlay and the window                                  | 0 - 30                                                                            | 0                                  |
+| `modules.overlays.inactive.color`        | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[254, 215, 102]` (or `"#FED766"`) |
+| `advanced.detect_maximized_windows`      | Prevents maximized windows from being managed                               | `true`, `false`                                                                   | `true`                             |
+| `core.rules`                             | Custom rules to exclude windows from being managed                          | check the relative [section](#core-rules-guide) for more info.                    | -                                  |
+| `core.move_cursor_on_focus`              | Moves the mouse cursor to the center of the focused window                  | `true`, `false`                                                                   | `false`                            |
+| `core.auto_reload_configs`               | Reloads the configuration on changes                                        | `true`, `false`                                                                   | `false`                            |
 
 All the options are optional and if not specified, the default values will be used.
 
@@ -136,13 +135,12 @@ Each binding has the following format:
 
 ```toml
 bindings = [
-    { modifier = "MODIFIER", key = "KEY", action = "ACTION" }
+    { modifiers = "MODIFIERS", key = "KEY", action = "ACTION" } # "modifiers" can be also spelled as "modifier" or "mod"
 ]
 ```
 
 The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN` or any combination of them joined by `+` (e.g. `ALT+SHIFT`).
-This parameter is optional and if not specified, the default modifier defined in the `modules.keybindings.default_modifier` option will be used.
-However, if the `key` parameter is a function key (`F1`, `F2`, ...), no modifier will be applied unless explicitly specified in the binding, not even the default one.
+This parameter is required, except when the `key` is a function key, in which case it can be omitted.
 
 The **available keys** are:
 
@@ -182,10 +180,10 @@ Some examples:
 ```toml
 [modules.keybindings]
 enabled = true
-default_modifier = "ALT"
 bindings = [
-    { key = "X", action = "quit" },                                  # when pressing ALT+X, the action will be "quit"
-    { modifier = "CTRL+ALT", key = "left", action = "focus left" }   # when pressing CTRL+ALT+Left, the action will be "focus left"
+    { key = "F4", action = "quit" },                                  # F4 to "quit"
+    { modifiers = "WIN+ALT",  key = "F4", action = "release" },       # WIN+ALT+F4 to "release"
+    { modifiers = "CTRL+ALT", key = "left", action = "focus left" }   # CTRL+ALT+Left to "focus left"
 ]
 ```
 

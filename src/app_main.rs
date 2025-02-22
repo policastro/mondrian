@@ -125,7 +125,7 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
     let pattern = PatternEncoder::new("{h({d(%Y-%m-%d %H:%M:%S)} {({l}):5.5} {f}:{L})}: {m}{n}");
     let console: ConsoleAppender = ConsoleAppender::builder().encoder(Box::new(pattern.clone())).build();
 
-    const FILE_SIZE: u64 = 10 * 1024 * 1024; // NOTE: 10 MB
+    const FILE_SIZE: u64 = 10 * 1024 * 1024; // INFO: 10 MB
     let policy = CompoundPolicy::new(Box::new(SizeTrigger::new(FILE_SIZE)), Box::new(DeleteRoller::new()));
     let file_all_app: RollingFileAppender = RollingFileAppender::builder()
         .encoder(Box::new(pattern.clone()))
