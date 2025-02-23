@@ -89,9 +89,9 @@ If the configuration file does not exist, it will be created automatically when 
 | `layout.animations_duration`             | Duration of the animations in ms                                            | 100 - 10000                                                                       | 300                                |
 | `layout.animations_framerate`            | Framerate of the animations                                                 | 10 - 240                                                                          | 60                                 |
 | `layout.animation_type`                  | Animation type                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case) | `"linear"`                         |
-| `layout.tiles_padding`                   | Padding between tiles                                                       | 0 - 100                                                                           | 12                                 |
-| `layout.border_padding`                  | Padding between border and tiles                                            | 0 - 100                                                                           | 18                                 |
-| `layout.focalized_padding`               | Padding between border and focalized window                                 | 0 - 120                                                                           | 8                                  |
+| `layout.tiles_padding`                   | Padding between tiles (in px)                                               | 0 - 100                                                                           | 12                                 |
+| `layout.border_padding`                  | Padding between border and tiles (in px)                                    | 0 - 100                                                                           | 18                                 |
+| `layout.focalized_padding`               | Padding between border and focalized window (in px)                         | 0 - 120                                                                           | 8                                  |
 | `layout.insert_in_monitor`               | If true, moving the window to a new monitor inserts it rather than swapping | `true`, `false`                                                                   | `true`                             |
 | `layout.free_move_in_monitor`            | If true, free moving the window to a new monitor is enabled by default      | `true`, `false`                                                                   | `false`                            |
 | `layout.golden_ratio.ratio`              | The ratio of the first split                                                | 10 - 90                                                                           | 50                                 |
@@ -107,12 +107,12 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.enabled`               | Enables/disables the overlays module                                        | `true`, `false`                                                                   | `true`                             |
 | `modules.overlays.update_while_resizing` | Updates the overlays while resizing                                         | `true`, `false`                                                                   | `true`                             |
 | `modules.overlays.active.enabled`        | Enables/disables the overlay for the active window                          | `true`, `false`                                                                   | `true`                             |
-| `modules.overlays.active.thickness`      | Thickness of the border                                                     | 0 - 100                                                                           | 4                                  |
-| `modules.overlays.active.padding`        | Padding between the overlay and the window                                  | 0 - 30                                                                            | 0                                  |
+| `modules.overlays.active.thickness`      | Thickness of the border (in px)                                             | 0 - 100                                                                           | 4                                  |
+| `modules.overlays.active.padding`        | Padding between the overlay and the window (in px)                          | 0 - 30                                                                            | 0                                  |
 | `modules.overlays.active.color`          | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[254, 74, 73]` (or `"#FE4A49"`)   |
 | `modules.overlays.inactive.enabled`      | Enables/disables the overlays for the inactive windows                      | `true`,`false`                                                                    | `true`                             |
-| `modules.overlays.inactive.thickness`    | Thickness of the border                                                     | 0 - 100                                                                           | 4                                  |
-| `modules.overlays.inactive.padding`      | Padding between the overlay and the window                                  | 0 - 30                                                                            | 0                                  |
+| `modules.overlays.inactive.thickness`    | Thickness of the border (in px)                                             | 0 - 100                                                                           | 4                                  |
+| `modules.overlays.inactive.padding`      | Padding between the overlay and the window (in px)                          | 0 - 30                                                                            | 0                                  |
 | `modules.overlays.inactive.color`        | Color of the overlay                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[254, 215, 102]` (or `"#FED766"`) |
 | `advanced.detect_maximized_windows`      | Prevents maximized windows from being managed                               | `true`, `false`                                                                   | `true`                             |
 | `core.rules`                             | Custom rules to exclude windows from being managed                          | check the relative [section](#core-rules-guide) for more info.                    | -                                  |
@@ -120,13 +120,6 @@ If the configuration file does not exist, it will be created automatically when 
 | `core.auto_reload_configs`               | Reloads the configuration on changes                                        | `true`, `false`                                                                   | `false`                            |
 
 All the options are optional and if not specified, the default values will be used.
-
-The only exception is for the `modules.overlays.active.*` and `modules.overlays.inactive.*` options. When at least one of them is specified, the other options will have the following default values:
-
-- `modules.overlays.*.enabled = false`;
-- `modules.overlays.*.thickness = 0`;
-- `modules.overlays.*.padding = 0`;
-- `modules.overlays.*.color = [0, 0, 0]`.
 
 #### Custom keybindings with `modules.keybindings.bindings` <a name="keybindings-guide"></a>
 
@@ -162,7 +155,7 @@ The **available actions** are:
 - `move <left|right|up|down>`: swaps the focused window with the window in the specified direction;
 - `insert <left|right|up|down>`: adds the focused window in the monitor in the specified direction;
 - `moveinsert <left|right|up|down>`: first tries the `move` and then the `insert` action if no window is found in the specified direction;
-- `resize <left|right|up|down> <40-250>`: resizes the focused window in the specified direction by the specified amount;
+- `resize <left|right|up|down> <40-250>`: resizes the focused window in the specified direction by the specified amount (in pixels);
 - `invert`: inverts the orientation of the focused window and the neighboring windows;
 - `release`: removes the focused window from the tiling manager, or adds it back;
 - `focalize`: focalizes the focused window (i.e. hides the neighboring windows) or unfocalizes it (i.e. restores the neighboring windows);

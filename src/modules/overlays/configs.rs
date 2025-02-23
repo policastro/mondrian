@@ -1,5 +1,6 @@
 use crate::app::configs::AppConfigs;
 
+use super::lib::color::Color;
 use super::lib::overlay::OverlayParams;
 use serde::Deserialize;
 use serde::Serialize;
@@ -9,9 +10,12 @@ use serde::Serialize;
 pub struct OverlaysModuleConfigs {
     pub enabled: bool,
     pub update_while_resizing: bool,
-    #[serde(default = "OverlayParams::default_active")]
+    #[serde(default = "OverlayParams::default_active", deserialize_with = "deserialize_active")]
     pub active: OverlayParams,
-    #[serde(default = "OverlayParams::default_inactive")]
+    #[serde(
+        default = "OverlayParams::default_inactive",
+        deserialize_with = "deserialize_inactive"
+    )]
     pub inactive: OverlayParams,
 }
 
@@ -57,5 +61,38 @@ impl OverlaysModuleConfigs {
 
     pub(crate) fn is_enabled(&self) -> bool {
         self.get_active_enabled() || self.get_inactive_enabled()
+    }
+}
+
+#[derive(Deserialize)]
+struct ExtOverlayParams {
+    pub enabled: Option<bool>,
+    pub color: Option<Color>,
+    pub thickness: Option<u8>,
+    pub padding: Option<u8>,
+}
+
+fn deserialize_active<'de, D>(de: D) -> Result<OverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let ext: ExtOverlayParams = serde::Deserialize::deserialize(de)?;
+    Ok(merge_overlay_params(OverlayParams::default_active(), ext))
+}
+
+fn deserialize_inactive<'de, D>(de: D) -> Result<OverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let ext: ExtOverlayParams = serde::Deserialize::deserialize(de)?;
+    Ok(merge_overlay_params(OverlayParams::default_inactive(), ext))
+}
+
+fn merge_overlay_params(base: OverlayParams, ext_overlay_params: ExtOverlayParams) -> OverlayParams {
+    OverlayParams {
+        enabled: ext_overlay_params.enabled.unwrap_or(base.enabled),
+        color: ext_overlay_params.color.unwrap_or(base.color),
+        thickness: ext_overlay_params.thickness.unwrap_or(base.thickness),
+        padding: ext_overlay_params.padding.unwrap_or(base.padding),
     }
 }
