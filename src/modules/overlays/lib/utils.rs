@@ -113,8 +113,8 @@ pub mod overlay {
     }
 
     pub fn get_box_from_target(target: HWND, thickness: u8, padding: u8) -> Option<Area> {
-        let shift1 = ((thickness as i16) / 2) + (padding as i16);
-        let shift2 = thickness as i16 + 2 * (padding as i16);
+        let shift1 = (thickness as i16) + (padding as i16);
+        let shift2 = (thickness as i16 * 2) + 2 * (padding as i16);
         let win = WindowRef::new(target);
         let visible_area = win.get_visible_area();
         Some(visible_area?.shift((-shift1, -shift1, shift2, shift2)))
@@ -128,10 +128,10 @@ pub mod overlay {
             let mut rc: RECT = std::mem::zeroed();
             let _ = GetClientRect(hwnd, &mut rc);
             if thickness > 0 {
-                let h_pen = CreatePen(PS_SOLID, thickness, COLORREF(color.into()));
+                let h_pen = CreatePen(PS_SOLID, thickness * 2, COLORREF(color.into()));
                 let old_pen = SelectObject(hdc, h_pen);
 
-                let _ = Rectangle(hdc, rc.left, rc.top, rc.right, rc.bottom);
+                let _ = Rectangle(hdc, rc.left, rc.top, rc.right + 1, rc.bottom + 1);
 
                 SelectObject(hdc, old_pen);
                 let _ = DeleteObject(h_pen);
