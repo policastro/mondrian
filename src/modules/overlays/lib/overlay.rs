@@ -61,8 +61,10 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
                 loop {
                     match rx.recv() {
                         Ok(OverlayMessage::Configure(p)) => {
-                            post_message(hwnd, utils::overlay::WM_USER_CONFIGURE, Some(p));
-                            params = p;
+                            if p != params {
+                                post_message(hwnd, utils::overlay::WM_USER_CONFIGURE, Some(p));
+                                params = p;
+                            }
                         }
                         Ok(OverlayMessage::Reposition(p)) => {
                             if let Some(p) = p.filter(|p| *p != params) {
@@ -70,8 +72,7 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
                                 params = p;
                             }
                             if let Some(target) = target {
-                                let (thickness, padding) = (params.get_thickness(), params.get_padding());
-                                Self::move_overlay_to_target(hwnd, target, thickness, padding);
+                                Self::move_overlay_to_target(hwnd, target, &params);
                             }
                         }
                         Ok(OverlayMessage::Hide) => {
@@ -128,11 +129,12 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
         }
     }
 
-    fn move_overlay_to_target(overlay: HWND, target: HWND, thickness: u8, padding: u8) {
-        let (x, y, cx, cy) = match utils::overlay::get_box_from_target(target, thickness, padding) {
-            Some(b) => b.into(),
-            None => return,
-        };
+    fn move_overlay_to_target(overlay: HWND, target: HWND, params: &P) {
+        let (x, y, cx, cy) =
+            match utils::overlay::get_box_from_target(target, params.get_thickness(), params.get_padding()) {
+                Some(b) => b.into(),
+                None => return,
+            };
         let flags = SWP_NOSENDCHANGING | SWP_SHOWWINDOW | SWP_NOACTIVATE;
         let _ = unsafe { SetWindowPos(overlay, target, x, y, cx, cy, flags) };
     }
@@ -151,6 +153,8 @@ pub struct OverlayParams {
     pub color: Color,
     #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub thickness: u8,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
+    pub border_radius: u8,
     #[serde(deserialize_with = "deserializers::to_u8_max::<30,_>")]
     pub padding: u8,
 }
@@ -161,30 +165,32 @@ impl Default for OverlayParams {
             enabled: false,
             color: Color::new(0, 0, 0),
             thickness: 0,
+            border_radius: 0,
             padding: 0,
         }
     }
 }
 
 impl OverlayParams {
-    pub fn new(enabled: bool, color: Color, thickness: u8, padding: u8) -> OverlayParams {
+    pub fn new(enabled: bool, color: Color, thickness: u8, border_radius: u8, padding: u8) -> OverlayParams {
         OverlayParams {
             enabled,
             color,
             thickness,
+            border_radius,
             padding,
         }
     }
 
     pub fn empty() -> OverlayParams {
-        OverlayParams::new(false, Color::new(0, 0, 0), 0, 0)
+        OverlayParams::new(false, Color::new(0, 0, 0), 0, 0, 0)
     }
 
     pub fn default_active() -> OverlayParams {
-        OverlayParams::new(true, Color::new(254, 74, 73), 4, 0)
+        OverlayParams::new(true, Color::new(254, 74, 73), 4, 15, 0)
     }
 
     pub fn default_inactive() -> OverlayParams {
-        OverlayParams::new(true, Color::new(254, 215, 102), 4, 0)
+        OverlayParams::new(true, Color::new(254, 215, 102), 4, 15, 0)
     }
 }

@@ -22,8 +22,34 @@ pub enum TMCommand {
 }
 
 impl TMCommand {
-    pub fn require_update(&self) -> bool {
-        !matches!(self, TMCommand::Quit | TMCommand::Focus(_))
+    pub fn can_change_layout(&self) -> bool {
+        match self {
+            TMCommand::WindowEvent(window_event) => match window_event {
+                WindowEvent::Opened(_) => true,
+                WindowEvent::Closed(_) => true,
+                WindowEvent::Minimized(_) => true,
+                WindowEvent::Restored(_) => true,
+                WindowEvent::Maximized(_) => true,
+                WindowEvent::Unmaximized(_) => true,
+                WindowEvent::StartMoveSize(_) => false,
+                WindowEvent::NoMoveSize(_) => true,
+                WindowEvent::Moved(_, _, _, _) => true,
+                WindowEvent::Resized(_, _, _) => true,
+            },
+            TMCommand::SystemEvent(_) => true,
+            TMCommand::Focus(_) => false,
+            TMCommand::Insert(_) => true,
+            TMCommand::Move(_, _) => true,
+            TMCommand::Resize(_, _) => true,
+            TMCommand::Release(_) => true,
+            TMCommand::Update(_) => true,
+            TMCommand::Focalize => true,
+            TMCommand::Invert => true,
+            TMCommand::ListManagedWindows => false,
+            TMCommand::Minimize => true,
+            TMCommand::Quit => false,
+            TMCommand::Amplify => true,
+        }
     }
 }
 

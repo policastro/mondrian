@@ -41,10 +41,8 @@ impl WinEventHandler for OverlayEventHandler {
             self.overlays.lock().unwrap().focus(event.hwnd);
         } else if event.event == EVENT_SYSTEM_MOVESIZESTART {
             self.moving = !self.update_while_resizing;
-            self.overlays.lock().unwrap().suspend();
         } else if event.event == EVENT_SYSTEM_MOVESIZEEND {
             self.moving = false;
-            self.overlays.lock().unwrap().resume();
         }
     }
 

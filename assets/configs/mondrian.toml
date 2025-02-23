@@ -58,13 +58,15 @@ bindings = [
 [modules.overlays]
 enabled = true               # enables or disables the overlays module
 update_while_resizing = true # the overlays will be updated while resizing
-active.enabled = true        # shows the active overlay will be shown
+active.enabled = true        # shows the active overlay
 active.thickness = 4         # thickness of the border
 active.color = "#FE4A49"     # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+active.border_radius = 15    # border radius
 active.padding = 0           # padding between the overlay and the window
 inactive.enabled = true      # shows the inactive overlays
 inactive.thickness = 4       # thickness of the border
 inactive.color = "#FED766"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+inactive.border_radius = 15  # border radius
 inactive.padding = 0         # padding between the overlay and the window
 
 # Other settings

@@ -257,7 +257,7 @@ fn handle_tm(
         Ok(_) => {}
     }
 
-    if event.require_update() {
+    if event.can_change_layout() {
         let windows = tm.get_managed_windows();
         tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
     }

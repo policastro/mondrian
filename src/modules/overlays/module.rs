@@ -4,6 +4,7 @@ use super::lib::overlays_event_handler::OverlayEventHandler;
 use super::lib::utils::overlay::overlay_win_proc;
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
+use crate::app::mondrian_message::WindowEvent;
 use crate::app::mondrian_message::WindowTileState;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::ConfigurableModule;
@@ -125,6 +126,15 @@ impl ModuleImpl for OverlaysModule {
                         .map(|w| *(w.0))
                         .collect();
                     overlays.lock().unwrap().rebuild(&win_set);
+                }
+            }
+            MondrianMessage::WindowEvent(WindowEvent::StartMoveSize(_)) => {
+                if self.is_running() {
+                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                    let mut o = overlays.lock().unwrap();
+                    if !self.configs.update_while_resizing {
+                        o.suspend();
+                    }
                 }
             }
             MondrianMessage::CoreUpdateStart => {

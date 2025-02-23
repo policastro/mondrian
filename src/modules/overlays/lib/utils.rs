@@ -18,14 +18,13 @@ pub mod overlay {
     use windows::Win32::Foundation::WPARAM;
     use windows::Win32::Graphics::Gdi::BeginPaint;
     use windows::Win32::Graphics::Gdi::CreatePen;
+    use windows::Win32::Graphics::Gdi::CreateSolidBrush;
     use windows::Win32::Graphics::Gdi::DeleteObject;
     use windows::Win32::Graphics::Gdi::EndPaint;
     use windows::Win32::Graphics::Gdi::FillRect;
-    use windows::Win32::Graphics::Gdi::GetSysColorBrush;
     use windows::Win32::Graphics::Gdi::InvalidateRect;
-    use windows::Win32::Graphics::Gdi::Rectangle;
+    use windows::Win32::Graphics::Gdi::RoundRect;
     use windows::Win32::Graphics::Gdi::SelectObject;
-    use windows::Win32::Graphics::Gdi::COLOR_WINDOW;
     use windows::Win32::Graphics::Gdi::PAINTSTRUCT;
     use windows::Win32::Graphics::Gdi::PS_SOLID;
     use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
@@ -51,6 +50,7 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::WS_POPUP;
 
     pub const WM_USER_CONFIGURE: u32 = WM_USER + 1;
+    const CUSTOM_ALPHA_COLOR: COLORREF = COLORREF(0);
 
     pub trait OverlayBase {
         fn get_thickness(&self) -> u8;
@@ -67,7 +67,7 @@ pub mod overlay {
             }
             WM_PAINT => {
                 let params = *(GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut OverlayParams);
-                draw_overlay(hwnd, params.thickness as i32, params.color);
+                draw_overlay(hwnd, params.thickness as i32, params.border_radius, params.color);
                 LRESULT(0)
             }
             WM_USER_CONFIGURE => {
@@ -89,8 +89,6 @@ pub mod overlay {
         target: Option<HWND>,
         class_name: &str,
     ) -> HWND {
-        let color_alpha = Color::new(255, 255, 255); // WARNING: only works with white background
-
         let mut hmod: HMODULE = unsafe { std::mem::zeroed() };
         unsafe { GetModuleHandleExW(0, None, &mut hmod).unwrap() };
 
@@ -107,20 +105,21 @@ pub mod overlay {
         show_window(hwnd, SW_SHOWNOACTIVATE);
 
         unsafe {
-            let _ = SetLayeredWindowAttributes(hwnd, COLORREF(color_alpha.into()), 0, LWA_COLORKEY);
+            let _ = SetLayeredWindowAttributes(hwnd, CUSTOM_ALPHA_COLOR, 0, LWA_COLORKEY);
         }
         hwnd
     }
 
     pub fn get_box_from_target(target: HWND, thickness: u8, padding: u8) -> Option<Area> {
-        let shift1 = (thickness as i16) + (padding as i16);
-        let shift2 = (thickness as i16 * 2) + 2 * (padding as i16);
+        let offset = 1.5 * thickness as f32;
+        let shift1 = offset.ceil() as i16 + (padding as i16) - 1;
+        let shift2 = (2.0 * offset).ceil() as i16 + 2 * (padding as i16) - 2;
         let win = WindowRef::new(target);
-        let visible_area = win.get_visible_area();
-        Some(visible_area?.shift((-shift1, -shift1, shift2, shift2)))
+        let visible_area = win.get_visible_area()?;
+        Some(visible_area.shift((-shift1, -shift1, shift2, shift2)))
     }
 
-    pub fn draw_overlay(hwnd: HWND, thickness: i32, color: Color) {
+    pub fn draw_overlay(hwnd: HWND, thickness: i32, border_radius: u8, color: Color) {
         unsafe {
             let mut ps: PAINTSTRUCT = std::mem::zeroed();
             let hdc = BeginPaint(hwnd, &mut ps);
@@ -128,15 +127,32 @@ pub mod overlay {
             let mut rc: RECT = std::mem::zeroed();
             let _ = GetClientRect(hwnd, &mut rc);
             if thickness > 0 {
-                let h_pen = CreatePen(PS_SOLID, thickness * 2, COLORREF(color.into()));
-                let old_pen = SelectObject(hdc, h_pen);
+                let h_pen = CreatePen(PS_SOLID, thickness, COLORREF(color.into()));
+                let h_brush = CreateSolidBrush(CUSTOM_ALPHA_COLOR);
 
-                let _ = Rectangle(hdc, rc.left, rc.top, rc.right + 1, rc.bottom + 1);
+                let old_pen = SelectObject(hdc, h_pen);
+                let old_brush = SelectObject(hdc, h_brush);
+
+                let _ = FillRect(hdc, &rc, h_brush);
+
+                let radius = border_radius.clamp(0, 100) as i32;
+                let _ = RoundRect(
+                    hdc,
+                    rc.left + thickness,
+                    rc.top + thickness,
+                    rc.right + 1 - thickness,
+                    rc.bottom + 1 - thickness,
+                    radius,
+                    radius,
+                );
 
                 SelectObject(hdc, old_pen);
+                SelectObject(hdc, old_brush);
+
                 let _ = DeleteObject(h_pen);
+                let _ = DeleteObject(h_brush);
             } else {
-                let h_brush = GetSysColorBrush(COLOR_WINDOW);
+                let h_brush = CreateSolidBrush(CUSTOM_ALPHA_COLOR);
                 let _ = FillRect(hdc, &rc, h_brush);
             }
 

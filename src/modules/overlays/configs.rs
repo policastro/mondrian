@@ -1,7 +1,7 @@
-use crate::app::configs::AppConfigs;
-
 use super::lib::color::Color;
 use super::lib::overlay::OverlayParams;
+use crate::app::configs::deserializers;
+use crate::app::configs::AppConfigs;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -68,7 +68,11 @@ impl OverlaysModuleConfigs {
 struct ExtOverlayParams {
     pub enabled: Option<bool>,
     pub color: Option<Color>,
+    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
     pub thickness: Option<u8>,
+    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
+    pub border_radius: Option<u8>,
+    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<30,_>")]
     pub padding: Option<u8>,
 }
 
@@ -93,6 +97,7 @@ fn merge_overlay_params(base: OverlayParams, ext_overlay_params: ExtOverlayParam
         enabled: ext_overlay_params.enabled.unwrap_or(base.enabled),
         color: ext_overlay_params.color.unwrap_or(base.color),
         thickness: ext_overlay_params.thickness.unwrap_or(base.thickness),
+        border_radius: ext_overlay_params.border_radius.unwrap_or(base.border_radius),
         padding: ext_overlay_params.padding.unwrap_or(base.padding),
     }
 }
