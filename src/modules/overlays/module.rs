@@ -120,12 +120,15 @@ impl ModuleImpl for OverlaysModule {
             MondrianMessage::UpdatedWindows(windows, _) => {
                 if self.is_running() {
                     let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                    let win_set = windows
+                    let wins = windows
                         .iter()
                         .filter(|w| !matches!(*w.1, WindowTileState::Maximized))
-                        .map(|w| *(w.0))
+                        .map(|w| match w.1 {
+                            WindowTileState::Focalized => (*w.0, self.configs.get_focalized()),
+                            _ => (*w.0, None),
+                        })
                         .collect();
-                    overlays.lock().unwrap().rebuild(&win_set);
+                    overlays.lock().unwrap().rebuild(&wins);
                 }
             }
             MondrianMessage::WindowEvent(WindowEvent::StartMoveSize(_)) => {

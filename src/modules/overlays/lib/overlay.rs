@@ -1,14 +1,11 @@
 use super::color::Color;
 use super::utils;
 use super::utils::overlay::OverlayBase;
-use crate::app::configs::deserializers;
 use crate::win32::api::misc::post_empyt_message;
 use crate::win32::api::misc::post_message;
 use crate::win32::api::window::destroy_window;
 use crate::win32::api::window::show_window;
 use crate::win32::win_event_loop::start_mono_win_event_loop;
-use serde::Deserialize;
-use serde::Serialize;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::thread;
@@ -64,6 +61,9 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
                             if p != params {
                                 post_message(hwnd, utils::overlay::WM_USER_CONFIGURE, Some(p));
                                 params = p;
+                                if let Some(target) = target {
+                                    Self::move_overlay_to_target(hwnd, target, &params);
+                                }
                             }
                         }
                         Ok(OverlayMessage::Reposition(p)) => {
@@ -146,28 +146,18 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Drop for Overlay<P> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OverlayParams {
     pub enabled: bool,
     pub color: Color,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub thickness: u8,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub border_radius: u8,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<30,_>")]
     pub padding: u8,
 }
 
 impl Default for OverlayParams {
     fn default() -> Self {
-        OverlayParams {
-            enabled: false,
-            color: Color::new(0, 0, 0),
-            thickness: 0,
-            border_radius: 0,
-            padding: 0,
-        }
+        OverlayParams::empty()
     }
 }
 
@@ -184,13 +174,5 @@ impl OverlayParams {
 
     pub fn empty() -> OverlayParams {
         OverlayParams::new(false, Color::new(0, 0, 0), 0, 0, 0)
-    }
-
-    pub fn default_active() -> OverlayParams {
-        OverlayParams::new(true, Color::new(254, 74, 73), 4, 15, 0)
-    }
-
-    pub fn default_inactive() -> OverlayParams {
-        OverlayParams::new(true, Color::new(254, 215, 102), 4, 15, 0)
     }
 }

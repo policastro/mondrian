@@ -6,17 +6,31 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct OverlaysModuleConfigs {
     pub enabled: bool,
     pub update_while_resizing: bool,
-    #[serde(default = "OverlayParams::default_active", deserialize_with = "deserialize_active")]
-    pub active: OverlayParams,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
+    pub thickness: u8,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
+    pub border_radius: u8,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<30,_>")]
+    pub padding: u8,
     #[serde(
-        default = "OverlayParams::default_inactive",
+        default = "ExtOverlayParams::default_active",
+        deserialize_with = "deserialize_active"
+    )]
+    active: ExtOverlayParams,
+    #[serde(
+        default = "ExtOverlayParams::default_inactive",
         deserialize_with = "deserialize_inactive"
     )]
-    pub inactive: OverlayParams,
+    inactive: ExtOverlayParams,
+    #[serde(
+        default = "ExtOverlayParams::default_focalized",
+        deserialize_with = "deserialize_focalized"
+    )]
+    focalized: ExtOverlayParams,
 }
 
 impl Default for OverlaysModuleConfigs {
@@ -24,8 +38,12 @@ impl Default for OverlaysModuleConfigs {
         OverlaysModuleConfigs {
             enabled: true,
             update_while_resizing: true,
-            active: OverlayParams::default_active(),
-            inactive: OverlayParams::default_inactive(),
+            thickness: 4,
+            border_radius: 15,
+            padding: 0,
+            active: ExtOverlayParams::default_active(),
+            inactive: ExtOverlayParams::default_inactive(),
+            focalized: ExtOverlayParams::default_focalized(),
         }
     }
 }
@@ -38,66 +56,103 @@ impl From<&AppConfigs> for OverlaysModuleConfigs {
 
 impl OverlaysModuleConfigs {
     pub(crate) fn get_active(&self) -> Option<OverlayParams> {
+        let overlay_params = self.create_overlay_params(&self.active);
         match &self.active.enabled {
-            true => Some(self.active),
+            true => Some(overlay_params),
             false => None,
         }
     }
 
     pub(crate) fn get_inactive(&self) -> Option<OverlayParams> {
+        let overlay_params = self.create_overlay_params(&self.inactive);
         match &self.inactive.enabled {
-            true => Some(self.inactive),
+            true => Some(overlay_params),
             false => None,
         }
     }
 
-    pub(crate) fn get_active_enabled(&self) -> bool {
-        self.active.enabled
+    pub(crate) fn get_focalized(&self) -> Option<OverlayParams> {
+        let overlay_params = self.create_overlay_params(&self.focalized);
+        match &self.focalized.enabled {
+            true => Some(overlay_params),
+            false => None,
+        }
     }
 
-    pub(crate) fn get_inactive_enabled(&self) -> bool {
-        self.inactive.enabled
+    fn create_overlay_params(&self, ext_overlay_params: &ExtOverlayParams) -> OverlayParams {
+        OverlayParams::new(
+            ext_overlay_params.enabled,
+            ext_overlay_params.color,
+            self.thickness,
+            self.border_radius,
+            self.padding,
+        )
     }
 
     pub(crate) fn is_enabled(&self) -> bool {
-        self.get_active_enabled() || self.get_inactive_enabled()
+        self.active.enabled || self.inactive.enabled || self.focalized.enabled
     }
 }
 
-#[derive(Deserialize)]
-struct ExtOverlayParams {
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+struct ExtOptOverlayParams {
     pub enabled: Option<bool>,
     pub color: Option<Color>,
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
-    pub thickness: Option<u8>,
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
-    pub border_radius: Option<u8>,
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<30,_>")]
-    pub padding: Option<u8>,
 }
 
-fn deserialize_active<'de, D>(de: D) -> Result<OverlayParams, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let ext: ExtOverlayParams = serde::Deserialize::deserialize(de)?;
-    Ok(merge_overlay_params(OverlayParams::default_active(), ext))
+#[derive(Deserialize, Serialize, Clone, Debug)]
+struct ExtOverlayParams {
+    pub enabled: bool,
+    pub color: Color,
 }
 
-fn deserialize_inactive<'de, D>(de: D) -> Result<OverlayParams, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let ext: ExtOverlayParams = serde::Deserialize::deserialize(de)?;
-    Ok(merge_overlay_params(OverlayParams::default_inactive(), ext))
-}
-
-fn merge_overlay_params(base: OverlayParams, ext_overlay_params: ExtOverlayParams) -> OverlayParams {
-    OverlayParams {
-        enabled: ext_overlay_params.enabled.unwrap_or(base.enabled),
-        color: ext_overlay_params.color.unwrap_or(base.color),
-        thickness: ext_overlay_params.thickness.unwrap_or(base.thickness),
-        border_radius: ext_overlay_params.border_radius.unwrap_or(base.border_radius),
-        padding: ext_overlay_params.padding.unwrap_or(base.padding),
+impl ExtOverlayParams {
+    pub(crate) fn new(enabled: bool, color: Color) -> ExtOverlayParams {
+        ExtOverlayParams { enabled, color }
     }
+
+    pub(crate) fn default_active() -> ExtOverlayParams {
+        ExtOverlayParams::new(true, Color::new(155, 209, 229))
+    }
+
+    pub(crate) fn default_inactive() -> ExtOverlayParams {
+        ExtOverlayParams::new(true, Color::new(156, 156, 156))
+    }
+
+    pub(crate) fn default_focalized() -> ExtOverlayParams {
+        ExtOverlayParams::new(true, Color::new(234, 153, 153))
+    }
+}
+
+fn deserialize_active<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_overlay_params(de, ExtOverlayParams::default_active())
+}
+
+fn deserialize_inactive<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_overlay_params(de, ExtOverlayParams::default_inactive())
+}
+
+fn deserialize_focalized<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_overlay_params(de, ExtOverlayParams::default_active())
+}
+
+fn deserialize_overlay_params<'de, D>(de: D, base: ExtOverlayParams) -> Result<ExtOverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let ext: ExtOptOverlayParams = serde::Deserialize::deserialize(de)?;
+    Ok(ExtOverlayParams {
+        enabled: ext.enabled.unwrap_or(base.enabled),
+        color: ext.color.unwrap_or(base.color),
+    })
 }
