@@ -252,6 +252,15 @@ impl TilesManagerOperations for TilesManager {
 
     fn amplify_focused(&mut self) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
+
+        let tile_state = self.get_window_state(curr).ok_or(Error::NoWindow)?;
+        if matches!(
+            tile_state,
+            WindowTileState::Focalized | WindowTileState::Maximized | WindowTileState::Floating
+        ) {
+            return Ok(());
+        }
+
         let t = self.active_trees.find_mut(curr).ok_or(Error::NoWindow)?.value;
         let leaves = t.leaves(0, None);
         let max_leaf = leaves
