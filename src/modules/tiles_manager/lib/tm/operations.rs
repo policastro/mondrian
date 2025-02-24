@@ -244,12 +244,11 @@ impl TilesManagerInternalOperations for TilesManager {
 
     fn resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
         let tile_state = self.get_window_state(win).ok_or(Error::NoWindow)?;
-        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
+        if matches!(
+            tile_state,
+            WindowTileState::Floating | WindowTileState::Maximized | WindowTileState::Focalized
+        ) {
             return Ok(());
-        }
-
-        if matches!(tile_state, WindowTileState::Focalized) {
-            return self.update_layout(true);
         }
 
         let (resize_w, resize_h) = (delta.2 != 0, delta.3 != 0);
