@@ -1,12 +1,14 @@
 pub(crate) mod advanced;
 pub(crate) mod core;
 pub(crate) mod deserializers;
+pub(crate) mod general;
 pub(crate) mod layout;
 pub(crate) mod modules;
 
 use advanced::Advanced;
 use core::Core;
 use core::RuleConfig;
+use general::General;
 use layout::Layout;
 use modules::Modules;
 use serde::Deserialize;
@@ -18,6 +20,8 @@ use super::structs::win_matcher::WinMatcher;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct AppConfigs {
+    #[serde(default)]
+    pub general: General,
     #[serde(default)]
     pub layout: Layout,
     #[serde(default)]
@@ -56,6 +60,7 @@ impl AppConfigs {
 impl Default for AppConfigs {
     fn default() -> Self {
         AppConfigs {
+            general: General::default(),
             layout: Layout::default(),
             core: Core::default(),
             modules: Modules::default(),

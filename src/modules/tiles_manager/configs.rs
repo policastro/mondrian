@@ -15,6 +15,7 @@ pub struct CoreModuleConfigs {
     pub animation_type: Option<WindowAnimation>,
     pub move_cursor_on_focus: bool,
     pub filter: WinMatcher,
+    pub history_based_navigation: bool,
 }
 
 impl Default for CoreModuleConfigs {
@@ -30,6 +31,7 @@ impl Default for CoreModuleConfigs {
             animation_type: None,
             move_cursor_on_focus: false,
             filter: WinMatcher::default(),
+            history_based_navigation: false,
         }
     }
 }
@@ -47,6 +49,7 @@ impl From<&AppConfigs> for CoreModuleConfigs {
             animation_type: app_configs.layout.animation_type.clone(),
             move_cursor_on_focus: app_configs.core.move_cursor_on_focus,
             filter: app_configs.get_filters().unwrap_or_default(),
+            history_based_navigation: app_configs.general.history_based_navigation,
         }
     }
 }

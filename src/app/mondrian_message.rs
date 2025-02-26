@@ -90,6 +90,7 @@ pub enum WindowEvent {
     Restored(HWND),
     Maximized(HWND),
     Unmaximized(HWND),
+    Focused(HWND),
     StartMoveSize(HWND),
     NoMoveSize(HWND),
     Moved(HWND, (i32, i32), IntramonitorMoveOp, IntermonitorMoveOp),
@@ -105,6 +106,7 @@ impl WindowEvent {
             | WindowEvent::Restored(hwnd)
             | WindowEvent::Maximized(hwnd)
             | WindowEvent::Unmaximized(hwnd)
+            | WindowEvent::Focused(hwnd)
             | WindowEvent::StartMoveSize(hwnd)
             | WindowEvent::NoMoveSize(hwnd)
             | WindowEvent::Moved(hwnd, _, _, _)

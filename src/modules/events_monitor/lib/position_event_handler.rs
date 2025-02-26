@@ -110,7 +110,7 @@ impl PositionEventHandler {
             return;
         }
 
-        let (pcorners, corners) = (prev_area.get_corners(), curr_area.get_corners());
+        let (pcorners, corners) = (prev_area.get_all_corners(), curr_area.get_all_corners());
         let corner_eqs = pcorners.iter().zip(corners.iter()).filter(|(p, c)| p.same(**c)).count();
         let win_event = match corner_eqs == 0 {
             true => WindowEvent::Moved(hwnd, dest_point, intramon_op, intermon_op),

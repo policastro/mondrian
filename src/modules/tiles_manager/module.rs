@@ -219,6 +219,7 @@ fn handle_tm(
                 tm.pause_updates(false);
                 tm.on_resize(hwnd.into(), c_area.get_shift(&p_area))
             }
+            WindowEvent::Focused(hwnd) => tm.on_focus(hwnd.into()),
         },
         TMCommand::SystemEvent(evt) => match evt {
             SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),

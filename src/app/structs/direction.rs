@@ -2,6 +2,8 @@ use std::{fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+use super::orientation::Orientation;
+
 #[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
@@ -18,6 +20,13 @@ impl Direction {
             Direction::Down => Direction::Up,
             Direction::Left => Direction::Right,
             Direction::Right => Direction::Left,
+        }
+    }
+
+    pub fn axis(&self) -> Orientation {
+        match self {
+            Direction::Left | Direction::Right => Orientation::Horizontal,
+            Direction::Up | Direction::Down => Orientation::Vertical,
         }
     }
 }

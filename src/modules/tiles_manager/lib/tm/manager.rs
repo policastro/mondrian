@@ -2,6 +2,7 @@ use super::configs::TilesManagerConfig;
 use super::error::TilesManagerError;
 use super::operations::FocalizedMap;
 use super::operations::TilesManagerInternalOperations;
+use super::public::FocusHistory;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
@@ -31,6 +32,7 @@ pub struct TilesManager {
     pub pause_updates: bool,
     pub config: TilesManagerConfig,
     pub animation_player: WindowAnimationPlayer,
+    pub focus_history: FocusHistory,
     pub(crate) current_vd: Option<Desktop>,
 }
 
@@ -85,6 +87,7 @@ impl TilesManagerBase for TilesManager {
             active_trees: HashMap::new(),
             focalized_wins: HashMap::new(),
             current_vd: None,
+            focus_history: FocusHistory::new(),
             config,
             animation_player,
         };

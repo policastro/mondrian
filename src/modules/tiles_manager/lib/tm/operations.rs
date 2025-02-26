@@ -5,7 +5,7 @@ use super::manager::TilesManagerBase;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
-use crate::app::structs::point::Point;
+use crate::app::structs::orientation::Orientation;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -20,11 +20,6 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
     fn release(&mut self, window: WindowRef, release: Option<bool>) -> Result<(), Error>;
     fn maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
     fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> Result<(), Error>;
-    fn find_next_neighbour(
-        &self,
-        window: WindowRef,
-        search_strategy: MonitorSearchStrategy,
-    ) -> Option<AreaLeaf<WindowRef>>;
     fn find_neighbour(
         &self,
         window: WindowRef,
@@ -149,12 +144,6 @@ impl TilesManagerInternalOperations for TilesManager {
         Ok(())
     }
 
-    fn find_next_neighbour(&self, window: WindowRef, strategy: MonitorSearchStrategy) -> Option<AreaLeaf<WindowRef>> {
-        [Direction::Right, Direction::Down, Direction::Left, Direction::Up]
-            .iter()
-            .find_map(|d| self.find_neighbour(window, *d, strategy))
-    }
-
     fn find_neighbour(
         &self,
         window: WindowRef,
@@ -162,54 +151,27 @@ impl TilesManagerInternalOperations for TilesManager {
         strategy: MonitorSearchStrategy,
     ) -> Option<AreaLeaf<WindowRef>> {
         let src_entry = self.active_trees.find(window)?;
+        let is_monitor_focalized = self.focalized_wins.contains_key(&src_entry.key);
 
-        if self.focalized_wins.contains_key(&src_entry.key) {
-            match strategy {
-                MonitorSearchStrategy::Same => return None,
-                MonitorSearchStrategy::Any => {
-                    return self.find_neighbour(window, direction, MonitorSearchStrategy::Closest)
-                }
-                _ => (),
-            }
+        if is_monitor_focalized && matches!(strategy, MonitorSearchStrategy::Same) {
+            return None;
         };
 
-        let src_area = src_entry.value.find_leaf(window, 0)?.viewbox;
-        let point = match direction {
-            Direction::Right => src_area.get_ne_corner().with_offset(1, 1), // INFO: prefer up
-            Direction::Down => src_area.get_se_corner().with_offset(-1, 1), // INFO: prefer right
-            Direction::Left => src_area.get_sw_corner().with_offset(-1, -1), // INFO: prefer down
-            Direction::Up => src_area.get_nw_corner().with_offset(1, -1),   // INFO: prefer left
+        let strategy = match is_monitor_focalized {
+            true => MonitorSearchStrategy::Closest,
+            false => strategy,
         };
 
-        let cs = &self.active_trees;
-        if matches!(strategy, MonitorSearchStrategy::Any) {
-            if let Some(e) = cs.find_at(point) {
-                return match self.focalized_wins.get(&e.key) {
-                    Some(fw) => e.value.find_leaf(*fw, 0).filter(|w| w.id != window),
-                    None => e.value.find_leaf_at(point, 0).filter(|w| w.id != window),
-                };
-            } else {
-                return self.find_neighbour(window, direction, MonitorSearchStrategy::Closest);
+        if matches!(strategy, MonitorSearchStrategy::Same | MonitorSearchStrategy::Any) {
+            if let Some(l) = self.find_neighbour_same_monitor(window, direction) {
+                return Some(l);
             }
         }
 
-        if matches!(strategy, MonitorSearchStrategy::Same) {
-            return src_entry.value.find_leaf_at(point, 0).filter(|w| w.id != window);
-        };
-
-        if matches!(strategy, MonitorSearchStrategy::Closest) {
-            let e = cs.find_closest_at(src_area.get_center(), direction)?;
-            let point = match direction {
-                Direction::Right => e.value.area.get_nw_corner(),
-                Direction::Down => e.value.area.get_ne_corner(),
-                Direction::Left => e.value.area.get_se_corner(),
-                Direction::Up => e.value.area.get_sw_corner(),
-            };
-
-            return match self.focalized_wins.get(&e.key) {
-                Some(fw) => e.value.find_leaf(*fw, 0).filter(|w| w.id != window),
-                None => e.value.find_leaf_at(point, 0).filter(|w| w.id != window),
-            };
+        if matches!(strategy, MonitorSearchStrategy::Closest | MonitorSearchStrategy::Any) {
+            if let Some(l) = self.find_neighbour_closest_monitor(window, direction) {
+                return Some(l);
+            }
         }
 
         None
@@ -326,6 +288,78 @@ impl TilesManagerInternalOperations for TilesManager {
         Ok(())
     }
 }
+
+impl TilesManager {
+    fn find_neighbour_same_monitor(&self, window: WindowRef, direction: Direction) -> Option<AreaLeaf<WindowRef>> {
+        let src_entry = self.active_trees.find(window)?;
+        let src_area = src_entry.value.find_leaf(window, 0)?.viewbox;
+        let t = self.active_trees.get(&src_entry.key)?;
+        let axis_values = src_area.get_corners(direction)[0];
+        let pad = match direction.axis() {
+            Orientation::Vertical => (1, 0),
+            Orientation::Horizontal => (0, 1),
+        };
+
+        let corners = src_area.pad_xy(pad).get_corners(direction);
+        let corners = match direction.axis() {
+            Orientation::Vertical => (corners[0].0, corners[1].0),
+            Orientation::Horizontal => (corners[0].1, corners[1].1),
+        };
+        self.find_best_matching_leaf(window, direction, &t.leaves(0, None), &corners, &axis_values)
+    }
+
+    fn find_neighbour_closest_monitor(&self, window: WindowRef, direction: Direction) -> Option<AreaLeaf<WindowRef>> {
+        let src_entry = self.active_trees.find(window)?;
+        let src_area = src_entry.value.find_leaf(window, 0)?.viewbox;
+        let e = self.active_trees.find_closest_at(src_area.get_center(), direction)?;
+        if let Some(fw) = self.focalized_wins.get(&e.key) {
+            return e.value.find_leaf(*fw, 0).filter(|w| w.id != window);
+        };
+
+        let corners = e.value.area.get_corners(direction.opposite());
+        let axis_values = corners[0];
+        let corners = match direction.axis() {
+            Orientation::Vertical => (corners[0].0, corners[1].0),
+            Orientation::Horizontal => (corners[0].1, corners[1].1),
+        };
+        self.find_best_matching_leaf(window, direction, &e.value.leaves(0, None), &corners, &axis_values)
+    }
+
+    fn find_best_matching_leaf(
+        &self,
+        window: WindowRef,
+        direction: Direction,
+        leaves: &[AreaLeaf<WindowRef>],
+        cross_axis_limits: &(i32, i32),
+        axis_values: &(i32, i32),
+    ) -> Option<AreaLeaf<WindowRef>> {
+        let dir_axis = direction.axis();
+        let (lim1, lim2) = *cross_axis_limits;
+
+        let leaves = leaves.iter().filter(|l| l.id != window).filter(|l| match dir_axis {
+            Orientation::Horizontal => l.viewbox.overlaps_y(lim1, lim2) && l.viewbox.contains_x(axis_values.0),
+            Orientation::Vertical => l.viewbox.overlaps_x(lim1, lim2) && l.viewbox.contains_y(axis_values.1),
+        });
+
+        if self.config.history_based_navigation {
+            if let Some((l, _)) = leaves
+                .clone()
+                .filter_map(|l| self.focus_history.value(l.id).map(|i| (l, i)))
+                .max_by_key(|&(_, i)| i)
+            {
+                return Some(*l);
+            }
+        }
+
+        leaves
+            .min_by_key(|l| match direction.axis() {
+                Orientation::Horizontal => l.viewbox.y,
+                Orientation::Vertical => l.viewbox.x,
+            })
+            .copied()
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum MonitorSearchStrategy {
     Same,

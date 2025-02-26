@@ -1,20 +1,24 @@
-use std::collections::HashMap;
-
-use winvd::{get_current_desktop, Desktop};
-
 use super::error::TilesManagerError;
-use super::manager::{ContainerKey, TilesManager, TilesManagerBase};
-use super::operations::{MonitorSearchStrategy, TilesManagerInternalOperations};
+use super::manager::ContainerKey;
+use super::manager::TilesManager;
+use super::manager::TilesManagerBase;
+use super::operations::MonitorSearchStrategy;
+use super::operations::TilesManagerInternalOperations;
 use crate::app::area_tree::tree::WinTree;
-use crate::app::mondrian_message::{IntermonitorMoveOp, IntramonitorMoveOp, WindowTileState};
+use crate::app::mondrian_message::IntermonitorMoveOp;
+use crate::app::mondrian_message::IntramonitorMoveOp;
+use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::api::monitor::enum_display_monitors;
-use crate::win32::api::window::get_foreground_window;
-use crate::win32::window::window_obj::{WindowObjHandler, WindowObjInfo};
+use crate::win32::window::window_obj::WindowObjHandler;
+use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
+use std::collections::HashMap;
+use winvd::get_current_desktop;
+use winvd::Desktop;
 
 type IntraOp = IntramonitorMoveOp;
 type InterOp = IntermonitorMoveOp;
@@ -40,6 +44,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     ) -> Result<(), Error>;
     fn on_resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
+    fn on_focus(&mut self, window: WindowRef) -> Result<(), Error>;
     fn amplify_focused(&mut self) -> Result<(), Error>;
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error>;
@@ -60,6 +65,7 @@ impl TilesManagerOperations for TilesManager {
             false => Ok(()),
         }
     }
+
     fn swap_focused(&mut self, direction: Direction) -> Result<(), Error> {
         let src_win = get_foreground().ok_or(Error::NoWindow)?;
 
@@ -110,7 +116,7 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error> {
-        let curr = get_foreground_window().ok_or(Error::NoWindow)?.into();
+        let curr = get_foreground().ok_or(Error::NoWindow)?;
         if self.get_window_state(curr).is_none() {
             return Err(Error::NoWindow);
         }
@@ -142,10 +148,7 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn minimize_focused(&mut self) -> Result<(), Error> {
-        let win_ref = WindowRef::new(get_foreground_window().ok_or(Error::NoWindow)?);
-        win_ref.minimize();
-        self.find_next_neighbour(win_ref, MonitorSearchStrategy::Any)
-            .inspect(|leaf| leaf.id.focus());
+        get_foreground().ok_or(Error::NoWindow)?.minimize();
         Ok(())
     }
 
@@ -344,5 +347,42 @@ impl TilesManagerOperations for TilesManager {
 
         self.add_open_windows()?;
         self.update_layout(true)
+    }
+
+    fn on_focus(&mut self, window: WindowRef) -> Result<(), Error> {
+        self.focus_history.update(window);
+        Ok(())
+    }
+}
+
+pub struct FocusHistory {
+    map: HashMap<WindowRef, u64>,
+    current_max: u64,
+}
+
+impl FocusHistory {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+            current_max: 0,
+        }
+    }
+
+    pub fn value(&self, window: WindowRef) -> Option<u64> {
+        self.map.get(&window).copied()
+    }
+
+    pub fn update(&mut self, window: WindowRef) {
+        // INFO: This should pratically never happen
+        if self.current_max == u64::MAX {
+            self.clear();
+        }
+        self.current_max += 1;
+        self.map.insert(window, self.current_max);
+    }
+
+    pub fn clear(&mut self) {
+        self.map.clear();
+        self.current_max = 0;
     }
 }

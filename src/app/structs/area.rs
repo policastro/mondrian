@@ -1,4 +1,4 @@
-use super::orientation::Orientation;
+use super::{direction::Direction, orientation::Orientation};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Area {
@@ -24,10 +24,15 @@ impl Area {
     }
 
     pub fn contains(&self, point: (i32, i32)) -> bool {
-        point.0 >= self.x
-            && point.0 <= self.x + i32::from(self.width)
-            && point.1 >= self.y
-            && point.1 <= self.y + i32::from(self.height)
+        self.contains_x(point.0) && self.contains_y(point.1)
+    }
+
+    pub fn contains_x(&self, x: i32) -> bool {
+        x >= self.x && x <= self.x + i32::from(self.width)
+    }
+
+    pub fn contains_y(&self, y: i32) -> bool {
+        y >= self.y && y <= self.y + i32::from(self.height)
     }
 
     pub fn get_origin(&self) -> (i32, i32) {
@@ -67,7 +72,7 @@ impl Area {
         (self.x + i32::from(self.width), self.y + i32::from(self.height))
     }
 
-    pub fn get_corners(&self) -> [(i32, i32); 4] {
+    pub fn get_all_corners(&self) -> [(i32, i32); 4] {
         [
             self.get_nw_corner(),
             self.get_ne_corner(),
@@ -90,6 +95,47 @@ impl Area {
 
     pub fn get_top_center(&self) -> (i32, i32) {
         (self.x + i32::from(self.width / 2), self.y)
+    }
+
+    pub fn get_right_edge(&self) -> i32 {
+        self.x + i32::from(self.width)
+    }
+
+    pub fn get_bottom_edge(&self) -> i32 {
+        self.y + i32::from(self.height)
+    }
+
+    pub fn get_left_edge(&self) -> i32 {
+        self.x
+    }
+
+    pub fn get_top_edge(&self) -> i32 {
+        self.y
+    }
+
+    pub fn get_bottom_corners(&self) -> [(i32, i32); 2] {
+        [self.get_sw_corner(), self.get_se_corner()]
+    }
+
+    pub fn get_right_corners(&self) -> [(i32, i32); 2] {
+        [self.get_ne_corner(), self.get_se_corner()]
+    }
+
+    pub fn get_left_corners(&self) -> [(i32, i32); 2] {
+        [self.get_nw_corner(), self.get_sw_corner()]
+    }
+
+    pub fn get_top_corners(&self) -> [(i32, i32); 2] {
+        [self.get_nw_corner(), self.get_ne_corner()]
+    }
+
+    pub fn get_corners(&self, direction: Direction) -> [(i32, i32); 2] {
+        match direction {
+            Direction::Down => self.get_bottom_corners(),
+            Direction::Right => self.get_right_corners(),
+            Direction::Left => self.get_left_corners(),
+            Direction::Up => self.get_top_corners(),
+        }
     }
 
     pub fn split(&self, ratio: u8, orientation: Orientation) -> (Area, Area) {
@@ -141,6 +187,16 @@ impl Area {
 
     pub fn pad_xy(&self, (px, py): (i16, i16)) -> Area {
         self.pad((px, px), (py, py))
+    }
+
+    pub fn overlaps_y(&self, y1: i32, y2: i32) -> bool {
+        let (y1, y2) = if y1 < y2 { (y1, y2) } else { (y2, y1) };
+        self.y + self.height as i32 >= y1 && self.y <= y2
+    }
+
+    pub fn overlaps_x(&self, x1: i32, x2: i32) -> bool {
+        let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
+        self.x + self.width as i32 >= x1 && self.x <= x2
     }
 
     fn get_percent(value: u16, percent: u8) -> u16 {

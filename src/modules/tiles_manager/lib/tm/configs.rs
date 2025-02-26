@@ -13,6 +13,7 @@ pub struct TilesManagerConfig {
     pub animations_duration: u32,
     pub animations_framerate: u8,
     pub animation_type: Option<WindowAnimation>,
+    pub history_based_navigation: bool,
 }
 
 impl TilesManagerConfig {
@@ -23,6 +24,7 @@ impl TilesManagerConfig {
         filter: WinMatcher,
         layout_strategy: LayoutStrategyEnum,
         animations_configs: AnimationConfigs,
+        history_based_navigation: bool,
     ) -> Self {
         let max_i8: u8 = i8::MAX.try_into().expect("max_i8 out of range");
         assert!(tiles_padding <= max_i8 && border_padding <= max_i8);
@@ -36,6 +38,7 @@ impl TilesManagerConfig {
             animations_duration: animations_configs.duration,
             animations_framerate: animations_configs.framerate,
             animation_type: animations_configs.anim_type,
+            history_based_navigation,
         }
     }
 
@@ -89,6 +92,7 @@ impl From<&CoreModuleConfigs> for TilesManagerConfig {
                 framerate: configs.animations_framerate,
                 anim_type: animation_type,
             },
+            configs.history_based_navigation,
         )
     }
 }

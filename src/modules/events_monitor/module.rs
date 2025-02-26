@@ -1,5 +1,6 @@
 use super::configs::EventMonitorModuleConfigs;
 use super::lib::display_change_detector;
+use super::lib::focus_event_handler::FocusEventHandler;
 use super::lib::maximize_event_handler::MaximizeEventHandler;
 use super::lib::minimize_event_handler::MinimizeEventHandler;
 use super::lib::open_event_handler::OpenCloseEventHandler;
@@ -93,6 +94,7 @@ impl EventsMonitorModule {
             let mut wem = WindowsEventManager::new();
             wem.hook(OpenCloseEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(MinimizeEventHandler::new(bus_tx.clone(), filter.clone()));
+            wem.hook(FocusEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(PositionEventHandler::new(
                 bus_tx.clone(),
                 filter.clone(),
