@@ -238,6 +238,35 @@ There are different configurations options that can improve the performances. He
 
 If you want to ignore it temporarily, you can bind the `release` action to a key. Otherwise, you can create a rule in the configuration file (see the `core.ignore_rules` [section](#core-ignore-rules-guide)).
 
+### 5. How do the `move`/`focus` actions determine the target window?
+
+The target window is selected from those touching the currently focused window in the specified direction.
+If there are multiple candidates, the selection depends on the value of the `general.history_based_navigation` config option:
+
+- `false`: the window at the top is chosen for `left`/`right` directions, or the leftmost window for `up`/`down` directions;
+- `true`: the most recently focused window among the candidates will be selected.
+
+#### Example
+
+Imagine a layout like this:
+
+```
++-----------------+
+|         |   C   |
+|    A    |-------+
+|         |       |
+|---------|   D   |
+|         |       |
+|    B    |-------+
+|         |   E   |
++----+------------+
+```
+
+If the currently focused window is _B_, and you use the `focus right` command, windows _D_ and _E_ will be considered as adjacent in the right direction:
+
+- If `general.history_based_navigation = false`, _D_ will be selected, as it is the window at the top;
+- If `general.history_based_navigation = true`, _E_ will be selected if it was the most recently focused window.
+
 ## License
 
 This project is licensed under the GPLv3 license. See the `LICENSE.md` for more information.
