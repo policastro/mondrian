@@ -58,7 +58,7 @@ impl TilesManagerInternalOperations for TilesManager {
         Ok(())
     }
 
-    fn remove(&mut self, win: WindowRef, skip_focalized: bool) -> Result<bool, Error> {
+    fn remove(&mut self, win: WindowRef, skip_focalized_monitors: bool) -> Result<bool, Error> {
         let tile_state = self.get_window_state(win).ok_or(Error::NoWindow)?;
         if matches!(tile_state, WindowTileState::Floating) {
             return Ok(false);
@@ -69,7 +69,7 @@ impl TilesManagerInternalOperations for TilesManager {
             self.focalized_wins.remove(&k);
         }
 
-        if skip_focalized && self.focalized_wins.contains_key(&k) {
+        if skip_focalized_monitors && self.focalized_wins.contains_key(&k) {
             return Ok(false);
         }
 
@@ -110,10 +110,22 @@ impl TilesManagerInternalOperations for TilesManager {
             return Ok(());
         }
 
-        match maximize {
-            true => self.maximized_wins.insert(window),
-            false => self.maximized_wins.remove(&window),
-        };
+        if maximize {
+            let src_e = self.active_trees.find(window).ok_or(Error::NoWindow)?;
+            let trg_e = self
+                .active_trees
+                .find_at(window.get_area().ok_or(Error::NoWindowsInfo)?.get_center())
+                .ok_or(Error::ContainerNotFound { refresh: false })?;
+
+            if src_e.key != trg_e.key {
+                self.remove(window, false)?;
+                self.add(window)?;
+            }
+
+            self.maximized_wins.insert(window);
+        } else {
+            self.maximized_wins.remove(&window);
+        }
 
         Ok(())
     }

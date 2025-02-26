@@ -6,7 +6,7 @@ pub trait Point {
 impl Point for (i32, i32) {
     fn distance(&self, other: (i32, i32)) -> u32 {
         let ((x1, y1), (x2, y2)) = (self, other);
-        ((x2 - x1).pow(2) + (y2 - y1).pow(2)) as u32
+        ((x2 - x1).pow(2).saturating_add((y2 - y1).pow(2))) as u32
     }
 
     fn same(&self, other: (i32, i32)) -> bool {
