@@ -21,9 +21,9 @@ impl Default for EventMonitorModuleConfigs {
 impl From<&AppConfigs> for EventMonitorModuleConfigs {
     fn from(app_configs: &AppConfigs) -> Self {
         EventMonitorModuleConfigs {
-            default_insert_in_monitor: app_configs.layout.insert_in_monitor,
-            default_free_move_in_monitor: app_configs.layout.free_move_in_monitor,
-            detect_maximized_windows: app_configs.advanced.detect_maximized_windows,
+            default_insert_in_monitor: app_configs.general.insert_in_monitor,
+            default_free_move_in_monitor: app_configs.general.free_move_in_monitor,
+            detect_maximized_windows: app_configs.general.detect_maximized_windows,
             filter: app_configs.get_filters(),
         }
     }

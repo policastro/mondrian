@@ -85,24 +85,27 @@ If the configuration file does not exist, it will be created automatically when 
 | **Option**                               | **Description**                                                                             | **Values**                                                                        | **Default**                        |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------- |
 | `layout.tiling_strategy`                 | Tiling strategy                                                                             | `"golden_ratio"`, `"horizontal"`, `"vertical"`, `"twostep"`, `"squared"`          | `"golden_ratio"`                   |
-| `layout.animations_enabled`              | Enables/disables the animations                                                             | `true`, `false`                                                                   | `true`                             |
-| `layout.animations_duration`             | Duration of the animations in ms                                                            | 100 - 10000                                                                       | 300                                |
-| `layout.animations_framerate`            | Framerate of the animations                                                                 | 10 - 240                                                                          | 60                                 |
-| `layout.animation_type`                  | Animation type                                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case) | `"linear"`                         |
-| `layout.tiles_padding`                   | Padding between tiles (in px)                                                               | 0 - 100                                                                           | 12                                 |
-| `layout.border_padding`                  | Padding between border and tiles (in px)                                                    | 0 - 100                                                                           | 18                                 |
-| `layout.focalized_padding`               | Padding between border and focalized window (in px)                                         | 0 - 120                                                                           | 8                                  |
-| `layout.insert_in_monitor`               | If true, moving the window to a new monitor inserts it rather than swapping                 | `true`, `false`                                                                   | `true`                             |
-| `layout.free_move_in_monitor`            | If true, free moving the window to a new monitor is enabled by default                      | `true`, `false`                                                                   | `false`                            |
-| `layout.golden_ratio.ratio`              | The ratio of the first split                                                                | 10 - 90                                                                           | 50                                 |
-| `layout.golden_ratio.clockwise`          | Places the windows clockwise or counterclockwise                                            | `true`, `false`                                                                   | `true`                             |
-| `layout.golden_ratio.vertical`           | If true, the layout will be vertical                                                        | `true`, `false`                                                                   | `false`                            |
-| `layout.twostep.first_step`              | First insertion direction                                                                   | `"right"`, `"left"`, `"up"`, `"down"`                                             | `"right"`                          |
-| `layout.twostep.second_step`             | Second insertion direction                                                                  | `"right"`, `"left"`, `"up"`, `"down"`                                             | `"down"`                           |
-| `layout.twostep.ratio`                   | Ratio of the first split                                                                    | 10 - 90                                                                           | 50                                 |
-| `layout.horizontal.grow_right`           | If true, the layout will grow on the right side                                             | `true`, `false`                                                                   | `true`                             |
-| `layout.vertical.grow_down`              | If true, the layout will grow on the bottom side                                            | `true`, `false`                                                                   | `true`                             |
+| `layout.animation.type`                  | Animation type                                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case) | `"linear"`                         |
+| `layout.animations.enabled`              | Enables/disables the animations                                                             | `true`, `false`                                                                   | `true`                             |
+| `layout.animations.duration`             | Duration of the animations in ms                                                            | 100 - 10000                                                                       | 300                                |
+| `layout.animations.framerate`            | Framerate of the animations                                                                 | 10 - 240                                                                          | 60                                 |
+| `layout.paddings.tiles`                  | Padding between tiles (in px)                                                               | 0 - 100                                                                           | 12                                 |
+| `layout.paddings.borders`                | Padding between border and tiles (in px)                                                    | 0 - 100                                                                           | 18                                 |
+| `layout.paddings.focalized`              | Padding between border and focalized window (in px)                                         | 0 - 120                                                                           | 8                                  |
+| `layout.strategy.golden_ratio.ratio`     | The ratio of the first split                                                                | 10 - 90                                                                           | 50                                 |
+| `layout.strategy.golden_ratio.clockwise` | Places the windows clockwise or counterclockwise                                            | `true`, `false`                                                                   | `true`                             |
+| `layout.strategy.golden_ratio.vertical`  | If true, the layout will be vertical                                                        | `true`, `false`                                                                   | `false`                            |
+| `layout.strategy.twostep.first_step`     | First insertion direction                                                                   | `"right"`, `"left"`, `"up"`, `"down"`                                             | `"right"`                          |
+| `layout.strategy.twostep.second_step`    | Second insertion direction                                                                  | `"right"`, `"left"`, `"up"`, `"down"`                                             | `"down"`                           |
+| `layout.strategy.twostep.ratio`          | Ratio of the first split                                                                    | 10 - 90                                                                           | 50                                 |
+| `layout.strategy.horizontal.grow_right`  | If true, the layout will grow on the right side                                             | `true`, `false`                                                                   | `true`                             |
+| `layout.strategy.vertical.grow_down`     | If true, the layout will grow on the bottom side                                            | `true`, `false`                                                                   | `true`                             |
 | `general.history_based_navigation`       | If true, navigation will prioritize the most recently focused window in the given direction | `true`, `false`                                                                   | `false`                            |
+| `general.insert_in_monitor`              | If true, moving the window to a new monitor inserts it rather than swapping                 | `true`, `false`                                                                   | `true`                             |
+| `general.free_move_in_monitor`           | If true, free moving the window to a new monitor is enabled by default                      | `true`, `false`                                                                   | `false`                            |
+| `general.detect_maximized_windows`       | Prevents maximized windows from being managed                                               | `true`, `false`                                                                   | `true`                             |
+| `general.move_cursor_on_focus`           | Moves the mouse cursor to the center of the focused window                                  | `true`, `false`                                                                   | `false`                            |
+| `general.auto_reload_configs`            | Reloads the configuration on changes                                                        | `true`, `false`                                                                   | `true`                             |
 | `modules.keybindings.enabled`            | Enables/disables the keybindings module                                                     | `true`, `false`                                                                   | `false`                            |
 | `modules.keybindings.bindings`           | Custom keybindings                                                                          | check the relative [section](#keybindings-guide) for more info.                   | -                                  |
 | `modules.overlays.enabled`               | Enables/disables the overlays module                                                        | `true`, `false`                                                                   | `true`                             |
@@ -116,10 +119,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.inactive.color`        | Color of the overlay                                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[156, 156, 156]` (or `"#9C9C9C`)  |
 | `modules.overlays.focalized.enabled`     | Enables/disables the overlay for the focalized windows in focused                           | `true`,`false`                                                                    | `true`                             |
 | `modules.overlays.focalized.color`       | Color of the overlay                                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[234, 153, 153]` (or `"#EA9999"`) |
-| `advanced.detect_maximized_windows`      | Prevents maximized windows from being managed                                               | `true`, `false`                                                                   | `true`                             |
-| `core.rules`                             | Custom rules to exclude windows from being managed                                          | check the relative [section](#core-rules-guide) for more info.                    | -                                  |
-| `core.move_cursor_on_focus`              | Moves the mouse cursor to the center of the focused window                                  | `true`, `false`                                                                   | `false`                            |
-| `core.auto_reload_configs`               | Reloads the configuration on changes                                                        | `true`, `false`                                                                   | `false`                            |
+| `core.ignore_rules`                      | Custom rules to exclude windows from being managed                                          | check the relative [section](#core-ignore-rules-guide) for more info.             | -                                  |
 
 All the options are optional and if not specified, the default values will be used.
 
@@ -182,14 +182,14 @@ bindings = [
 ]
 ```
 
-#### Ignore windows with `core.rules` <a name="core-rules-guide"></a>
+#### Ignore windows with `core.ignore_rules` <a name="core-ignore-rules-guide"></a>
 
-You can ignore windows with the `core.rules` option.
+You can ignore windows with the `core.ignore_rules` option.
 Each rule has the following format:
 
 ```toml
 [core]
-rules = [
+ignore_rules = [
     { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME" }
 ]
 ```
@@ -200,7 +200,7 @@ Some example:
 
 ```toml
 [core]
-rules = [
+ignore_rules = [
     { title = "Title", exename = "app.exe", classname = "ApplicationWindow" },    # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
     { title = "Title" },                                                          # match any window with a title="Title"
     { title = "/Title[0-9]/" }                                                    # match any window with a title that matches the regex "Title[0-9]"
@@ -228,17 +228,15 @@ Yes, there are others tiling window managers for Windows out there. In particula
 
 There are different configurations options that can improve the performances. Here the most important ones:
 
-- `layout.animations_enabled = false`: disables the animations;
-- `layout.animations_framerate`: you can set this option to reduce the framerate of the animations;
-- `modules.overlays.enabled = false`: disables the overlays (both the "active" and "inactives" ones);
+- `layout.animations.enabled = false`: disables the animations;
+- `layout.animations.framerate`: you can set this option to reduce the framerate of the animations;
+- `modules.overlays.enabled = false`: disables the overlays;
 - `modules.overlays.update_while_resizing = false`: the overlays will be updated only when the window resize operation is done;
-- `modules.overlays.active.enabled = false`: disables the "active" overlay;
-- `modules.overlays.inactive.enabled = false`: disables all the "inactives" overlays;
-- `advanced.detect_maximized_windows = false`: disables the detection of maximized windows. Disabling this option doesn't work very well when the overlays are enabled.
+- `general.detect_maximized_windows = false`: disables the detection of maximized windows. Disabling this feature may cause issues when overlays are enabled.
 
 ### 4. How can I ignore a window?
 
-If you want to ignore it temporarily, you can bind the `release` action to a key. Otherwise, you can create a rule in the configuration file (see the `core.rules` [section](#core-rules-guide)).
+If you want to ignore it temporarily, you can bind the `release` action to a key. Otherwise, you can create a rule in the configuration file (see the `core.ignore_rules` [section](#core-ignore-rules-guide)).
 
 ## License
 

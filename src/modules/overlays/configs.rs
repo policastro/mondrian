@@ -10,22 +10,28 @@ use serde::Serialize;
 pub struct OverlaysModuleConfigs {
     pub enabled: bool,
     pub update_while_resizing: bool,
+
     #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub thickness: u8,
+
     #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub border_radius: u8,
+
     #[serde(deserialize_with = "deserializers::to_u8_max::<30,_>")]
     pub padding: u8,
+
     #[serde(
         default = "ExtOverlayParams::default_active",
         deserialize_with = "deserialize_active"
     )]
     active: ExtOverlayParams,
+
     #[serde(
         default = "ExtOverlayParams::default_inactive",
         deserialize_with = "deserialize_inactive"
     )]
     inactive: ExtOverlayParams,
+
     #[serde(
         default = "ExtOverlayParams::default_focalized",
         deserialize_with = "deserialize_focalized"

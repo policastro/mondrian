@@ -5,11 +5,7 @@ use serde::Serialize;
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Core {
-    pub rules: Vec<RuleConfig>,
-    #[serde(default)]
-    pub move_cursor_on_focus: bool,
-    #[serde(default)]
-    pub auto_reload_configs: bool,
+    pub ignore_rules: Vec<RuleConfig>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

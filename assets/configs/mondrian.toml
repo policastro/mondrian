@@ -1,27 +1,33 @@
+[general]
+history_based_navigation = false  # if true, the navigation will prioritize the focus history
+detect_maximized_windows = true   # if true, maximized windows will be detected and they will not be managed by the tiling engine
+move_cursor_on_focus = false      # if true, the cursor will be moved to the center of the focused window 
+auto_reload_configs = true        # if true, the config will be reloaded when a change is detected
+insert_in_monitor = true          # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
+free_move_in_monitor = false      # if true, when the window is inserted in a new monitor, the position will determined by where the mouse is
+animations.enabled = true         # enables or disables the animations
+animations.type = "ease_out_back" # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
+animations.duration = 350         # duration of the animation in milliseconds
+animations.framerate = 60         # animations framerate
+
 [layout]
 tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
-tiles_padding = 12               # padding between tiles, it must be between 0 and 100 
-border_padding = 18              # padding between border and tiles, it must be between 0 and 100
-focalized_padding = 8            # padding for the focalized window, it must be between 0 and 120
-insert_in_monitor = true         # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
-free_move_in_monitor = false     # if true, when the window is inserted in a new monitor, the position will determined by where the mouse is
-animations_enabled = true        # enables or disables the animations
-animation_type = "ease_out_back" # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
-animations_duration = 350        # duration of the animation in milliseconds
-animations_framerate = 60        # animations framerate
+paddings.tiles = 12              # padding between tiles, it must be between 0 and 100 
+paddings.borders = 18            # padding between border and tiles, it must be between 0 and 100
+paddings.focalized = 8           # padding for the focalized window, it must be between 0 and 120
 
-[layout.golden_ratio] # if tiling_strategy = "golden_ratio"
+[layout.strategy.golden_ratio] # if tiling_strategy = "golden_ratio"
 clockwise = true # true = clockwise, false = counterclockwise
 vertical = false # if true, the first split will be vertical
 ratio = 65       # ratio of the first split
 
-[layout.horizontal] # if tiling_strategy = "horizontal"
+[layout.strategy.horizontal] # if tiling_strategy = "horizontal"
 grow_right = true # if true, new windows will be placed on the right side of the screen
 
-[layout.vertical] # if tiling_strategy = "vertical"
+[layout.strategy.vertical] # if tiling_strategy = "vertical"
 grow_down = true # if true, new windows will be placed on the bottom side of the screen
 
-[layout.twostep] # if tiling_strategy = "twostep"
+[layout.strategy.twostep] # if tiling_strategy = "twostep"
 first_step = "right" # first insertion direction, can be <"right"|"left"|"up"|"down">
 second_step = "down" # second insertion direction, can be <"right"|"left"|"up"|"down">
 ratio = 65           # ratio of the first split
@@ -29,8 +35,6 @@ ratio = 65           # ratio of the first split
 [modules.keybindings]
 enabled = true # enables or disables the keybindings module
 bindings = [
-    # { key = "X", action = "quit" },                                   # e.g. when pressing <default_modifier>+X, the action will be "quit"
-    # { modifier = "CTRL+ALT", key = "R", action = "refresh-config" },  # e.g. when pressing CTRL+ALT+R, the action will be "refresh-config"
     # Navigation
     { modifiers = "CTRL+ALT", key = "left", action = "focus left" },
     { modifiers = "CTRL+ALT", key = "right", action = "focus right" },
@@ -51,35 +55,25 @@ bindings = [
     { modifiers = "ALT", key = "f", action = "focalize" },
     { modifiers = "ALT", key = "m", action = "minimize" },
     { modifiers = "ALT", key = "v", action = "invert" },
-    { modifier = "ALT+SHIFT", key = "p", action = "pause" },
-    { modifier = "ALT+SHIFT", key = "r", action = "refresh-config" },
+    { modifiers = "ALT+SHIFT", key = "p", action = "pause" },
+    { modifiers = "ALT+SHIFT", key = "r", action = "refresh-config" },
 ]
 
 [modules.overlays]
 enabled = true               # enables or disables the overlays module
 update_while_resizing = true # the overlays will be updated while resizing
+padding = 0                  # padding between the overlay and the window
+thickness = 2                # thickness of the border
+border_radius = 10           # border radius
 active.enabled = true        # shows the active overlay
-active.thickness = 4         # thickness of the border
-active.color = "#FE4A49"     # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-active.border_radius = 15    # border radius
-active.padding = 0           # padding between the overlay and the window
+active.color = "#9BD1E5"     # color of the border, as [r, g, b] or as hex string ("#rrggbb")
 inactive.enabled = true      # shows the inactive overlays
-inactive.thickness = 4       # thickness of the border
-inactive.color = "#FED766"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-inactive.border_radius = 15  # border radius
-inactive.padding = 0         # padding between the overlay and the window
-
-# Other settings
-[advanced]
-detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine
+inactive.color = "#696969"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+focalized.enabled = true     # shows the focalized overlay
+focalized.color = "#EA9999"  # color of the border, as [r, g, b] or as hex string ("#rrggbb")
 
 [core]
-move_cursor_on_focus = false # if true, the cursor will be moved to the center of the focused window 
-auto_reload_configs = false # if true, the config will be reloaded when a change is detected
-rules = [
-    # { title = "Title", exename = "app.exe", classname = "ApplicationWindow" },                       # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
-    # { title = "Title" },                                                                             # match any window with a title="Title" (title, exename, classname are optional, but at least one of them must be specified)
-    # { title = "/Title[0-9]/" },                                                                      # match any window with a title that matches the regex "/Title[0-9]/" (you can use regex in title, exename and classname by enclosing them in slashes)
+ignore_rules = [
     { exename = "OpenWith.exe" },                                                                    # "Open with" dialog 
     { exename = "StartMenuExperienceHost.exe" },                                                     # Manages the start menu
     { classname = "OperationStatusWindow" },                                                         # Explorer operation status 

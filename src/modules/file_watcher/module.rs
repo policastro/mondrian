@@ -107,10 +107,10 @@ impl ModuleImpl for FileWatcherModule {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running)),
             MondrianMessage::Configure => {
-                Module::enable(self, app_configs.core.auto_reload_configs);
+                Module::enable(self, app_configs.general.auto_reload_configs);
             }
             MondrianMessage::RefreshConfig => {
-                Module::enable(self, app_configs.core.auto_reload_configs);
+                Module::enable(self, app_configs.general.auto_reload_configs);
                 Module::restart(self);
             }
             MondrianMessage::Quit => Module::stop(self),
