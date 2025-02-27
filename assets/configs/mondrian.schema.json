@@ -1,0 +1,513 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "layout": {
+      "type": "object",
+      "description": "Configuration settings for the tiling layout.",
+      "properties": {
+        "tiling_strategy": {
+          "type": "string",
+          "enum": [
+            "golden_ratio",
+            "horizontal",
+            "vertical",
+            "twostep",
+            "squared"
+          ],
+          "x-taplo": {
+            "docs": {
+              "enumValues": [
+                "Golden ratio",
+                "Horizontal",
+                "Vertical",
+                "Twostep",
+                "Squared"
+              ]
+            }
+          },
+          "description": "Defines the tiling strategy used in the layout."
+        },
+        "paddings": {
+          "type": "object",
+          "description": "Padding settings for the windows in the layout.",
+          "properties": {
+            "tiles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Padding between windows (in pixels)."
+            },
+            "borders": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Padding between monitor borders and windows (in pixels)."
+            },
+            "focalized": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 120,
+              "description": "Padding between monitor borders and focalized windows (in pixels)."
+            }
+          }
+        },
+        "strategy": {
+          "type": "object",
+          "description": "Settings for single layout strategies.",
+          "properties": {
+            "golden_ratio": {
+              "type": "object",
+              "description": "Settings for the *Golden ratio* layout.",
+              "properties": {
+                "ratio": {
+                  "type": "integer",
+                  "description": "Ratio of the first split.",
+                  "minimum": 10,
+                  "maximum": 90
+                },
+                "clockwise": {
+                  "type": "boolean",
+                  "description": "Places the windows clockwise or counterclockwise."
+                },
+                "vertical": {
+                  "type": "boolean",
+                  "description": "If true, the layout will be vertical."
+                }
+              }
+            },
+            "twostep": {
+              "type": "object",
+              "description": "Settings for the *Twostep* layout.",
+              "properties": {
+                "first_step": {
+                  "type": "string",
+                  "description": "First insertion direction.",
+                  "enum": [
+                    "right",
+                    "left",
+                    "up",
+                    "down"
+                  ]
+                },
+                "second_step": {
+                  "type": "string",
+                  "description": "Second insertion direction.",
+                  "enum": [
+                    "right",
+                    "left",
+                    "up",
+                    "down"
+                  ]
+                },
+                "ratio": {
+                  "type": "integer",
+                  "description": "Ratio of the first split.",
+                  "minimum": 10,
+                  "maximum": 90
+                }
+              }
+            },
+            "horizontal": {
+              "type": "object",
+              "description": "Settings for the *Horizontal* layout.",
+              "properties": {
+                "grow_right": {
+                  "type": "boolean",
+                  "description": "If true, the layout will grow on the right side."
+                }
+              }
+            },
+            "vertical": {
+              "type": "object",
+              "description": "Settings for the *Vertical* layout.",
+              "properties": {
+                "grow_down": {
+                  "type": "boolean",
+                  "description": "If true, the layout will grow on the bottom side."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "general": {
+      "type": "object",
+      "description": "General configuration options.",
+      "properties": {
+        "history_based_navigation": {
+          "type": "boolean",
+          "description": "If true, navigation will prioritize the most recently focused window in the given direction."
+        },
+        "insert_in_monitor": {
+          "type": "boolean",
+          "description": "If true, moving the window to a new monitor inserts it rather than swapping."
+        },
+        "free_move_in_monitor": {
+          "type": "boolean",
+          "description": "If true, free moving the window to a new monitor is enabled by default.",
+          "x-taplo": {
+            "links": {
+              "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#moving-windows"
+            }
+          }
+        },
+        "detect_maximized_windows": {
+          "type": "boolean",
+          "description": "Prevents maximized windows from being managed."
+        },
+        "move_cursor_on_focus": {
+          "type": "boolean",
+          "description": "Moves the mouse cursor to the center of the focused window when focus is changed."
+        },
+        "auto_reload_configs": {
+          "type": "boolean",
+          "description": "Reloads the configurations on config file changes."
+        },
+        "animations": {
+          "type": "object",
+          "description": "Settings for animations in the layout.",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Type of animation used.",
+              "enum": [
+                "linear",
+                "ease_in",
+                "ease_in_sine",
+                "ease_in_quad",
+                "ease_in_cubic",
+                "ease_in_quart",
+                "ease_in_quint",
+                "ease_in_expo",
+                "ease_in_circ",
+                "ease_in_back",
+                "ease_in_elastic",
+                "ease_in_bounce",
+                "ease_out",
+                "ease_out_sine",
+                "ease_out_quad",
+                "ease_out_cubic",
+                "ease_out_quart",
+                "ease_out_quint",
+                "ease_out_expo",
+                "ease_out_circ",
+                "ease_out_back",
+                "ease_out_elastic",
+                "ease_out_bounce",
+                "ease_in_out",
+                "ease_in_out_sine",
+                "ease_in_out_quad",
+                "ease_in_out_cubic",
+                "ease_in_out_quart",
+                "ease_in_out_quint",
+                "ease_in_out_expo",
+                "ease_in_out_circ",
+                "ease_in_out_back",
+                "ease_in_out_elastic",
+                "ease_in_out_bounce"
+              ]
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable or disable animations."
+            },
+            "duration": {
+              "type": "integer",
+              "description": "Duration of the animations in milliseconds.",
+              "minimum": 100,
+              "maximum": 10000
+            },
+            "framerate": {
+              "type": "integer",
+              "description": "Framerate of the animations.",
+              "minimum": 10,
+              "maximum": 240
+            }
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "description": "Modules configuration settings.",
+      "properties": {
+        "keybindings": {
+          "type": "object",
+          "description": "Keybindings module settings.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enables/disables the module."
+            },
+            "bindings": {
+              "type": "array",
+              "description": "Custom keybindings. Each keybinding has the format\n`{ modifiers = \"MODIFIERS\", key = \"KEY\", action = \"ACTION\" }`.\nCheck the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#custom-keybindings-with-moduleskeybindingsbindings-) for more info.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "modifiers": {
+                    "type": "string",
+                    "description": "Modifiers to be pressed."
+                  },
+                  "modifier": {
+                    "type": "string",
+                    "description": "Modifiers to be pressed."
+                  },
+                  "mod": {
+                    "type": "string",
+                    "description": "Modifiers to be pressed."
+                  },
+                  "action": {
+                    "type": "string",
+                    "description": "Action to be performed.",
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "refresh-config",
+                          "open-config",
+                          "retile",
+                          "minimize",
+                          "focus left",
+                          "focus right",
+                          "focus up",
+                          "focus down",
+                          "insert left",
+                          "insert right",
+                          "insert up",
+                          "insert down",
+                          "move left",
+                          "move right",
+                          "move up",
+                          "move down",
+                          "moveinsert left",
+                          "moveinsert right",
+                          "moveinsert up",
+                          "moveinsert down",
+                          "invert",
+                          "release",
+                          "focalize",
+                          "amplify",
+                          "pause",
+                          "pause keybindings",
+                          "pause overlays",
+                          "quit"
+                        ]
+                      },
+                      {
+                        "pattern": "^resize (left|right|up|down) ([0-9]{1,3})$"
+                      }
+                    ]
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "Key to be pressed."
+                  }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "modifiers",
+                      "key",
+                      "action"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "modifier",
+                      "key",
+                      "action"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "mod",
+                      "key",
+                      "action"
+                    ]
+                  }
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "x-taplo": {
+            "links": {
+              "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#custom-keybindings-with-moduleskeybindingsbindings-"
+            }
+          }
+        },
+        "overlays": {
+          "type": "object",
+          "description": "Overlays module settings.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enables/disables the module."
+            },
+            "update_while_resizing": {
+              "type": "boolean",
+              "description": "Updates the overlays while resizing."
+            },
+            "thickness": {
+              "type": "integer",
+              "description": "Thickness of the overlays borders (in pixels).",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "padding": {
+              "type": "integer",
+              "description": "Padding between the overlay and the window (in pixels).",
+              "minimum": 0,
+              "maximum": 30
+            },
+            "border_radius": {
+              "type": "integer",
+              "description": "Border radius of the overlays in pixels.",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "active": {
+              "type": "object",
+              "description": "Active overlay settings.",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enables/disables the active overlay."
+                },
+                "color": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    }
+                  ],
+                  "description": "Color of the active overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                }
+              }
+            },
+            "inactive": {
+              "type": "object",
+              "description": "Inactive overlays settings.",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enables/disables the inactive overlays."
+                },
+                "color": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    }
+                  ],
+                  "description": "Color of the inactive overlays. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                }
+              }
+            },
+            "focalized": {
+              "type": "object",
+              "description": "Focalized overlay settings.",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enables/disables the focalized overlay."
+                },
+                "color": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    }
+                  ],
+                  "description": "Color of the focalized overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "core": {
+      "type": "object",
+      "description": "Core configuration settings.",
+      "properties": {
+        "ignore_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "Custom rules to exclude windows from being managed.\nEach rule has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-core-ignore-rules-) for more info.",
+            "properties": {
+              "exename": {
+                "type": "string",
+                "description": "Executable name of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+              },
+              "classname": {
+                "type": "string",
+                "description": "Class name of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+              },
+              "title": {
+                "type": "string",
+                "description": "Title of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+              }
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "exename"
+                ]
+              },
+              {
+                "required": [
+                  "classname"
+                ]
+              },
+              {
+                "required": [
+                  "title"
+                ]
+              }
+            ],
+            "x-taplo": {
+              "links": {
+                "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-core-ignore-rules-"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  }
+}

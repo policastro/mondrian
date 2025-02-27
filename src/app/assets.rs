@@ -2,6 +2,7 @@ use rust_embed::Embed;
 
 #[derive(Embed)]
 #[folder = "assets/"]
+#[exclude = "**/*.schema.json"]
 pub struct Asset;
 
 impl Asset {
