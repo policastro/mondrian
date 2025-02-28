@@ -1,3 +1,5 @@
+#:schema https://raw.githubusercontent.com/policastro/mondrian/refs/heads/main/assets/configs/mondrian.schema.json
+
 [general]
 history_based_navigation = false  # if true, the navigation will prioritize the focus history
 detect_maximized_windows = true   # if true, maximized windows will be detected and they will not be managed by the tiling engine
