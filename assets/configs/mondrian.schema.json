@@ -467,7 +467,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "description": "Custom rules to exclude windows from being managed.\nEach rule has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-core-ignore-rules-) for more info.",
+            "description": "Custom rules to exclude windows from being managed.\nEach rule has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-coreignore_rules-) for more info.",
             "properties": {
               "exename": {
                 "type": "string",
@@ -501,7 +501,7 @@
             ],
             "x-taplo": {
               "links": {
-                "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-core-ignore-rules-"
+                "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-coreignore_rules-"
               }
             },
             "additionalProperties": false
