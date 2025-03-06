@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::app::structs::win_matcher::WinMatcher;
 use serde::Deserialize;
 use serde::Serialize;
@@ -18,21 +20,21 @@ pub struct RuleConfig {
 
 impl From<&Vec<RuleConfig>> for WinMatcher {
     fn from(rules: &Vec<RuleConfig>) -> Self {
-        let matchers: Vec<WinMatcher> = rules
+        let matchers: HashSet<WinMatcher> = rules
             .iter()
             .map(|r| {
-                let mut matchers: Vec<WinMatcher> = Vec::new();
+                let mut matchers: HashSet<WinMatcher> = HashSet::new();
 
                 if let Some(exename) = &r.exename {
-                    matchers.push(WinMatcher::Exename(exename.clone()));
+                    matchers.insert(WinMatcher::Exename(exename.clone()));
                 }
 
                 if let Some(classname) = &r.classname {
-                    matchers.push(WinMatcher::Classname(classname.clone()));
+                    matchers.insert(WinMatcher::Classname(classname.clone()));
                 }
 
                 if let Some(title) = &r.title {
-                    matchers.push(WinMatcher::Title(title.clone()));
+                    matchers.insert(WinMatcher::Title(title.clone()));
                 }
 
                 if matchers.is_empty() {

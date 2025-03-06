@@ -190,7 +190,7 @@ impl WindowAnimationPlayer {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum WindowAnimation {
     Linear,

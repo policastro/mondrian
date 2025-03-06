@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::orientation::Orientation;
 
-#[derive(Debug, PartialEq, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
     Left,

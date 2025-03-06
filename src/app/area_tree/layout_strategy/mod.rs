@@ -5,15 +5,14 @@ pub mod two_step;
 
 use crate::app::structs::{direction::Direction, orientation::Orientation};
 use enum_dispatch::enum_dispatch;
+use golden_ratio::GoldenRatio;
+use mono_axis::MonoAxis;
 use mono_axis::MonoAxisHorizontal;
 use mono_axis::MonoAxisVertical;
 use squared::Squared;
+use two_step::TwoStep;
 
-use super::layout_strategy::golden_ratio::GoldenRatio;
-use super::layout_strategy::mono_axis::MonoAxis;
-use super::layout_strategy::two_step::TwoStep;
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TreeOperation {
     Insert,
     Remove,
@@ -27,7 +26,7 @@ pub trait LayoutStrategy {
 }
 
 #[enum_dispatch]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LayoutStrategyEnum {
     GoldenRatio,
     MonoAxis,

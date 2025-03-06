@@ -74,6 +74,7 @@ impl TilesManagerModule {
         };
 
         let mut tm = TilesManager::new(Some(tm_configs), on_update_start, on_update_error, on_update_complete);
+        let _ = tm.init();
         let _ = tm.add_open_windows();
         let _ = tm.update_layout(true);
 
@@ -159,8 +160,11 @@ impl ModuleImpl for TilesManagerModule {
             }
             MondrianMessage::Retile => Module::restart(self),
             MondrianMessage::RefreshConfig => {
+                let config_changed = self.configs != app_configs.into();
                 self.configure(app_configs.into());
-                Module::restart(self);
+                if config_changed {
+                    Module::restart(self);
+                }
             }
             MondrianMessage::SystemEvent(evt) if *evt == SystemEvent::MonitorsLayoutChanged => {
                 Module::restart(self);

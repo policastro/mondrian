@@ -4,7 +4,7 @@ use crate::app::structs::{direction::Direction, orientation::Orientation};
 
 use super::{LayoutStrategy, TreeOperation};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MonoAxis {
     axis: Orientation,
     curr_direction: Direction,
@@ -67,7 +67,7 @@ impl Default for MonoAxis {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default)]
 pub struct MonoAxisVertical {
     grow_down: bool,
@@ -107,7 +107,7 @@ impl Default for MonoAxisVertical {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default)]
 pub struct MonoAxisHorizontal {
     grow_right: bool,

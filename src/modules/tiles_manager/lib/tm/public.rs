@@ -355,6 +355,7 @@ impl TilesManagerOperations for TilesManager {
     }
 }
 
+#[derive(Default, Clone)]
 pub struct FocusHistory {
     map: HashMap<WindowRef, u64>,
     current_max: u64,

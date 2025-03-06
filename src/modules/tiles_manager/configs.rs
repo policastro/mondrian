@@ -3,7 +3,7 @@ use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::configs::AppConfigs;
 use crate::app::structs::win_matcher::WinMatcher;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CoreModuleConfigs {
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,

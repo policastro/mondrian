@@ -51,7 +51,7 @@ pub trait TilesManagerBase {
     fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState>;
     fn get_managed_windows(&self) -> HashMap<isize, WindowTileState>;
     fn cancel_animation(&mut self);
-    fn update_tm(&mut self) -> Result<(), Error>;
+    fn init(&mut self) -> Result<(), Error>;
     fn update_layout(&mut self, animate: bool) -> Result<(), Error>;
     fn pause_updates(&mut self, pause: bool);
 }
@@ -79,7 +79,7 @@ impl TilesManagerBase for TilesManager {
             on_update_complete,
         );
 
-        let mut tm = TilesManager {
+        TilesManager {
             pause_updates: false,
             floating_wins: HashSet::new(),
             maximized_wins: HashSet::new(),
@@ -90,10 +90,7 @@ impl TilesManagerBase for TilesManager {
             focus_history: FocusHistory::new(),
             config,
             animation_player,
-        };
-
-        let _ = tm.update_tm();
-        tm
+        }
     }
 
     fn add_open_windows(&mut self) -> Result<(), Error> {
@@ -152,7 +149,7 @@ impl TilesManagerBase for TilesManager {
         self.animation_player.cancel();
     }
 
-    fn update_tm(&mut self) -> Result<(), Error> {
+    fn init(&mut self) -> Result<(), Error> {
         let vds: Vec<u128> = get_desktops()
             .expect("Failed to get desktops")
             .into_iter()

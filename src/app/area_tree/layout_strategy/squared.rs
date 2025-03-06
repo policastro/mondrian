@@ -4,7 +4,7 @@ use crate::app::structs::{direction::Direction, orientation::Orientation};
 
 use super::{LayoutStrategy, TreeOperation};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(default)]
 pub struct Squared {
     #[serde(skip)]

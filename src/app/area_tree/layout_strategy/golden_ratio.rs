@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 
-#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(default)]
 pub struct GoldenRatio {
     #[serde(deserialize_with = "deserializers::to_u8_minmax::<10,90,_>")]

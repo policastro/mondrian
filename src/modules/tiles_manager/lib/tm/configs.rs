@@ -3,7 +3,7 @@ use crate::app::structs::win_matcher::WinMatcher;
 use crate::modules::tiles_manager::configs::CoreModuleConfigs;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct TilesManagerConfig {
     tiles_padding: i8,
     border_padding: i8,

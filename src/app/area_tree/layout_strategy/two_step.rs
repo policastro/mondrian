@@ -6,7 +6,7 @@ use crate::app::structs::orientation::Orientation;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(default)]
 pub struct TwoStep {
     #[serde(rename = "first_step")]

@@ -1,17 +1,19 @@
+use std::collections::HashSet;
+
 use crate::win32::window::window_obj::WindowObjInfo;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WinMatcher {
     Exename(String),
     Title(String),
     Classname(String),
-    Any(Vec<WinMatcher>),
-    All(Vec<WinMatcher>),
+    Any(HashSet<WinMatcher>),
+    All(HashSet<WinMatcher>),
 }
 
 impl Default for WinMatcher {
     fn default() -> Self {
-        WinMatcher::Any(vec![])
+        WinMatcher::Any(HashSet::new())
     }
 }
 
@@ -70,5 +72,11 @@ impl<T: WindowObjInfo> WinMatcherTarget<T> {
 
     pub fn exe_name(&mut self) -> &Option<String> {
         self.exe_name.get_or_insert_with(|| self.win_obj.get_exe_name())
+    }
+}
+
+impl std::hash::Hash for WinMatcher {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
     }
 }
