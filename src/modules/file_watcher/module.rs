@@ -113,6 +113,11 @@ impl ModuleImpl for FileWatcherModule {
                 Module::enable(self, app_configs.general.auto_reload_configs);
                 Module::restart(self);
             }
+            MondrianMessage::SystemEvent(evt) => match evt {
+                evt if evt.session_is_active() => Module::start(self),
+                evt if evt.session_is_inactive() => Module::stop(self),
+                _ => {}
+            },
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

@@ -70,6 +70,12 @@ impl IntermonitorMoveOp {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SystemEvent {
+    Standby,
+    Resume { logged_in: bool },
+    SessionLocked,
+    SessionUnlocked,
+    SessionLogon,
+    SessionLogoff,
     MonitorsLayoutChanged,
     VirtualDesktopChanged { old: Desktop, new: Desktop },
     VirtualDesktopCreated { desktop: Desktop },
@@ -79,6 +85,22 @@ pub enum SystemEvent {
 impl From<SystemEvent> for MondrianMessage {
     fn from(event: SystemEvent) -> Self {
         MondrianMessage::SystemEvent(event)
+    }
+}
+
+impl SystemEvent {
+    pub fn session_is_active(&self) -> bool {
+        matches!(
+            self,
+            SystemEvent::Resume { logged_in: true } | SystemEvent::SessionLogon | SystemEvent::SessionUnlocked
+        )
+    }
+
+    pub fn session_is_inactive(&self) -> bool {
+        matches!(
+            self,
+            SystemEvent::Standby | SystemEvent::SessionLogoff | SystemEvent::SessionLocked
+        )
     }
 }
 

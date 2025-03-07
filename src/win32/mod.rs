@@ -4,6 +4,7 @@ pub mod api {
     pub mod key;
     pub mod misc;
     pub mod monitor;
+    pub mod session;
     pub mod window;
 }
 pub mod callbacks {

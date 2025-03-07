@@ -2,13 +2,13 @@ pub mod events_monitor {
     pub mod configs;
     pub mod module;
     pub(crate) mod lib {
-        pub mod display_change_detector;
         pub mod filter;
         pub mod focus_event_handler;
         pub mod maximize_event_handler;
         pub mod minimize_event_handler;
         pub mod open_event_handler;
         pub mod position_event_handler;
+        pub mod system_events_detector;
     }
 }
 

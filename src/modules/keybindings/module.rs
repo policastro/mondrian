@@ -154,6 +154,11 @@ impl ModuleImpl for KeybindingsModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
+            MondrianMessage::SystemEvent(evt) => match evt {
+                evt if evt.session_is_active() => Module::start(self),
+                evt if evt.session_is_inactive() => Module::stop(self),
+                _ => {}
+            },
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

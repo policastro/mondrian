@@ -1,10 +1,10 @@
 use super::configs::EventMonitorModuleConfigs;
-use super::lib::display_change_detector;
 use super::lib::focus_event_handler::FocusEventHandler;
 use super::lib::maximize_event_handler::MaximizeEventHandler;
 use super::lib::minimize_event_handler::MinimizeEventHandler;
 use super::lib::open_event_handler::OpenCloseEventHandler;
 use super::lib::position_event_handler::PositionEventHandler;
+use super::lib::system_events_detector;
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::SystemEvent;
@@ -13,6 +13,7 @@ use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::misc::{get_current_thread_id, post_empty_thread_message};
 use crate::win32::api::window::destroy_window;
+use crate::win32::win_event_loop::start_win_event_loop;
 use crate::win32::win_events_manager::WindowsEventManager;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
@@ -24,9 +25,12 @@ use winvd::DesktopEvent;
 use winvd::DesktopEventThread;
 
 pub struct EventsMonitorModule {
-    win_events_thread_id: Arc<AtomicU32>,
-    win_vd_events_thread: Option<DesktopEventThread>,
     win_events_thread: Option<thread::JoinHandle<()>>,
+    system_events_thread: Option<thread::JoinHandle<()>>,
+    vd_listener_thread: Option<DesktopEventThread>,
+    vd_events_thread: Option<thread::JoinHandle<()>>,
+    win_events_thread_id: Arc<AtomicU32>,
+    system_events_thread_id: Arc<AtomicU32>,
     configs: EventMonitorModuleConfigs,
     running: Arc<AtomicBool>,
     enabled: bool,
@@ -36,27 +40,30 @@ pub struct EventsMonitorModule {
 impl EventsMonitorModule {
     pub fn new(bus_tx: Sender<MondrianMessage>) -> Self {
         EventsMonitorModule {
-            configs: EventMonitorModuleConfigs::default(),
-            win_vd_events_thread: None,
             win_events_thread: None,
+            system_events_thread: None,
+            vd_listener_thread: None,
+            vd_events_thread: None,
             win_events_thread_id: Arc::new(AtomicU32::new(0)),
+            system_events_thread_id: Arc::new(AtomicU32::new(0)),
+            configs: EventMonitorModuleConfigs::default(),
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
             bus_tx,
         }
     }
 
-    fn start_win_events_loop(&mut self) {
-        let (detect_maximized, default_insert, default_free_move) = (
-            self.configs.detect_maximized_windows,
-            self.configs.default_insert_in_monitor,
-            self.configs.default_free_move_in_monitor,
-        );
+    fn start_vd_events_loop(&mut self) {
+        if self.vd_listener_thread.is_some() {
+            return;
+        }
+
+        log::trace!("Starting Virtual Desktops events loop");
 
         let (winvd_tx, winvd_rx) = std::sync::mpsc::channel::<DesktopEvent>();
         let bus_tx = self.bus_tx.clone();
-        self.win_vd_events_thread = listen_desktop_events(winvd_tx).ok();
-        let _winvd_thread = thread::spawn(move || {
+        self.vd_listener_thread = listen_desktop_events(winvd_tx).ok();
+        self.vd_events_thread = Some(thread::spawn(move || {
             for event in winvd_rx {
                 match event {
                     DesktopEvent::DesktopChanged { new, old } => {
@@ -79,18 +86,53 @@ impl EventsMonitorModule {
                     }
                 }
             }
-        });
+        }));
+    }
 
-        let win_events_thread_id = self.win_events_thread_id.clone();
+    fn start_system_events_loop(&mut self) {
+        if self.system_events_thread.is_some() {
+            return;
+        }
+
+        log::trace!("Starting System Events loop");
+
+        let thread_id = self.system_events_thread_id.clone();
+        let bus_tx = self.bus_tx.clone();
+        self.system_events_thread = Some(thread::spawn(move || {
+            let hwnd = system_events_detector::create(bus_tx.clone());
+            if hwnd.is_none() {
+                log::warn!("Failure while trying to create the system events detector window");
+                return;
+            }
+
+            thread_id.store(get_current_thread_id(), Ordering::SeqCst);
+
+            if let Some(hwnd) = hwnd {
+                start_win_event_loop();
+                destroy_window(hwnd);
+            }
+        }));
+    }
+
+    fn start_win_events_loop(&mut self) {
+        if self.win_events_thread.is_some() {
+            return;
+        }
+
+        log::trace!("Starting Win Events loop");
+
+        let (detect_maximized, default_insert, default_free_move) = (
+            self.configs.detect_maximized_windows,
+            self.configs.default_insert_in_monitor,
+            self.configs.default_free_move_in_monitor,
+        );
+
+        let thread_id = self.win_events_thread_id.clone();
         let bus_tx = self.bus_tx.clone();
         let filter = self.configs.filter.clone().unwrap();
         self.win_events_thread = Some(thread::spawn(move || {
-            let hwnd = display_change_detector::create(bus_tx.clone());
-            if hwnd.is_none() {
-                log::warn!("Failure while trying to create the monitor events detector window");
-            }
+            thread_id.store(get_current_thread_id(), Ordering::SeqCst);
 
-            win_events_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             let mut wem = WindowsEventManager::new();
             wem.hook(OpenCloseEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(MinimizeEventHandler::new(bus_tx.clone(), filter.clone()));
@@ -101,16 +143,37 @@ impl EventsMonitorModule {
                 default_insert,
                 default_free_move,
             ));
+
             if detect_maximized {
                 wem.hook(MaximizeEventHandler::new(bus_tx.clone(), filter.clone()));
             }
 
             wem.start_event_loop();
-
-            if let Some(hwnd) = hwnd {
-                destroy_window(hwnd);
-            }
         }));
+    }
+
+    fn stop_win_events_loop(&mut self) {
+        if let Some(thread) = self.win_events_thread.take() {
+            post_empty_thread_message(self.win_events_thread_id.load(Ordering::SeqCst), WM_QUIT);
+            thread.join().unwrap();
+            log::trace!("Win Events loop stopped");
+        };
+    }
+
+    fn stop_system_events_loop(&mut self) {
+        if let Some(thread) = self.system_events_thread.take() {
+            post_empty_thread_message(self.system_events_thread_id.load(Ordering::SeqCst), WM_QUIT);
+            thread.join().unwrap();
+            log::trace!("System Events loop stopped");
+        };
+    }
+
+    fn stop_vd_events_loop(&mut self) {
+        self.vd_listener_thread.take();
+        if let Some(thread) = self.vd_events_thread.take() {
+            thread.join().unwrap();
+            log::trace!("Virtual Desktops Events loop stopped");
+        };
     }
 }
 
@@ -120,9 +183,11 @@ impl ModuleImpl for EventsMonitorModule {
             return;
         }
 
-        self.running.store(true, Ordering::SeqCst);
+        self.start_vd_events_loop();
+        self.start_system_events_loop();
         self.start_win_events_loop();
 
+        self.running.store(true, Ordering::SeqCst);
         log::trace!("EventsMonitorModule started");
     }
 
@@ -131,14 +196,11 @@ impl ModuleImpl for EventsMonitorModule {
             return;
         }
 
+        self.stop_vd_events_loop();
+        self.stop_system_events_loop();
+        self.stop_win_events_loop();
+
         self.running.store(false, Ordering::SeqCst);
-        if let Some(thread) = self.win_events_thread.take() {
-            post_empty_thread_message(self.win_events_thread_id.load(Ordering::SeqCst), WM_QUIT);
-            thread.join().unwrap();
-        };
-
-        self.win_vd_events_thread.take();
-
         log::trace!("EventsMonitorModule stopped");
     }
 
@@ -173,9 +235,19 @@ impl ModuleImpl for EventsMonitorModule {
                 self.configure(app_configs.into());
                 Module::restart(self);
             }
-            MondrianMessage::SystemEvent(evt) if *evt == SystemEvent::MonitorsLayoutChanged => {
-                Module::restart(self);
-            }
+            MondrianMessage::SystemEvent(evt) => match evt {
+                evt if evt.session_is_active() => {
+                    if self.enabled {
+                        self.start_vd_events_loop();
+                        self.start_win_events_loop();
+                    }
+                }
+                evt if evt.session_is_inactive() => {
+                    self.stop_vd_events_loop();
+                    self.stop_win_events_loop();
+                }
+                _ => {}
+            },
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }
