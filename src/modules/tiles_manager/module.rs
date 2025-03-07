@@ -197,6 +197,7 @@ fn handle_tm(
     event: TMCommand,
 ) -> bool {
     let _ = tm.check_for_vd_changes();
+    let prev_wins = tm.get_managed_windows();
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
             WindowEvent::Maximized(hwnd) => tm.on_maximize(hwnd.into(), true),
@@ -264,7 +265,9 @@ fn handle_tm(
 
     if event.can_change_layout() {
         let windows = tm.get_managed_windows();
-        tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
+        if windows != prev_wins {
+            tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
+        }
     }
 
     true
