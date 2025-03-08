@@ -85,10 +85,6 @@ If the configuration file does not exist, it will be created automatically when 
 | **Option**                               | **Description**                                                                             | **Values**                                                                        | **Default**                        |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------- |
 | `layout.tiling_strategy`                 | Tiling strategy                                                                             | `"golden_ratio"`, `"horizontal"`, `"vertical"`, `"twostep"`, `"squared"`          | `"golden_ratio"`                   |
-| `layout.animation.type`                  | Animation type                                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case) | `"linear"`                         |
-| `layout.animations.enabled`              | Enables/disables the animations                                                             | `true`, `false`                                                                   | `true`                             |
-| `layout.animations.duration`             | Duration of the animations in ms                                                            | 100 - 10000                                                                       | 300                                |
-| `layout.animations.framerate`            | Framerate of the animations                                                                 | 10 - 240                                                                          | 60                                 |
 | `layout.paddings.tiles`                  | Padding between tiles (in px)                                                               | 0 - 100                                                                           | 12                                 |
 | `layout.paddings.borders`                | Padding between border and tiles (in px)                                                    | 0 - 100                                                                           | 18                                 |
 | `layout.paddings.focalized`              | Padding between border and focalized window (in px)                                         | 0 - 120                                                                           | 8                                  |
@@ -106,6 +102,10 @@ If the configuration file does not exist, it will be created automatically when 
 | `general.detect_maximized_windows`       | Prevents maximized windows from being managed                                               | `true`, `false`                                                                   | `true`                             |
 | `general.move_cursor_on_focus`           | Moves the mouse cursor to the center of the focused window                                  | `true`, `false`                                                                   | `false`                            |
 | `general.auto_reload_configs`            | Reloads the configuration on changes                                                        | `true`, `false`                                                                   | `true`                             |
+| `general.animations.type`                | Animation type                                                                              | `"linear"`/any of the easings functions from https://easings.net/ (in snake_case) | `"linear"`                         |
+| `general.animations.enabled`             | Enables/disables the animations                                                             | `true`, `false`                                                                   | `true`                             |
+| `general.animations.duration`            | Duration of the animations in ms                                                            | 100 - 10000                                                                       | 300                                |
+| `general.animations.framerate`           | Framerate of the animations                                                                 | 10 - 240                                                                          | 60                                 |
 | `modules.keybindings.enabled`            | Enables/disables the keybindings module                                                     | `true`, `false`                                                                   | `false`                            |
 | `modules.keybindings.bindings`           | Custom keybindings                                                                          | check the relative [section](#keybindings-guide) for more info.                   | -                                  |
 | `modules.overlays.enabled`               | Enables/disables the overlays module                                                        | `true`, `false`                                                                   | `true`                             |
@@ -230,8 +230,8 @@ Yes, there are others tiling window managers for Windows out there. In particula
 
 There are different configurations options that can improve the performances. Here the most important ones:
 
-- `layout.animations.enabled = false`: disables the animations;
-- `layout.animations.framerate`: you can set this option to reduce the framerate of the animations;
+- `general.animations.enabled = false`: disables the animations;
+- `general.animations.framerate`: you can set this option to reduce the framerate of the animations;
 - `modules.overlays.enabled = false`: disables the overlays;
 - `modules.overlays.update_while_resizing = false`: the overlays will be updated only when the window resize operation is done;
 - `general.detect_maximized_windows = false`: disables the detection of maximized windows. Disabling this feature may cause issues when overlays are enabled.
