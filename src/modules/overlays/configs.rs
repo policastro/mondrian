@@ -149,7 +149,7 @@ fn deserialize_focalized<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    deserialize_overlay_params(de, ExtOverlayParams::default_active())
+    deserialize_overlay_params(de, ExtOverlayParams::default_focalized())
 }
 
 fn deserialize_overlay_params<'de, D>(de: D, base: ExtOverlayParams) -> Result<ExtOverlayParams, D::Error>

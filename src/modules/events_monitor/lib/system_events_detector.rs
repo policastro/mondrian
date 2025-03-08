@@ -23,7 +23,6 @@ use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
 use windows::Win32::UI::WindowsAndMessaging::RegisterClassExW;
 use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
 use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
-use windows::Win32::UI::WindowsAndMessaging::CW_USEDEFAULT;
 use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
 use windows::Win32::UI::WindowsAndMessaging::PBT_APMRESUMEAUTOMATIC;
 use windows::Win32::UI::WindowsAndMessaging::PBT_APMSUSPEND;
@@ -125,7 +124,7 @@ pub fn create(tx: Sender<MondrianMessage>) -> Option<HWND> {
 
     unsafe { RegisterClassExW(&wc) };
     let style = WS_OVERLAPPEDWINDOW;
-    let size = (CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
+    let size = (0, 0, 0, 0);
 
     create_window(WINDOW_EX_STYLE::default(), cs_ptr, style, size, None, hmod, tx)
 }

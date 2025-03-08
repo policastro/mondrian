@@ -36,7 +36,9 @@ impl WinEventHandler for OverlayEventHandler {
         }
 
         if event.event == EVENT_OBJECT_LOCATIONCHANGE && !self.moving {
-            drop(self.overlays.try_lock().inspect(|o| o.reposition(event.hwnd)));
+            if let Ok(mut o) = self.overlays.try_lock() {
+                o.reposition(event.hwnd);
+            }
         } else if event.event == EVENT_SYSTEM_FOREGROUND && get_foreground_window().is_some_and(|f| f.0 == event.hwnd.0)
         {
             self.overlays.lock().unwrap().focus(event.hwnd);

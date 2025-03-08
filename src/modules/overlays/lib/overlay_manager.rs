@@ -40,13 +40,12 @@ impl OverlaysManager {
             let o = self
                 .overlays
                 .entry(*w)
-                .or_insert_with(|| Overlay::new(Some(hwnd), &self.class_name.clone()));
+                .or_insert_with(|| Overlay::new(hwnd, &self.class_name.clone()));
 
             if !self.locked {
-                let p = if is_foreground {
-                    *self.custom_active_params.get(w).unwrap_or(&self.active_params)
-                } else {
-                    self.inactive_params
+                let p = match is_foreground {
+                    true => *self.custom_active_params.get(w).unwrap_or(&self.active_params),
+                    false => self.inactive_params,
                 };
                 Self::reposition_or_create(o, p);
             }
@@ -62,22 +61,21 @@ impl OverlaysManager {
 
         if self.overlays.contains_key(&hwnd.0) {
             self.overlays.iter_mut().for_each(|(w, o)| {
-                let p = if *w == hwnd.0 {
-                    *self.custom_active_params.get(w).unwrap_or(&self.active_params)
-                } else {
-                    self.inactive_params
+                let p = match *w == hwnd.0 {
+                    true => *self.custom_active_params.get(w).unwrap_or(&self.active_params),
+                    false => self.inactive_params,
                 };
                 o.configure(p);
             });
         }
     }
 
-    pub fn reposition(&self, hwnd: HWND) {
+    pub fn reposition(&mut self, hwnd: HWND) {
         if self.locked {
             return;
         }
 
-        if let Some(o) = self.overlays.get(&hwnd.0) {
+        if let Some(o) = self.overlays.get_mut(&hwnd.0) {
             o.reposition(None);
         };
     }
@@ -91,10 +89,9 @@ impl OverlaysManager {
         let foreground = get_foreground_window().unwrap_or_default().0;
         let (active, inactive) = (self.active_params, self.inactive_params);
         self.overlays.iter_mut().for_each(|(w, o)| {
-            let p = if foreground == *w {
-                *self.custom_active_params.get(w).unwrap_or(&active)
-            } else {
-                inactive
+            let p = match foreground == *w {
+                true => *self.custom_active_params.get(w).unwrap_or(&active),
+                false => inactive,
             };
             Self::reposition_or_create(o, p);
         });
@@ -116,7 +113,10 @@ impl OverlaysManager {
 
     fn reposition_or_create(overlay: &mut Overlay<OverlayParams>, params: OverlayParams) {
         match overlay.exists() {
-            true => overlay.reposition(Some(params)),
+            true => {
+                overlay.reposition(Some(params));
+                overlay.show();
+            }
             false => overlay.create(params),
         }
     }
