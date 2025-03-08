@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_LOCATIONCHANGE, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART,
@@ -35,7 +36,7 @@ impl WinEventHandler for OverlayEventHandler {
         }
 
         if event.event == EVENT_OBJECT_LOCATIONCHANGE && !self.moving {
-            self.overlays.lock().unwrap().move_overlay(event.hwnd);
+            drop(self.overlays.try_lock().inspect(|o| o.reposition(event.hwnd)));
         } else if event.event == EVENT_SYSTEM_FOREGROUND && get_foreground_window().is_some_and(|f| f.0 == event.hwnd.0)
         {
             self.overlays.lock().unwrap().focus(event.hwnd);

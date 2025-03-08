@@ -29,6 +29,11 @@ impl OverlaysManager {
     pub fn rebuild(&mut self, windows: &HashMap<isize, Option<OverlayParams>>) {
         let foreground = get_foreground_window().unwrap_or_default();
 
+        self.custom_active_params = windows
+            .iter()
+            .filter_map(|(w, params)| params.as_ref().map(|p| (*w, *p)))
+            .collect();
+
         windows.keys().for_each(|w| {
             let hwnd = HWND(*w);
             let is_foreground = hwnd == foreground;
@@ -43,14 +48,9 @@ impl OverlaysManager {
                 } else {
                     self.inactive_params
                 };
-                Self::reposition_overlay(o, p);
+                Self::reposition_or_create(o, p);
             }
         });
-
-        self.custom_active_params = windows
-            .iter()
-            .filter_map(|(w, params)| params.as_ref().map(|p| (*w, *p)))
-            .collect();
 
         self.overlays.retain(|w, _| windows.contains_key(w));
     }
@@ -72,22 +72,14 @@ impl OverlaysManager {
         }
     }
 
-    pub fn move_overlay(&mut self, hwnd: HWND) {
+    pub fn reposition(&self, hwnd: HWND) {
         if self.locked {
             return;
         }
 
-        if let Some(o) = self.overlays.get_mut(&hwnd.0) {
+        if let Some(o) = self.overlays.get(&hwnd.0) {
             o.reposition(None);
         };
-    }
-
-    pub fn lock(&mut self) {
-        self.locked = true;
-    }
-
-    pub fn unlock(&mut self) {
-        self.locked = false;
     }
 
     pub fn suspend(&mut self) {
@@ -104,16 +96,25 @@ impl OverlaysManager {
             } else {
                 inactive
             };
-            Self::reposition_overlay(o, p);
+            Self::reposition_or_create(o, p);
         });
         self.unlock();
     }
 
     pub fn destroy(&mut self) {
+        self.custom_active_params.clear();
         self.overlays.clear();
     }
 
-    fn reposition_overlay(overlay: &mut Overlay<OverlayParams>, params: OverlayParams) {
+    fn lock(&mut self) {
+        self.locked = true;
+    }
+
+    fn unlock(&mut self) {
+        self.locked = false;
+    }
+
+    fn reposition_or_create(overlay: &mut Overlay<OverlayParams>, params: OverlayParams) {
         match overlay.exists() {
             true => overlay.reposition(Some(params)),
             false => overlay.create(params),

@@ -134,9 +134,8 @@ impl ModuleImpl for OverlaysModule {
             MondrianMessage::WindowEvent(WindowEvent::StartMoveSize(_)) => {
                 if self.is_running() {
                     let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                    let mut o = overlays.lock().unwrap();
                     if !self.configs.update_while_resizing {
-                        o.suspend();
+                        overlays.lock().unwrap().suspend();
                     }
                 }
             }

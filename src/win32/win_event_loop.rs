@@ -5,15 +5,6 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{DispatchMessageA, GetMessageA, TranslateMessage, MSG},
 };
 
-pub fn start_mono_win_event_loop(hwnd: HWND) {
-    let mut msg: MaybeUninit<MSG> = MaybeUninit::uninit();
-    unsafe {
-        while GetMessageA(msg.as_mut_ptr(), hwnd, 0, 0).0 > 0 {
-            let _ = TranslateMessage(msg.as_ptr());
-            let _ = DispatchMessageA(msg.as_ptr());
-        }
-    }
-}
 pub fn start_win_event_loop() {
     let mut msg: MaybeUninit<MSG> = MaybeUninit::uninit();
     unsafe {

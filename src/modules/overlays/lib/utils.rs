@@ -28,6 +28,7 @@ pub mod overlay {
     use windows::Win32::Graphics::Gdi::PAINTSTRUCT;
     use windows::Win32::Graphics::Gdi::PS_SOLID;
     use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
+    use windows::Win32::UI::WindowsAndMessaging::DefWindowProcW;
     use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
     use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
@@ -35,7 +36,6 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
     use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
-    use windows::Win32::UI::WindowsAndMessaging::HTCAPTION;
     use windows::Win32::UI::WindowsAndMessaging::LWA_COLORKEY;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE;
     use windows::Win32::UI::WindowsAndMessaging::WM_CREATE;
@@ -57,7 +57,7 @@ pub mod overlay {
         fn get_padding(&self) -> u8;
     }
 
-    pub unsafe extern "system" fn overlay_win_proc(hwnd: HWND, msg: u32, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    pub unsafe extern "system" fn overlay_win_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         match msg {
             WM_CREATE => {
                 let create_struct = &*(lparam.0 as *const CREATESTRUCTW);
@@ -80,7 +80,7 @@ pub mod overlay {
                 PostQuitMessage(0);
                 LRESULT(0)
             }
-            _ => LRESULT(HTCAPTION as isize),
+            _ => DefWindowProcW(hwnd, msg, wparam, lparam),
         }
     }
 

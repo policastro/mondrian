@@ -5,7 +5,7 @@ use crate::win32::api::misc::post_empyt_message;
 use crate::win32::api::misc::post_message;
 use crate::win32::api::window::destroy_window;
 use crate::win32::api::window::show_window;
-use crate::win32::win_event_loop::start_mono_win_event_loop;
+use crate::win32::win_event_loop::start_win_event_loop;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::thread;
@@ -86,7 +86,7 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
                 }
             });
 
-            start_mono_win_event_loop(hwnd);
+            start_win_event_loop();
             destroy_window(hwnd);
             t.join().unwrap();
         });
@@ -107,15 +107,15 @@ impl<P: OverlayBase + Clone + PartialEq + Send + Copy> Overlay<P> {
         self.msg_tx = None;
     }
 
-    pub fn configure(&mut self, params: P) {
+    pub fn configure(&self, params: P) {
         self.send_msg(OverlayMessage::Configure(params), true);
     }
 
-    pub fn reposition(&mut self, params: Option<P>) {
+    pub fn reposition(&self, params: Option<P>) {
         self.send_msg(OverlayMessage::Reposition(params), true);
     }
 
-    pub fn hide(&mut self) {
+    pub fn hide(&self) {
         self.send_msg(OverlayMessage::Hide, true);
     }
 
