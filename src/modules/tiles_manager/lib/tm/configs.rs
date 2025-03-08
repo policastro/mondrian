@@ -1,4 +1,5 @@
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::app::configs::general::FloatingWinsConfigs;
 use crate::app::structs::win_matcher::WinMatcher;
 use crate::modules::tiles_manager::configs::CoreModuleConfigs;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
@@ -14,34 +15,10 @@ pub struct TilesManagerConfig {
     pub animations_framerate: u8,
     pub animation_type: Option<WindowAnimation>,
     pub history_based_navigation: bool,
+    pub floating_wins: FloatingWinsConfigs,
 }
 
 impl TilesManagerConfig {
-    pub fn new(
-        tiles_padding: u8,
-        border_padding: u8,
-        focalized_padding: u8,
-        filter: WinMatcher,
-        layout_strategy: LayoutStrategyEnum,
-        animations_configs: AnimationConfigs,
-        history_based_navigation: bool,
-    ) -> Self {
-        let max_i8: u8 = i8::MAX.try_into().expect("max_i8 out of range");
-        assert!(tiles_padding <= max_i8 && border_padding <= max_i8);
-        assert!(animations_configs.framerate > 0);
-        Self {
-            tiles_padding: i8::try_from(tiles_padding).expect("tiles_padding out of range"),
-            borders_padding: i8::try_from(border_padding).expect("border_padding out of range"),
-            focalized_padding: i8::try_from(focalized_padding).expect("focalized_padding out of range"),
-            filter,
-            layout_strategy,
-            animations_duration: animations_configs.duration,
-            animations_framerate: animations_configs.framerate,
-            animation_type: animations_configs.anim_type,
-            history_based_navigation,
-        }
-    }
-
     pub fn get_focalized_pad(&self) -> i16 {
         i16::from(self.focalized_padding)
     }
@@ -81,24 +58,18 @@ impl From<&CoreModuleConfigs> for TilesManagerConfig {
             true => configs.animation_type.clone(),
             false => None,
         };
-        Self::new(
-            configs.tiles_padding,
-            configs.border_padding,
-            configs.focalized_padding,
-            configs.filter.clone(),
-            configs.layout_strategy.clone(),
-            AnimationConfigs {
-                duration: configs.animations_duration,
-                framerate: configs.animations_framerate,
-                anim_type: animation_type,
-            },
-            configs.history_based_navigation,
-        )
-    }
-}
 
-pub struct AnimationConfigs {
-    duration: u32,
-    framerate: u8,
-    anim_type: Option<WindowAnimation>,
+        Self {
+            tiles_padding: configs.tiles_padding as i8,
+            borders_padding: configs.border_padding as i8,
+            focalized_padding: configs.focalized_padding as i8,
+            filter: configs.filter.clone(),
+            layout_strategy: configs.layout_strategy.clone(),
+            animations_duration: configs.animations_duration,
+            animations_framerate: configs.animations_framerate,
+            animation_type,
+            history_based_navigation: configs.history_based_navigation,
+            floating_wins: configs.floating_wins.clone(),
+        }
+    }
 }

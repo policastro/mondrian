@@ -1,5 +1,6 @@
 use super::lib::window_animation_player::WindowAnimation;
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::app::configs::general::FloatingWinsConfigs;
 use crate::app::configs::AppConfigs;
 use crate::app::structs::win_matcher::WinMatcher;
 
@@ -16,6 +17,7 @@ pub struct CoreModuleConfigs {
     pub move_cursor_on_focus: bool,
     pub filter: WinMatcher,
     pub history_based_navigation: bool,
+    pub floating_wins: FloatingWinsConfigs,
 }
 
 impl Default for CoreModuleConfigs {
@@ -32,6 +34,7 @@ impl Default for CoreModuleConfigs {
             move_cursor_on_focus: false,
             filter: WinMatcher::default(),
             history_based_navigation: false,
+            floating_wins: FloatingWinsConfigs::default(),
         }
     }
 }
@@ -53,6 +56,7 @@ impl From<&AppConfigs> for CoreModuleConfigs {
             move_cursor_on_focus: app_configs.general.move_cursor_on_focus,
             filter: app_configs.get_filters().unwrap_or_default(),
             history_based_navigation: app_configs.general.history_based_navigation,
+            floating_wins: app_configs.general.floating_wins.clone(),
         }
     }
 }

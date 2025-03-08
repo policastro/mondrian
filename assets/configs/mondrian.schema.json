@@ -216,6 +216,52 @@
               "maximum": 240
             }
           }
+        },
+        "floating_wins": {
+          "type": "object",
+          "description": "Settings for floating windows.",
+          "properties": {
+            "topmost": {
+              "type": "boolean",
+              "description": "If true, floating windows are always on top of other windows."
+            },
+            "size": {
+              "type": "string",
+              "description": "How floating windows are resized.",
+              "enum": ["preserve", "relative", "fixed"],
+              "x-taplo": {
+                "docs": {
+                  "enumValues": [
+                    "Keep current size",
+                    "Resize based on monitor size",
+                    "Resize to a fixed size"
+                  ]
+                }
+              }
+            },
+            "size_ratio": {
+              "type": "array",
+              "description": "Ratio of the floating windows size relative to the monitor.",
+              "items": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 1.0
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "size_fixed": {
+              "type": "array",
+              "description": "Fixed size of the floating windows.",
+              "items": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 10000
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
         }
       }
     },

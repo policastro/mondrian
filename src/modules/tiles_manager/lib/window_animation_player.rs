@@ -5,6 +5,7 @@ use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -20,7 +21,7 @@ use windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER;
 use windows::Win32::UI::WindowsAndMessaging::SWP_SHOWWINDOW;
 
 pub struct WindowAnimationPlayer {
-    windows: Vec<(WindowRef, Area)>,
+    windows: HashMap<WindowRef, WindowAnimationQueueInfo>,
     running: Arc<AtomicBool>,
     animation_thread: Option<std::thread::JoinHandle<()>>,
     animation_duration: Duration,
@@ -29,6 +30,21 @@ pub struct WindowAnimationPlayer {
     on_start: Arc<dyn Fn() + Send + Sync + 'static>,
     on_error: Arc<dyn Fn() + Send + Sync + 'static>,
     on_complete: Arc<dyn Fn() + Send + Sync + 'static>,
+}
+
+#[derive(Clone)]
+pub struct WindowAnimationQueueInfo {
+    target_area: Area,
+    topmost: bool,
+}
+
+impl WindowAnimationQueueInfo {
+    pub fn new(new_area: Area, topmost: bool) -> Self {
+        WindowAnimationQueueInfo {
+            target_area: new_area,
+            topmost,
+        }
+    }
 }
 
 impl WindowAnimationPlayer {
@@ -41,7 +57,7 @@ impl WindowAnimationPlayer {
         assert!(animation_duration.as_millis() > 0);
         assert!(framerate > 0);
         WindowAnimationPlayer {
-            windows: vec![],
+            windows: HashMap::new(),
             running: Arc::new(AtomicBool::new(false)),
             animation_thread: None,
             animation_duration,
@@ -53,11 +69,17 @@ impl WindowAnimationPlayer {
         }
     }
 
-    pub fn queue(&mut self, window: WindowRef, new_area: Area) {
+    pub fn queue(&mut self, window: WindowRef, new_area: Area, topmost: bool) {
         if self.running.load(Ordering::Relaxed) {
             self.clear();
         }
-        self.windows.push((window, new_area));
+
+        self.windows
+            .insert(window, WindowAnimationQueueInfo::new(new_area, topmost));
+    }
+
+    pub(crate) fn dequeue(&mut self, window: WindowRef) {
+        self.windows.remove(&window);
     }
 
     pub fn clear(&mut self) {
@@ -99,12 +121,12 @@ impl WindowAnimationPlayer {
             let fwins: Vec<(WindowRef, Area, Area)> = wins
                 .clone()
                 .into_iter()
-                .filter_map(|(w, t)| {
+                .filter_map(|(w, i)| {
                     let src_area: Area = w.get_area()?;
-                    if src_area == t {
+                    if src_area == i.target_area {
                         return None;
                     };
-                    Some((w, src_area, t))
+                    Some((w, src_area, i.target_area))
                 })
                 .collect();
 
@@ -176,15 +198,15 @@ impl WindowAnimationPlayer {
         Ok(())
     }
 
-    fn move_windows(windows: &[(WindowRef, Area)]) {
+    fn move_windows(windows: &HashMap<WindowRef, WindowAnimationQueueInfo>) {
         let flags = SWP_SHOWWINDOW | SWP_NOSENDCHANGING | SWP_NOACTIVATE;
         windows
             .iter()
-            .filter(|(w, trg_area)| w.get_area().is_some_and(|a| a != *trg_area))
-            .for_each(|(window, trg_area)| {
-                let (pos, size) = (trg_area.get_origin(), trg_area.get_size());
+            .filter(|(w, i)| w.get_area().is_some_and(|a| a != i.target_area))
+            .for_each(|(window, info)| {
+                let (pos, size) = (info.target_area.get_origin(), info.target_area.get_size());
                 let _ = window.resize_and_move(pos, size, true, flags);
-                let _ = window.set_topmost(false);
+                let _ = window.set_topmost(info.topmost);
                 let _ = window.redraw();
             });
     }

@@ -3,7 +3,9 @@ use super::manager::ContainerKey;
 use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
 use crate::app::area_tree::leaf::AreaLeaf;
+use crate::app::configs::general::FloatingWinsSizeStrategy;
 use crate::app::mondrian_message::WindowTileState;
+use crate::app::structs::area::Area;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::orientation::Orientation;
 use crate::modules::tiles_manager::lib::containers::Containers;
@@ -91,11 +93,39 @@ impl TilesManagerInternalOperations for TilesManager {
         }
 
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
+            let monitor_area = self.active_trees.find(window).ok_or(Error::NoWindow)?.value.area;
+            let (monitor_x, monitor_y) = monitor_area.get_center();
+            let (monitor_w, monitor_h) = monitor_area.get_size();
             self.remove(window, false)?;
             self.floating_wins.insert(window);
-            let _ = window.set_topmost(true);
+            let is_topmost = self.config.floating_wins.topmost;
+            let _ = window.set_topmost(is_topmost);
+            let area = match self.config.floating_wins.size {
+                FloatingWinsSizeStrategy::Preserve => {
+                    let a = window.get_area().ok_or(Error::NoWindowsInfo)?;
+                    let (x, y) = (monitor_x - (a.width as i32 / 2), monitor_y - (a.height as i32 / 2));
+                    Area::new(x, y, a.width, a.height)
+                }
+                FloatingWinsSizeStrategy::Fixed => {
+                    let (w, h) = self.config.floating_wins.size_fixed;
+                    let (w, h) = (w.min(monitor_w), h.min(monitor_h));
+                    let (x, y) = (monitor_x - (w as i32 / 2), monitor_y - (h as i32 / 2));
+                    Area::new(x, y, w, h)
+                }
+                FloatingWinsSizeStrategy::Relative => {
+                    let (rw, rh) = self.config.floating_wins.size_ratio;
+                    let (w, h) = (
+                        (monitor_w as f32 * rw).round() as u16,
+                        (monitor_h as f32 * rh).round() as u16,
+                    );
+                    let (x, y) = (monitor_x - (w as i32 / 2), monitor_y - (h as i32 / 2));
+                    Area::new(x, y, w, h)
+                }
+            };
+            self.animation_player.queue(window, area, is_topmost);
         } else {
             self.floating_wins.remove(&window);
+            self.animation_player.dequeue(window);
             self.add(window)?;
             let _ = window.set_topmost(false);
         }

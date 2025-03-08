@@ -13,6 +13,7 @@ pub struct General {
     pub insert_in_monitor: bool,
     pub free_move_in_monitor: bool,
     pub animations: AnimationsConfigs,
+    pub floating_wins: FloatingWinsConfigs,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -40,6 +41,7 @@ impl Default for General {
             insert_in_monitor: true,
             free_move_in_monitor: false,
             animations: AnimationsConfigs::default(),
+            floating_wins: FloatingWinsConfigs::default(),
         }
     }
 }
@@ -53,4 +55,58 @@ impl Default for AnimationsConfigs {
             animation_type: WindowAnimation::default(),
         }
     }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum FloatingWinsSizeStrategy {
+    Preserve,
+    Fixed,
+    Relative,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct FloatingWinsConfigs {
+    pub topmost: bool,
+    pub size: FloatingWinsSizeStrategy,
+    #[serde(deserialize_with = "deserialize_size_ratio")]
+    pub size_ratio: (f32, f32),
+    #[serde(deserialize_with = "deserialize_size_fixed")]
+    pub size_fixed: (u16, u16),
+}
+
+impl Default for FloatingWinsConfigs {
+    fn default() -> Self {
+        FloatingWinsConfigs {
+            topmost: true,
+            size: FloatingWinsSizeStrategy::Relative,
+            size_ratio: (0.5, 0.5),
+            size_fixed: (700, 400),
+        }
+    }
+}
+
+fn deserialize_size_ratio<'de, D>(deserializer: D) -> Result<(f32, f32), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let (w, h) = serde::Deserialize::deserialize(deserializer)?;
+    if w < 0.1 || h < 0.1 || w > 1.0 || h > 1.0 {
+        return Err(serde::de::Error::custom("Width and height must be between 0.1 and 1.0"));
+    }
+    Ok((w, h))
+}
+
+fn deserialize_size_fixed<'de, D>(deserializer: D) -> Result<(u16, u16), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let (w, h) = serde::Deserialize::deserialize(deserializer)?;
+    if w < 100 || h < 100 || w > 10000 || h > 10000 {
+        return Err(serde::de::Error::custom(
+            "Width and height must be between 100 and 10000",
+        ));
+    }
+    Ok((w, h))
 }
