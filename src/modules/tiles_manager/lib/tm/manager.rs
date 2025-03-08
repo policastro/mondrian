@@ -138,11 +138,16 @@ impl TilesManagerBase for TilesManager {
     }
 
     fn get_managed_windows(&self) -> HashMap<isize, WindowTileState> {
-        self.active_trees
+        let mut tiled: HashMap<isize, WindowTileState> = self
+            .active_trees
             .values()
             .flat_map(|c| c.get_ids())
             .filter_map(|win| self.get_window_state(win).map(|state| (win.hwnd.0, state)))
-            .collect()
+            .collect();
+
+        tiled.extend(self.floating_wins.iter().map(|w| (w.hwnd.0, WindowTileState::Floating)));
+
+        tiled
     }
 
     fn cancel_animation(&mut self) {
@@ -200,7 +205,7 @@ impl TilesManagerBase for TilesManager {
         self.active_trees.iter_mut().for_each(|(k, c)| {
             let (border_pad, tile_pad) = match self.focalized_wins.contains_key(k) {
                 true => (self.config.get_focalized_pad(), (0, 0)),
-                false => (self.config.get_border_pad(), self.config.get_tile_pad_xy()),
+                false => (self.config.get_borders_pad(), self.config.get_tile_pad_xy()),
             };
 
             // INFO: prevent updates when the monitor has a maximized window

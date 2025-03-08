@@ -123,10 +123,7 @@ impl ModuleImpl for OverlaysModule {
                     let wins = windows
                         .iter()
                         .filter(|w| !matches!(*w.1, WindowTileState::Maximized))
-                        .map(|w| match w.1 {
-                            WindowTileState::Focalized => (*w.0, self.configs.get_focalized()),
-                            _ => (*w.0, None),
-                        })
+                        .map(|w| (*w.0, self.configs.get_by_tile_state(w.1)))
                         .collect();
                     overlays.lock().unwrap().rebuild(&wins);
                 }

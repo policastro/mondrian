@@ -83,22 +83,12 @@
                 "first_step": {
                   "type": "string",
                   "description": "First insertion direction.",
-                  "enum": [
-                    "right",
-                    "left",
-                    "up",
-                    "down"
-                  ]
+                  "enum": ["right", "left", "up", "down"]
                 },
                 "second_step": {
                   "type": "string",
                   "description": "Second insertion direction.",
-                  "enum": [
-                    "right",
-                    "left",
-                    "up",
-                    "down"
-                  ]
+                  "enum": ["right", "left", "up", "down"]
                 },
                 "ratio": {
                   "type": "integer",
@@ -269,31 +259,16 @@
                 },
                 "anyOf": [
                   {
-                    "required": [
-                      "key",
-                      "action"
-                    ]
+                    "required": ["key", "action"]
                   },
                   {
-                    "required": [
-                      "modifiers",
-                      "key",
-                      "action"
-                    ]
+                    "required": ["modifiers", "key", "action"]
                   },
                   {
-                    "required": [
-                      "modifier",
-                      "key",
-                      "action"
-                    ]
+                    "required": ["modifier", "key", "action"]
                   },
                   {
-                    "required": [
-                      "mod",
-                      "key",
-                      "action"
-                    ]
+                    "required": ["mod", "key", "action"]
                   }
                 ],
                 "additionalProperties": false
@@ -422,6 +397,35 @@
                   "description": "Color of the focalized overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
                 }
               }
+            },
+            "floating": {
+              "type": "object",
+              "description": "Floating overlay settings.",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enables/disables the floating overlay."
+                },
+                "color": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9A-Fa-f]{6}$"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 255
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    }
+                  ],
+                  "description": "Color of the focalized overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                }
+              }
             }
           }
         }
@@ -452,19 +456,13 @@
             },
             "anyOf": [
               {
-                "required": [
-                  "exename"
-                ]
+                "required": ["exename"]
               },
               {
-                "required": [
-                  "classname"
-                ]
+                "required": ["classname"]
               },
               {
-                "required": [
-                  "title"
-                ]
+                "required": ["title"]
               }
             ],
             "x-taplo": {
@@ -522,3 +520,4 @@
     }
   }
 }
+

@@ -2,6 +2,7 @@ use super::lib::color::Color;
 use super::lib::overlay::OverlayParams;
 use crate::app::configs::deserializers;
 use crate::app::configs::AppConfigs;
+use crate::app::mondrian_message::WindowTileState;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -37,6 +38,12 @@ pub struct OverlaysModuleConfigs {
         deserialize_with = "deserialize_focalized"
     )]
     focalized: ExtOverlayParams,
+
+    #[serde(
+        default = "ExtOverlayParams::default_floating",
+        deserialize_with = "deserialize_floating"
+    )]
+    floating: ExtOverlayParams,
 }
 
 impl Default for OverlaysModuleConfigs {
@@ -50,6 +57,7 @@ impl Default for OverlaysModuleConfigs {
             active: ExtOverlayParams::default_active(),
             inactive: ExtOverlayParams::default_inactive(),
             focalized: ExtOverlayParams::default_focalized(),
+            floating: ExtOverlayParams::default_floating(),
         }
     }
 }
@@ -69,6 +77,14 @@ impl OverlaysModuleConfigs {
         }
     }
 
+    pub(crate) fn get_by_tile_state(&self, tile_state: &WindowTileState) -> Option<OverlayParams> {
+        match tile_state {
+            WindowTileState::Focalized => self.get_focalized(),
+            WindowTileState::Floating => self.get_floating(),
+            _ => None,
+        }
+    }
+
     pub(crate) fn get_inactive(&self) -> Option<OverlayParams> {
         let overlay_params = self.create_overlay_params(&self.inactive);
         match &self.inactive.enabled {
@@ -80,6 +96,14 @@ impl OverlaysModuleConfigs {
     pub(crate) fn get_focalized(&self) -> Option<OverlayParams> {
         let overlay_params = self.create_overlay_params(&self.focalized);
         match &self.focalized.enabled {
+            true => Some(overlay_params),
+            false => None,
+        }
+    }
+
+    pub(crate) fn get_floating(&self) -> Option<OverlayParams> {
+        let overlay_params = self.create_overlay_params(&self.floating);
+        match &self.floating.enabled {
             true => Some(overlay_params),
             false => None,
         }
@@ -129,6 +153,10 @@ impl ExtOverlayParams {
     pub(crate) fn default_focalized() -> ExtOverlayParams {
         ExtOverlayParams::new(true, Color::new(234, 153, 153))
     }
+
+    pub(crate) fn default_floating() -> ExtOverlayParams {
+        ExtOverlayParams::new(true, Color::new(220, 198, 224))
+    }
 }
 
 fn deserialize_active<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
@@ -150,6 +178,13 @@ where
     D: serde::Deserializer<'de>,
 {
     deserialize_overlay_params(de, ExtOverlayParams::default_focalized())
+}
+
+fn deserialize_floating<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_overlay_params(de, ExtOverlayParams::default_floating())
 }
 
 fn deserialize_overlay_params<'de, D>(de: D, base: ExtOverlayParams) -> Result<ExtOverlayParams, D::Error>

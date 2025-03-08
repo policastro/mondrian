@@ -119,6 +119,8 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.inactive.color`        | Color of the overlay                                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[156, 156, 156]` (or `"#9C9C9C`)  |
 | `modules.overlays.focalized.enabled`     | Enables/disables the overlay for the focalized windows in focused                           | `true`,`false`                                                                    | `true`                             |
 | `modules.overlays.focalized.color`       | Color of the overlay                                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[234, 153, 153]` (or `"#EA9999"`) |
+| `modules.overlays.floating.enabled`      | Enables/disables the overlay for the floating windows in focused                            | `true`,`false`                                                                    | `true`                             |
+| `modules.overlays.floating.color`        | Color of the overlay                                                                        | `[r, g, b]` or as hex string (`"#rrggbb"`)                                        | `[220, 198, 224]` (or `"#DCC6E0"`) |
 | `core.ignore_rules`                      | Custom rules to exclude windows from being managed                                          | check the relative [section](#core-ignore-rules-guide) for more info.             | -                                  |
 
 All the options are optional and if not specified, the default values will be used.

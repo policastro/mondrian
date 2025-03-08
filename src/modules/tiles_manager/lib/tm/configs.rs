@@ -6,7 +6,7 @@ use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct TilesManagerConfig {
     tiles_padding: i8,
-    border_padding: i8,
+    borders_padding: i8,
     focalized_padding: i8,
     pub filter: WinMatcher,
     pub layout_strategy: LayoutStrategyEnum,
@@ -31,7 +31,7 @@ impl TilesManagerConfig {
         assert!(animations_configs.framerate > 0);
         Self {
             tiles_padding: i8::try_from(tiles_padding).expect("tiles_padding out of range"),
-            border_padding: i8::try_from(border_padding).expect("border_padding out of range"),
+            borders_padding: i8::try_from(border_padding).expect("border_padding out of range"),
             focalized_padding: i8::try_from(focalized_padding).expect("focalized_padding out of range"),
             filter,
             layout_strategy,
@@ -46,8 +46,8 @@ impl TilesManagerConfig {
         i16::from(self.focalized_padding)
     }
 
-    pub fn get_border_pad(&self) -> i16 {
-        i16::from(self.border_padding - self.tiles_padding)
+    pub fn get_borders_pad(&self) -> i16 {
+        i16::from(self.borders_padding - self.tiles_padding)
     }
 
     pub fn get_tile_pady(&self) -> i16 {
