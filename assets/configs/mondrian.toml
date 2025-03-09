@@ -1,19 +1,22 @@
 #:schema https://raw.githubusercontent.com/policastro/mondrian/refs/heads/main/assets/configs/mondrian.schema.json
 
 [general]
-history_based_navigation = false      # if true, the navigation will prioritize the focus history
-detect_maximized_windows = true       # if true, maximized windows will be detected and they will not be managed by the tiling engine
-move_cursor_on_focus = false          # if true, the cursor will be moved to the center of the focused window 
-auto_reload_configs = true            # if true, the config will be reloaded when a change is detected
-insert_in_monitor = true              # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
-free_move_in_monitor = false          # if true, when the window is inserted in a new monitor, the position will determined by where the mouse is
-animations.enabled = true             # enables or disables the animations
-animations.type = "ease_out_back"     # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
-animations.duration = 350             # duration of the animation in milliseconds
-animations.framerate = 60             # animations framerate
-floating_wins.topmost = true          # if true, floating windows are always on top of other windows
-floating_wins.size = "relative"       # how floating windows are resized
-floating_wins.size_ratio = [0.5, 0.5] # ratio of the floating window's size relative to the monitor
+history_based_navigation = false # if true, the navigation will prioritize the focus history
+detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine
+move_cursor_on_focus = false # if true, the cursor will be moved to the center of the focused window 
+auto_reload_configs = true # if true, the config will be reloaded when a change is detected
+insert_in_monitor = true # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
+free_move_in_monitor = false # if true, when the window is inserted in a new monitor, the position will determined by where the mouse is
+animations.enabled = true # enables or disables the animations
+animations.type = "ease_out_back" # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
+animations.duration = 350 # duration of the animation in milliseconds
+animations.framerate = 60 # animations framerate
+floating_wins.topmost = true # if true, floating windows are always on top of other windows
+floating_wins.size = "relative" # how floating windows are resized
+floating_wins.size_ratio = [
+    0.5,
+    0.5,
+] # ratio of the floating window's size relative to the monitor
 floating_wins.size_fixed = [700, 400] # fixed size of the floating window
 
 [layout]
@@ -77,6 +80,8 @@ inactive.enabled = true      # shows the inactive overlays
 inactive.color = "#696969"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
 focalized.enabled = true     # shows the focalized overlay
 focalized.color = "#EA9999"  # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+floating.enabled = true      # shows the floating overlay
+floating.color = "#DCC6E0"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
 
 [core]
 ignore_rules = [

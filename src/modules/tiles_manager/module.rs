@@ -197,8 +197,8 @@ fn handle_tm(
     configs: &CoreModuleConfigs,
     event: TMCommand,
 ) -> bool {
-    let _ = tm.check_for_vd_changes();
     let prev_wins = tm.get_managed_windows();
+    let _ = tm.check_for_vd_changes();
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
             WindowEvent::Maximized(hwnd) => tm.on_maximize(hwnd.into(), true),

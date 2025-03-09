@@ -154,6 +154,7 @@ pub mod overlay {
             } else {
                 let h_brush = CreateSolidBrush(CUSTOM_ALPHA_COLOR);
                 let _ = FillRect(hdc, &rc, h_brush);
+                let _ = DeleteObject(h_brush);
             }
 
             let _ = EndPaint(hwnd, &ps);
