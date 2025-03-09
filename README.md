@@ -164,6 +164,7 @@ The **available actions** are:
 - `insert <left|right|up|down>`: adds the focused window in the monitor in the specified direction;
 - `moveinsert <left|right|up|down>`: first tries the `move` and then the `insert` action if no window is found in the specified direction;
 - `resize <left|right|up|down> <40-250>`: resizes the focused window in the specified direction by the specified amount (in pixels);
+- `peek <left|right|up|down> <10-90>`: restricts tiling, keeping a percentage of the screen free in the specified direction;
 - `invert`: inverts the orientation of the focused window and the neighboring windows;
 - `release`: removes the focused window from the tiling manager, or adds it back;
 - `focalize`: focalizes the focused window (i.e. hides the neighboring windows) or unfocalizes it (i.e. restores the neighboring windows);

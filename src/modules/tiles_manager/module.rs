@@ -239,6 +239,7 @@ fn handle_tm(
         TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
         TMCommand::Invert => tm.invert_orientation(),
         TMCommand::Release(b) => tm.release_focused(b),
+        TMCommand::Peek(direction, ratio) => tm.peek_current(direction, ratio),
         TMCommand::Focalize => tm.focalize_focused(),
         TMCommand::Amplify => tm.amplify_focused(),
         TMCommand::ListManagedWindows => {

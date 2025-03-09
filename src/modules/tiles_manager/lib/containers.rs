@@ -76,7 +76,7 @@ impl Container for WinTree {
     }
 
     fn contains(&self, point: (i32, i32)) -> bool {
-        self.area.contains(point)
+        self.get_area().contains(point)
     }
 }
 
@@ -108,8 +108,8 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
     fn find_at_or_near_mut(&mut self, point: (i32, i32)) -> Option<ContainerEntry<K, &mut WinTree>> {
         self.iter_mut()
             .min_by(|a, b| {
-                let dist1 = calc_distance(point, a.1.area);
-                let dist2 = calc_distance(point, b.1.area);
+                let dist1 = calc_distance(point, a.1.get_area());
+                let dist2 = calc_distance(point, b.1.get_area());
                 dist1.cmp(&dist2)
             })
             .map(|(k, v)| ContainerEntry::new(k.clone(), v))
@@ -122,7 +122,7 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
         limit_direction: Direction,
     ) -> Option<ContainerEntry<K, &WinTree>> {
         let ref_id = (*self.iter().find(|c| c.1.contains(ref_point))?.0).clone();
-        let ref_area = self.get(&ref_id)?.area;
+        let ref_area = self.get(&ref_id)?.get_area();
         let point = match limit_direction {
             Direction::Right => ref_area.get_ne_corner(),
             Direction::Down => ref_area.get_se_corner(),
@@ -139,7 +139,7 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
                 };
 
                 // Filter out the ones that are not in the same direction
-                let area = c.area;
+                let area = c.get_area();
                 match limit_direction {
                     Direction::Right => area.x >= point.0,
                     Direction::Down => area.y >= point.1,
@@ -148,8 +148,8 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
                 }
             })
             .min_by(|a, b| {
-                let dist1 = calc_distance(point, a.1.area);
-                let dist2 = calc_distance(point, b.1.area);
+                let dist1 = calc_distance(point, a.1.get_area());
+                let dist2 = calc_distance(point, b.1.get_area());
                 dist1.cmp(&dist2)
             });
 
@@ -162,7 +162,7 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
         limit_direction: Direction,
     ) -> Option<ContainerEntry<K, &mut WinTree>> {
         let ref_id = (*self.iter().find(|c| c.1.contains(ref_point))?.0).clone();
-        let ref_area = self.get(&ref_id)?.area;
+        let ref_area = self.get(&ref_id)?.get_area();
         let point = match limit_direction {
             Direction::Right => ref_area.get_ne_corner(),
             Direction::Down => ref_area.get_se_corner(),
@@ -179,7 +179,7 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
                 };
 
                 // Filter out the ones that are not in the same direction
-                let area = c.area;
+                let area = c.get_area();
                 match limit_direction {
                     Direction::Right => area.x >= point.0,
                     Direction::Down => area.y >= point.1,
@@ -188,8 +188,8 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
                 }
             })
             .min_by(|a, b| {
-                let dist1 = calc_distance(point, a.1.area);
-                let dist2 = calc_distance(point, b.1.area);
+                let dist1 = calc_distance(point, a.1.get_area());
+                let dist2 = calc_distance(point, b.1.get_area());
                 dist1.cmp(&dist2)
             });
 

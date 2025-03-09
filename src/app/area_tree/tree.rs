@@ -14,7 +14,7 @@ pub type WinTree = AreaTree<WindowRef>;
 
 pub struct AreaTree<T: Copy + Eq + Hash> {
     root: AreaNode<T>,
-    pub area: Area,
+    area: Area,
     strategy: LayoutStrategyEnum,
     ids_map: std::collections::HashMap<T, AreaLeaf<T>>,
 }
@@ -164,6 +164,15 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
 
     pub fn get_ids(&self) -> Vec<T> {
         self.ids_map.keys().cloned().collect()
+    }
+
+    pub fn set_area(&mut self, area: Area) {
+        self.area = area;
+        self.update_map();
+    }
+
+    pub fn get_area(&self) -> Area {
+        self.area
     }
 
     fn update_map(&mut self) {

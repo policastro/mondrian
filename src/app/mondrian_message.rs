@@ -167,6 +167,7 @@ pub enum MondrianMessage {
     MoveInsert(Direction),
     Insert(Direction),
     Release(Option<bool>),
+    Peek(Direction, f32),
     Resize(Direction, u8),
     Invert,
     Pause(Option<bool>),
@@ -198,6 +199,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "move <left|right|up|down>",
             "moveinsert <left|right|up|down>",
             "resize <left|right|up|down> <40-250>",
+            "peek <left|right|up|down> <10-90>",
             "invert",
             "release",
             "focalize",
@@ -222,6 +224,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "resize" => parts.len() == 3,
             "invert" => parts.len() == 1,
             "release" => parts.len() == 1,
+            "peek" => parts.len() == 3,
             "focalize" => parts.len() == 1,
             "amplify" => parts.len() == 1,
             "pause" => parts.len() <= 2,
@@ -260,6 +263,15 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
                 let size: u8 = parts[2].parse().map_err(|_| serde::de::Error::custom(err.clone()))?;
                 match (40..=250).contains(&size) {
                     true => Ok(MondrianMessage::Resize(dir, size)),
+                    false => Err(serde::de::Error::custom(err)),
+                }
+            }
+            "peek" => {
+                let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err.clone()))?;
+                let ratio: u8 = parts[2].parse().map_err(|_| serde::de::Error::custom(err.clone()))?;
+                let ratio = ratio as f32 / 100.0;
+                match (0.1..=0.9).contains(&ratio) {
+                    true => Ok(MondrianMessage::Peek(dir, ratio)),
                     false => Err(serde::de::Error::custom(err)),
                 }
             }

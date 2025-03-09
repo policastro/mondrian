@@ -93,7 +93,7 @@ impl TilesManagerInternalOperations for TilesManager {
         }
 
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
-            let monitor_area = self.active_trees.find(window).ok_or(Error::NoWindow)?.value.area;
+            let monitor_area = self.active_trees.find(window).ok_or(Error::NoWindow)?.value.get_area();
             let (monitor_x, monitor_y) = monitor_area.get_center();
             let (monitor_w, monitor_h) = monitor_area.get_size();
             self.remove(window, false)?;
@@ -358,7 +358,7 @@ impl TilesManager {
             return e.value.find_leaf(*fw, 0).filter(|w| w.id != window);
         };
 
-        let corners = e.value.area.get_corners(direction.opposite());
+        let corners = e.value.get_area().get_corners(direction.opposite());
         let axis_values = corners[0];
         let corners = match direction.axis() {
             Orientation::Vertical => (corners[0].0, corners[1].0),

@@ -11,6 +11,7 @@ use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
+use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::window::window_obj::WindowObjHandler;
@@ -46,6 +47,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
     fn on_focus(&mut self, window: WindowRef) -> Result<(), Error>;
     fn amplify_focused(&mut self) -> Result<(), Error>;
+    fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error>;
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error>;
     fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error>;
@@ -86,6 +88,43 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
+    fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error> {
+        let ratio = ratio.clamp(0.1, 0.9);
+        let fw = get_foreground().ok_or(Error::NoWindow)?;
+
+        // NOTE: peek the monitor with the focused window otherwise the one in which the cursor is
+        let (k, t) = match self.active_trees.find_mut(fw) {
+            Some(e) => (e.key, e.value),
+            None => {
+                let cursor_pos = get_cursor_pos();
+                match self.active_trees.find_at_mut(cursor_pos) {
+                    Some(e) => (e.key, e.value),
+                    None => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {
+                        Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::Generic)?),
+                        None => return Err(Error::Generic),
+                    },
+                }
+            }
+        };
+
+        if let Some(orig_area) = self.peeked_containers.remove(&k) {
+            t.set_area(orig_area);
+        } else {
+            let prev_area = t.get_area();
+            self.peeked_containers.insert(k, prev_area);
+            let (w, h) = (prev_area.width as f32, prev_area.height as f32);
+            let padding = match direction {
+                Direction::Left => (((w * ratio).round() as i16, 0), (0, 0)),
+                Direction::Right => ((0, (w * ratio).round() as i16), (0, 0)),
+                Direction::Up => ((0, 0), ((h * ratio).round() as i16, 0)),
+                Direction::Down => ((0, 0), (0, (h * ratio).round() as i16)),
+            };
+            t.set_area(prev_area.pad(padding.0, padding.1));
+        }
+
+        self.update_layout(true)
+    }
+
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error> {
         self.release(get_foreground().ok_or(Error::NoWindow)?, release)?;
         self.update_layout(true)
@@ -108,7 +147,7 @@ impl TilesManagerOperations for TilesManager {
             .find_closest_at_mut(src_leaf.viewbox.get_center(), direction)
             .ok_or(C_ERR)?
             .value
-            .area
+            .get_area()
             .get_center();
 
         self.move_to(curr, point, false)?;

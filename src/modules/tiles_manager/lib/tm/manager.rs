@@ -26,6 +26,7 @@ type Error = TilesManagerError;
 pub struct TilesManager {
     pub inactive_trees: HashMap<ContainerKey, WinTree>,
     pub active_trees: HashMap<ContainerKey, WinTree>,
+    pub peeked_containers: HashMap<ContainerKey, Area>,
     pub focalized_wins: HashMap<ContainerKey, WindowRef>,
     pub floating_wins: HashSet<WindowRef>,
     pub maximized_wins: HashSet<WindowRef>,
@@ -85,6 +86,7 @@ impl TilesManagerBase for TilesManager {
             maximized_wins: HashSet::new(),
             inactive_trees: HashMap::new(),
             active_trees: HashMap::new(),
+            peeked_containers: HashMap::new(),
             focalized_wins: HashMap::new(),
             current_vd: None,
             focus_history: FocusHistory::new(),
@@ -201,6 +203,7 @@ impl TilesManagerBase for TilesManager {
         if self.pause_updates {
             return Ok(());
         }
+
         let anim_player = &mut self.animation_player;
         self.active_trees.iter_mut().for_each(|(k, c)| {
             let (border_pad, tile_pad) = match self.focalized_wins.contains_key(k) {
