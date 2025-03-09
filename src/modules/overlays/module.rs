@@ -118,35 +118,50 @@ impl ModuleImpl for OverlaysModule {
                 Module::restart(self);
             }
             MondrianMessage::UpdatedWindows(windows, _) => {
-                if self.is_running() {
-                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                    let wins = windows
-                        .iter()
-                        .filter(|w| !matches!(*w.1, WindowTileState::Maximized))
-                        .map(|w| (*w.0, self.configs.get_by_tile_state(w.1)))
-                        .collect();
-                    overlays.lock().unwrap().rebuild(&wins);
+                if !self.is_running() {
+                    return;
                 }
+
+                let wins = windows
+                    .iter()
+                    .filter(|w| !matches!(*w.1, WindowTileState::Maximized))
+                    .map(|w| (*w.0, self.configs.get_by_tile_state(w.1)))
+                    .collect();
+
+                let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                overlays.lock().unwrap().rebuild(&wins);
             }
-            MondrianMessage::WindowEvent(WindowEvent::StartMoveSize(_)) => {
-                if self.is_running() {
-                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                    if !self.configs.update_while_resizing {
-                        overlays.lock().unwrap().suspend();
-                    }
+            MondrianMessage::WindowEvent(WindowEvent::StartMoveSize(win)) => {
+                if !self.is_running() || self.configs.update_while_resizing {
+                    return;
                 }
+
+                let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                overlays.lock().unwrap().suspend(*win);
             }
-            MondrianMessage::CoreUpdateStart => {
-                if self.is_running() {
-                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                    overlays.lock().unwrap().suspend();
+            MondrianMessage::WindowEvent(WindowEvent::EndMoveSize(win, _)) => {
+                if !self.is_running() {
+                    return;
                 }
+
+                let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                overlays.lock().unwrap().resume(*win);
+            }
+            MondrianMessage::CoreUpdateStart(wins) => {
+                if !self.is_running() {
+                    return;
+                }
+
+                let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                wins.iter().for_each(|w| overlays.lock().unwrap().suspend(w.hwnd))
             }
             MondrianMessage::CoreUpdateError | MondrianMessage::CoreUpdateComplete => {
-                if self.is_running() {
-                    let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                    overlays.lock().unwrap().resume();
+                if !self.is_running() {
+                    return;
                 }
+
+                let overlays = self.overlays.as_mut().expect("Overlays not initialized");
+                overlays.lock().unwrap().resume_all();
             }
             MondrianMessage::SystemEvent(evt) => match evt {
                 evt if evt.session_is_active() => Module::start(self),

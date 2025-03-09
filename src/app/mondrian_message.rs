@@ -1,4 +1,5 @@
 use crate::modules::tiles_manager::lib::tm::command::TMCommand;
+use crate::win32::window::window_ref::WindowRef;
 
 use super::structs::area::Area;
 use super::structs::direction::Direction;
@@ -6,6 +7,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::str::FromStr;
 use windows::Win32::Foundation::HWND;
 use winvd::Desktop;
@@ -114,9 +116,14 @@ pub enum WindowEvent {
     Unmaximized(HWND),
     Focused(HWND),
     StartMoveSize(HWND),
-    NoMoveSize(HWND),
-    Moved(HWND, (i32, i32), IntramonitorMoveOp, IntermonitorMoveOp),
-    Resized(HWND, Area, Area),
+    EndMoveSize(HWND, MoveSizeResult),
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum MoveSizeResult {
+    Resized(Area, Area),
+    Moved((i32, i32), IntramonitorMoveOp, IntermonitorMoveOp),
+    None,
 }
 
 impl WindowEvent {
@@ -130,9 +137,7 @@ impl WindowEvent {
             | WindowEvent::Unmaximized(hwnd)
             | WindowEvent::Focused(hwnd)
             | WindowEvent::StartMoveSize(hwnd)
-            | WindowEvent::NoMoveSize(hwnd)
-            | WindowEvent::Moved(hwnd, _, _, _)
-            | WindowEvent::Resized(hwnd, _, _) => *hwnd,
+            | WindowEvent::EndMoveSize(hwnd, _) => *hwnd,
         }
     }
 }
@@ -167,7 +172,7 @@ pub enum MondrianMessage {
     Pause(Option<bool>),
     PauseModule(String, Option<bool>),
     UpdatedWindows(HashMap<isize, WindowTileState>, TMCommand),
-    CoreUpdateStart,
+    CoreUpdateStart(HashSet<WindowRef>),
     CoreUpdateError,
     CoreUpdateComplete,
     Focalize,

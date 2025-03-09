@@ -7,6 +7,7 @@ use super::lib::tm::manager::TilesManagerBase;
 use super::lib::tm::public::TilesManagerOperations;
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
+use crate::app::mondrian_message::MoveSizeResult;
 use crate::app::mondrian_message::SystemEvent;
 use crate::app::mondrian_message::WindowEvent;
 use crate::modules::module_impl::ModuleImpl;
@@ -55,8 +56,8 @@ impl TilesManagerModule {
         let tm_configs = TilesManagerConfig::from(&self.configs);
 
         let app_tx = self.bus_tx.clone();
-        let on_update_start = move || {
-            app_tx.send(MondrianMessage::CoreUpdateStart).unwrap();
+        let on_update_start = move |wins| {
+            app_tx.send(MondrianMessage::CoreUpdateStart(wins)).unwrap();
         };
 
         let app_tx = self.bus_tx.clone();
@@ -212,17 +213,13 @@ fn handle_tm(
                 tm.cancel_animation();
                 Ok(())
             }
-            WindowEvent::NoMoveSize(_) => {
+            WindowEvent::EndMoveSize(hwnd, res) => {
                 tm.pause_updates(false);
-                Ok(())
-            }
-            WindowEvent::Moved(hwnd, coords, intra, inter) => {
-                tm.pause_updates(false);
-                tm.on_move(hwnd.into(), coords, intra, inter)
-            }
-            WindowEvent::Resized(hwnd, p_area, c_area) => {
-                tm.pause_updates(false);
-                tm.on_resize(hwnd.into(), c_area.get_shift(&p_area))
+                match res {
+                    MoveSizeResult::Resized(p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area)),
+                    MoveSizeResult::Moved(coords, intra, inter) => tm.on_move(hwnd.into(), coords, intra, inter),
+                    MoveSizeResult::None => Ok(()),
+                }
             }
             WindowEvent::Focused(hwnd) => tm.on_focus(hwnd.into()),
         },

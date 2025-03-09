@@ -6,6 +6,7 @@ use crate::win32::window::window_ref::WindowRef;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::f32::consts::PI;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -27,7 +28,7 @@ pub struct WindowAnimationPlayer {
     animation_duration: Duration,
     framerate: u8,
     previous_foreground: Option<HWND>,
-    on_start: Arc<dyn Fn() + Send + Sync + 'static>,
+    on_start: Arc<dyn Fn(HashSet<WindowRef>) + Send + Sync + 'static>,
     on_error: Arc<dyn Fn() + Send + Sync + 'static>,
     on_complete: Arc<dyn Fn() + Send + Sync + 'static>,
 }
@@ -50,7 +51,7 @@ impl WindowAnimationQueueInfo {
 impl WindowAnimationPlayer {
     pub fn new<S, E, C>(animation_duration: Duration, framerate: u8, on_start: S, on_error: E, on_complete: C) -> Self
     where
-        S: Fn() + Sync + Send + 'static,
+        S: Fn(HashSet<WindowRef>) + Sync + Send + 'static,
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static,
     {
@@ -70,7 +71,7 @@ impl WindowAnimationPlayer {
     }
 
     pub fn queue(&mut self, window: WindowRef, new_area: Area, topmost: bool) {
-        if self.running.load(Ordering::Relaxed) {
+        if self.running.load(Ordering::Acquire) {
             self.clear();
         }
 
@@ -83,7 +84,7 @@ impl WindowAnimationPlayer {
     }
 
     pub fn clear(&mut self) {
-        self.running.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.running.store(false, Ordering::Release);
         self.windows.clear();
         if let Some(t) = self.animation_thread.take() {
             t.join().unwrap();
@@ -97,14 +98,30 @@ impl WindowAnimationPlayer {
     pub fn play(&mut self, animation: Option<WindowAnimation>) {
         self.cancel();
         self.previous_foreground = get_foreground_window().filter(|fw| self.windows.iter().any(|(w, _)| w.hwnd == *fw));
+
+        let wins = self.windows.clone();
+        let wins_info: Vec<(WindowRef, Area, Area)> = wins
+            .clone()
+            .into_iter()
+            .filter_map(|(w, i)| {
+                let src_area: Area = w.get_area()?;
+                if src_area == i.target_area {
+                    return None;
+                };
+                Some((w, src_area, i.target_area))
+            })
+            .collect();
+
+        let wins_to_animate: HashSet<WindowRef> = wins_info.iter().map(|(w, _, _)| *w).collect();
         if animation.is_none() {
+            (self.on_start)(wins_to_animate);
             Self::move_windows(&self.windows);
+            (self.on_complete)();
             self.clear();
             return;
         }
 
         let animation = animation.unwrap().clone();
-        let wins = self.windows.clone();
         let running = self.running.clone();
         let duration = self.animation_duration.as_millis();
         let framerate = self.framerate;
@@ -113,33 +130,23 @@ impl WindowAnimationPlayer {
         let on_start = self.on_start.clone();
         let on_error = self.on_error.clone();
         let on_complete = self.on_complete.clone();
-        self.running.store(true, Ordering::SeqCst);
-        (on_start)();
-        self.animation_thread = Some(std::thread::spawn(move || {
-            let mut is_running = running.load(Ordering::SeqCst);
 
-            let fwins: Vec<(WindowRef, Area, Area)> = wins
-                .clone()
-                .into_iter()
-                .filter_map(|(w, i)| {
-                    let src_area: Area = w.get_area()?;
-                    if src_area == i.target_area {
-                        return None;
-                    };
-                    Some((w, src_area, i.target_area))
-                })
-                .collect();
+        self.running.store(true, Ordering::Release);
+
+        (on_start)(wins_to_animate);
+        self.animation_thread = Some(std::thread::spawn(move || {
+            let mut is_running = running.load(Ordering::Acquire);
 
             let set_pos_flags = SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOZORDER;
             let start_time = SystemTime::now();
             while is_running {
                 let passed = start_time.elapsed().unwrap().as_millis();
-                is_running = running.load(Ordering::SeqCst) && passed <= duration;
+                is_running = running.load(Ordering::Acquire) && passed <= duration;
                 if !is_running {
                     break;
                 }
                 let complete_frac = (passed as f32 / duration as f32).clamp(0.0, 1.0);
-                let res = Self::animate_frame(&fwins, &animation, complete_frac, frame_duration, &set_pos_flags);
+                let res = Self::animate_frame(&wins_info, &animation, complete_frac, frame_duration, &set_pos_flags);
                 if let Err(win) = res {
                     log::error!("Failed to animate window {:?}", win);
                     (on_error)();
@@ -148,7 +155,7 @@ impl WindowAnimationPlayer {
             }
 
             Self::move_windows(&wins);
-            running.store(false, std::sync::atomic::Ordering::Relaxed);
+            running.store(false, Ordering::Release);
             (on_complete)();
         }));
 
@@ -157,7 +164,7 @@ impl WindowAnimationPlayer {
 
     pub fn cancel(&mut self) {
         if let Some(t) = self.animation_thread.take() {
-            self.running.store(false, std::sync::atomic::Ordering::SeqCst);
+            self.running.store(false, Ordering::Release);
             t.join().unwrap();
         }
     }

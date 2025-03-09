@@ -44,7 +44,7 @@ pub trait TilesManagerBase {
         on_update_complete: C,
     ) -> Self
     where
-        S: Fn() + Sync + Send + 'static,
+        S: Fn(HashSet<WindowRef>) + Sync + Send + 'static,
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static;
     fn add_open_windows(&mut self) -> Result<(), Error>;
@@ -65,7 +65,7 @@ impl TilesManagerBase for TilesManager {
         on_update_complete: C,
     ) -> Self
     where
-        S: Fn() + Sync + Send + 'static,
+        S: Fn(HashSet<WindowRef>) + Sync + Send + 'static,
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static,
     {

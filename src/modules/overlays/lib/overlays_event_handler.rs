@@ -1,15 +1,13 @@
+use super::overlay_manager::OverlaysManager;
+use crate::win32::api::window::get_foreground_window;
+use crate::win32::callbacks::win_event_hook::WindowsEvent;
+use crate::win32::win_events_manager::WinEventHandler;
 use std::sync::Arc;
 use std::sync::Mutex;
-
-use windows::Win32::UI::WindowsAndMessaging::{
-    EVENT_OBJECT_LOCATIONCHANGE, EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZESTART,
-};
-
-use crate::win32::{
-    api::window::get_foreground_window, callbacks::win_event_hook::WindowsEvent, win_events_manager::WinEventHandler,
-};
-
-use super::overlay_manager::OverlaysManager;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZEEND;
+use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZESTART;
 
 pub struct OverlayEventHandler {
     overlays: Arc<Mutex<OverlaysManager>>,

@@ -2,6 +2,7 @@ use super::filter::skip_window;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::MondrianMessage;
+use crate::app::mondrian_message::MoveSizeResult;
 use crate::app::mondrian_message::WindowEvent;
 use crate::app::structs::area::Area;
 use crate::app::structs::point::Point;
@@ -94,30 +95,30 @@ impl PositionEventHandler {
         let intermon_op = IntermonitorMoveOp::calc(def_insert, def_free_move, alt, shift, ctrl);
 
         if was_maximized {
-            let win_event = match self.is_maximized(hwnd) {
-                true => WindowEvent::NoMoveSize(hwnd),
-                false => WindowEvent::Moved(hwnd, dest_point, intramon_op, intermon_op),
+            let result = match self.is_maximized(hwnd) {
+                true => MoveSizeResult::None,
+                false => MoveSizeResult::Moved(dest_point, intramon_op, intermon_op),
             };
-            self.send(win_event);
+            self.send(WindowEvent::EndMoveSize(hwnd, result));
             return;
         }
 
         let is_shrinking = pw > w || ph > h;
         let is_resizing = (pw != w || ph != h) && w != min_w && h != min_h;
         if is_shrinking || is_resizing {
-            let win_event = WindowEvent::Resized(hwnd, prev_area, curr_area);
+            let win_event = WindowEvent::EndMoveSize(hwnd, MoveSizeResult::Resized(prev_area, curr_area));
             self.send(win_event);
             return;
         }
 
         let (pcorners, corners) = (prev_area.get_all_corners(), curr_area.get_all_corners());
         let corner_eqs = pcorners.iter().zip(corners.iter()).filter(|(p, c)| p.same(**c)).count();
-        let win_event = match corner_eqs == 0 {
-            true => WindowEvent::Moved(hwnd, dest_point, intramon_op, intermon_op),
-            false => WindowEvent::Resized(hwnd, prev_area, curr_area),
+        let result_event = match corner_eqs == 0 {
+            true => MoveSizeResult::Moved(dest_point, intramon_op, intermon_op),
+            false => MoveSizeResult::Resized(prev_area, curr_area),
         };
 
-        self.send(win_event);
+        self.send(WindowEvent::EndMoveSize(hwnd, result_event));
     }
 
     fn is_maximized(&self, hwnd: HWND) -> bool {
