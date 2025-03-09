@@ -10,6 +10,7 @@ use crate::modules::overlays::module::OverlaysModule;
 use crate::modules::tiles_manager::module::TilesManagerModule;
 use crate::modules::tray::module::TrayModule;
 use crate::modules::Module;
+use crate::win32::api::monitor::enum_display_monitors;
 use clap::Parser;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
@@ -35,6 +36,8 @@ pub fn main() {
     let cfg_file = dirs::home_dir()
         .expect("Failed to get home dir")
         .join(".config/mondrian/mondrian.toml");
+
+    print_monitors();
 
     start_app(&cfg_file);
 }
@@ -178,4 +181,16 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
     let _log_config = log4rs::init_config(config).unwrap();
 
     log_panics::init();
+}
+
+fn print_monitors() {
+    for m in enum_display_monitors() {
+        log::info!(
+            "Monitor detected {{ name: {}, primary: {}, resolution: {}x{} }}",
+            m.id,
+            m.primary,
+            m.resolution.0,
+            m.resolution.1
+        );
+    }
 }

@@ -8,6 +8,7 @@ use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::WindowTileState;
+use crate::app::structs::area::Area;
 use crate::app::structs::direction::Direction;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
@@ -53,6 +54,8 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error>;
     fn on_vd_destroyed(&mut self, destroyed: Desktop, fallback: Desktop) -> Result<(), Error>;
     fn on_vd_changed(&mut self, previous: Desktop, current: Desktop) -> Result<(), Error>;
+
+    fn on_workarea_changed(&mut self) -> Result<(), Error>;
 }
 
 impl TilesManagerOperations for TilesManager {
@@ -85,43 +88,6 @@ impl TilesManagerOperations for TilesManager {
         let trg_win = *self.focalized_wins.get(&trg_k).unwrap_or(&trg_win);
 
         self.swap_windows(src_win, trg_win)?;
-        self.update_layout(true)
-    }
-
-    fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error> {
-        let ratio = ratio.clamp(0.1, 0.9);
-        let fw = get_foreground().ok_or(Error::NoWindow)?;
-
-        // NOTE: peek the monitor with the focused window otherwise the one in which the cursor is
-        let (k, t) = match self.active_trees.find_mut(fw) {
-            Some(e) => (e.key, e.value),
-            None => {
-                let cursor_pos = get_cursor_pos();
-                match self.active_trees.find_at_mut(cursor_pos) {
-                    Some(e) => (e.key, e.value),
-                    None => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {
-                        Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::Generic)?),
-                        None => return Err(Error::Generic),
-                    },
-                }
-            }
-        };
-
-        if let Some(orig_area) = self.peeked_containers.remove(&k) {
-            t.set_area(orig_area);
-        } else {
-            let prev_area = t.get_area();
-            self.peeked_containers.insert(k, prev_area);
-            let (w, h) = (prev_area.width as f32, prev_area.height as f32);
-            let padding = match direction {
-                Direction::Left => (((w * ratio).round() as i16, 0), (0, 0)),
-                Direction::Right => ((0, (w * ratio).round() as i16), (0, 0)),
-                Direction::Up => ((0, 0), ((h * ratio).round() as i16, 0)),
-                Direction::Down => ((0, 0), (0, (h * ratio).round() as i16)),
-            };
-            t.set_area(prev_area.pad(padding.0, padding.1));
-        }
-
         self.update_layout(true)
     }
 
@@ -292,6 +258,11 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
+    fn on_focus(&mut self, window: WindowRef) -> Result<(), Error> {
+        self.focus_history.update(window);
+        Ok(())
+    }
+
     fn amplify_focused(&mut self) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
 
@@ -317,6 +288,43 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
+    fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error> {
+        let ratio = ratio.clamp(0.1, 0.9);
+        let fw = get_foreground().ok_or(Error::NoWindow)?;
+
+        // NOTE: peek the monitor with the focused window otherwise the one in which the cursor is
+        let (k, t) = match self.active_trees.find_mut(fw) {
+            Some(e) => (e.key, e.value),
+            None => {
+                let cursor_pos = get_cursor_pos();
+                match self.active_trees.find_at_mut(cursor_pos) {
+                    Some(e) => (e.key, e.value),
+                    None => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {
+                        Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::Generic)?),
+                        None => return Err(Error::Generic),
+                    },
+                }
+            }
+        };
+
+        if let Some(orig_area) = self.peeked_containers.remove(&k) {
+            t.set_area(orig_area);
+        } else {
+            let prev_area = t.get_area();
+            self.peeked_containers.insert(k, prev_area);
+            let (w, h) = (prev_area.width as f32, prev_area.height as f32);
+            let padding = match direction {
+                Direction::Left => (((w * ratio).round() as i16, 0), (0, 0)),
+                Direction::Right => ((0, (w * ratio).round() as i16), (0, 0)),
+                Direction::Up => ((0, 0), ((h * ratio).round() as i16, 0)),
+                Direction::Down => ((0, 0), (0, (h * ratio).round() as i16)),
+            };
+            t.set_area(prev_area.pad(padding.0, padding.1));
+        }
+
+        self.update_layout(true)
+    }
+
     fn check_for_vd_changes(&mut self) -> Result<(), Error> {
         let current_vd = self.current_vd.as_ref().ok_or(Error::Generic)?;
         let active_vd = get_current_desktop().map_err(|_| Error::Generic)?;
@@ -339,7 +347,7 @@ impl TilesManagerOperations for TilesManager {
             .into_iter()
             .map(|m| {
                 let t = WinTree::new(m.clone().into(), self.config.layout_strategy.clone());
-                (ContainerKey::new(desktop_id, m.id, String::new()), t)
+                (ContainerKey::new(desktop_id, m.id.clone(), String::new()), t)
             })
             .collect();
 
@@ -364,7 +372,7 @@ impl TilesManagerOperations for TilesManager {
         let prev_desk_id = previous.get_id().map_err(|_| Error::Generic)?.to_u128();
         let curr_desk_id = current.get_id().map_err(|_| Error::Generic)?.to_u128();
 
-        if self.active_trees.keys().any(|k| k.virtual_desktop != prev_desk_id) {
+        if self.active_trees.keys().any(|k| !k.is_virtual_desktop(prev_desk_id)) {
             return Ok(());
         }
 
@@ -373,7 +381,7 @@ impl TilesManagerOperations for TilesManager {
         let active_keys: Vec<ContainerKey> = self
             .inactive_trees
             .keys()
-            .filter(|k| k.virtual_desktop == curr_desk_id)
+            .filter(|k| k.is_virtual_desktop(curr_desk_id))
             .cloned()
             .collect();
 
@@ -388,9 +396,22 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
-    fn on_focus(&mut self, window: WindowRef) -> Result<(), Error> {
-        self.focus_history.update(window);
-        Ok(())
+    fn on_workarea_changed(&mut self) -> Result<(), Error> {
+        let monitors = enum_display_monitors();
+
+        for m in monitors.iter() {
+            self.active_trees
+                .iter_mut()
+                .filter(|(k, _)| k.is_monitor(&m.id))
+                .for_each(|(_, c)| c.set_area(Area::from(m.clone())));
+
+            self.inactive_trees
+                .iter_mut()
+                .filter(|(k, _)| k.is_monitor(&m.id))
+                .for_each(|(_, c)| c.set_area(Area::from(m.clone())));
+        }
+
+        self.update_layout(true)
     }
 }
 

@@ -169,7 +169,7 @@ impl TilesManagerBase for TilesManager {
         let keys: Vec<(ContainerKey, Area)> = vds
             .iter()
             .flat_map(|vd| monitors.iter().map(|m| (*vd, m)))
-            .map(|(vd, m)| (ContainerKey::new(vd, m.id, String::new()), (*m).clone().into()))
+            .map(|(vd, m)| (ContainerKey::new(vd, m.id.clone(), String::new()), (*m).clone().into()))
             .collect();
 
         let containers: HashMap<ContainerKey, WinTree> = keys
@@ -251,16 +251,24 @@ impl Drop for TilesManager {
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ContainerKey {
     pub virtual_desktop: u128,
-    pub monitor_index: isize,
+    pub monitor_name: String,
     pub layer: String, // TODO: support for multiple layers
 }
 
 impl ContainerKey {
-    pub fn new(virtual_desktop: u128, monitor_index: isize, layer: String) -> Self {
+    pub fn new(virtual_desktop: u128, monitor_name: String, layer: String) -> Self {
         ContainerKey {
             virtual_desktop,
-            monitor_index,
+            monitor_name,
             layer,
         }
+    }
+
+    pub fn is_virtual_desktop(&self, vd: u128) -> bool {
+        self.virtual_desktop == vd
+    }
+
+    pub fn is_monitor(&self, monitor_name: &str) -> bool {
+        self.monitor_name == monitor_name
     }
 }

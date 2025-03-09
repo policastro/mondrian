@@ -6,11 +6,10 @@ use windows::Win32::Graphics::Gdi::GetMonitorInfoW;
 use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::Graphics::Gdi::MONITORINFOEXW;
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Monitor {
-    pub id: isize,
-    pub name: String,
+    pub handle: isize,
+    pub id: String,
     pub primary: bool,
     pub resolution: (i32, i32),
     pub workspace: (i32, i32),
@@ -37,6 +36,7 @@ pub fn enum_display_monitors() -> Vec<Monitor> {
             LPARAM(&mut monitors as *mut Vec<Monitor> as isize),
         );
     }
+
     monitors
 }
 

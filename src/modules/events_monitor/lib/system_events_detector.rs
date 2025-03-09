@@ -26,12 +26,14 @@ use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
 use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
 use windows::Win32::UI::WindowsAndMessaging::PBT_APMRESUMEAUTOMATIC;
 use windows::Win32::UI::WindowsAndMessaging::PBT_APMSUSPEND;
+use windows::Win32::UI::WindowsAndMessaging::SPI_SETWORKAREA;
 use windows::Win32::UI::WindowsAndMessaging::WINDOW_EX_STYLE;
 use windows::Win32::UI::WindowsAndMessaging::WM_CREATE;
 use windows::Win32::UI::WindowsAndMessaging::WM_DESTROY;
 use windows::Win32::UI::WindowsAndMessaging::WM_DISPLAYCHANGE;
 use windows::Win32::UI::WindowsAndMessaging::WM_POWERBROADCAST;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
+use windows::Win32::UI::WindowsAndMessaging::WM_SETTINGCHANGE;
 use windows::Win32::UI::WindowsAndMessaging::WM_WTSSESSION_CHANGE;
 use windows::Win32::UI::WindowsAndMessaging::WNDCLASSEXW;
 use windows::Win32::UI::WindowsAndMessaging::WS_OVERLAPPEDWINDOW;
@@ -68,6 +70,12 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
         }
         WM_DISPLAYCHANGE => {
             send_system_event(hwnd, SystemEvent::MonitorsLayoutChanged);
+            LRESULT(0)
+        }
+        WM_SETTINGCHANGE => {
+            if wparam.0 as u32 == SPI_SETWORKAREA.0 {
+                send_system_event(hwnd, SystemEvent::WorkareaChanged);
+            }
             LRESULT(0)
         }
         WM_POWERBROADCAST => {

@@ -17,8 +17,8 @@ pub unsafe extern "system" fn enum_monitors_callback(
     let device_name = unsafe { U16CString::from_ptr_str(info.szDevice.as_ptr()).to_string_lossy() };
 
     monitors.push(Monitor {
-        id: monitor.0,
-        name: device_name,
+        handle: monitor.0,
+        id: device_name.strip_prefix(r"\\.\").unwrap_or_default().to_string(),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
         resolution: (
             info.monitorInfo.rcMonitor.right - info.monitorInfo.rcMonitor.left,

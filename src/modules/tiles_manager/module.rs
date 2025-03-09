@@ -227,6 +227,7 @@ fn handle_tm(
             SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),
             SystemEvent::VirtualDesktopRemoved { destroyed, fallback } => tm.on_vd_destroyed(destroyed, fallback),
             SystemEvent::VirtualDesktopChanged { old, new } => tm.on_vd_changed(old, new),
+            SystemEvent::WorkareaChanged => tm.on_workarea_changed(),
             _ => Ok(()),
         },
         TMCommand::Focus(direction) => tm.change_focus(direction, configs.move_cursor_on_focus),

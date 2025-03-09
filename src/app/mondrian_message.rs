@@ -78,6 +78,7 @@ pub enum SystemEvent {
     SessionUnlocked,
     SessionLogon,
     SessionLogoff,
+    WorkareaChanged,
     MonitorsLayoutChanged,
     VirtualDesktopChanged { old: Desktop, new: Desktop },
     VirtualDesktopCreated { desktop: Desktop },
