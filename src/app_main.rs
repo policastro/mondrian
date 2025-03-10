@@ -22,6 +22,8 @@ use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::filter::threshold::ThresholdFilter;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 
 pub fn main() {
@@ -37,7 +39,10 @@ pub fn main() {
         .expect("Failed to get home dir")
         .join(".config/mondrian/mondrian.toml");
 
-    print_monitors();
+    log_info();
+    if args.dump_info {
+        let _ = dump_info().inspect_err(|_| log::warn!("Failed to dump info"));
+    }
 
     start_app(&cfg_file);
 }
@@ -183,14 +188,31 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
     log_panics::init();
 }
 
-fn print_monitors() {
+fn log_info() {
     for m in enum_display_monitors() {
         log::info!(
-            "Monitor detected {{ name: {}, primary: {}, resolution: {}x{} }}",
+            "Monitor detected {{ ID: {}, primary: {}, resolution: {} x {} }}",
             m.id,
-            m.primary,
+            if m.primary { "Yes" } else { "No" },
             m.resolution.0,
             m.resolution.1
         );
     }
+}
+
+fn dump_info() -> Result<(), std::io::Error> {
+    let mut file = File::create("./logs/info.txt")?;
+    writeln!(file, "========================================")?;
+    writeln!(file, "           MONITORS INFO")?;
+    writeln!(file, "========================================")?;
+    for m in enum_display_monitors() {
+        writeln!(file)?;
+        writeln!(file, "[Monitor {}]", m.id)?;
+        writeln!(file, "ID:             {}", m.id)?;
+        writeln!(file, "Primary:        {}", if m.primary { "Yes" } else { "No" })?;
+        writeln!(file, "Resolution:     {} x {}", m.resolution.0, m.resolution.1)?;
+    }
+    writeln!(file)?;
+    writeln!(file, "========================================")?;
+    Ok(())
 }

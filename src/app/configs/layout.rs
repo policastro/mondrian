@@ -1,14 +1,12 @@
 use crate::app::area_tree::layout_strategy;
 use crate::app::configs::deserializers;
-use serde::de::Error;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(default, deny_unknown_fields)]
 pub struct Layout {
-    #[serde(deserialize_with = "to_tiling_strategy")]
+    #[serde(deserialize_with = "deserializers::to_tiling_strategy")]
     pub tiling_strategy: String,
     pub paddings: PaddingsConfigs,
     pub strategy: StrategyConfigs,
@@ -52,21 +50,5 @@ impl Default for Layout {
             paddings: PaddingsConfigs::default(),
             strategy: StrategyConfigs::default(),
         }
-    }
-}
-
-pub fn to_tiling_strategy<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let valid = ["golden_ratio", "horizontal", "vertical", "twostep", "squared"];
-    let s: String = String::deserialize(deserializer)?;
-    match valid.contains(&s.to_lowercase().as_str()) {
-        true => Ok(s.to_lowercase()),
-        false => Err(D::Error::custom(format!(
-            "Invalid tiling strategy: {}, valid options are {}",
-            s,
-            valid.join(", ")
-        ))),
     }
 }

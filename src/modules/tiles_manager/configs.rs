@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use super::lib::window_animation_player::WindowAnimation;
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::configs::general::FloatingWinsConfigs;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::{AppConfigs, MonitorConfigs};
 use crate::app::structs::win_matcher::WinMatcher;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,6 +20,7 @@ pub struct CoreModuleConfigs {
     pub filter: WinMatcher,
     pub history_based_navigation: bool,
     pub floating_wins: FloatingWinsConfigs,
+    pub monitors_configs: HashMap<String, MonitorConfigs>,
 }
 
 impl Default for CoreModuleConfigs {
@@ -35,6 +38,7 @@ impl Default for CoreModuleConfigs {
             filter: WinMatcher::default(),
             history_based_navigation: false,
             floating_wins: FloatingWinsConfigs::default(),
+            monitors_configs: HashMap::new(),
         }
     }
 }
@@ -57,6 +61,7 @@ impl From<&AppConfigs> for CoreModuleConfigs {
             filter: app_configs.get_filters().unwrap_or_default(),
             history_based_navigation: app_configs.general.history_based_navigation,
             floating_wins: app_configs.general.floating_wins.clone(),
+            monitors_configs: app_configs.get_monitors_configs(),
         }
     }
 }

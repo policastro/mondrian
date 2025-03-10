@@ -7,50 +7,10 @@
       "description": "Configuration settings for the tiling layout.",
       "properties": {
         "tiling_strategy": {
-          "type": "string",
-          "enum": [
-            "golden_ratio",
-            "horizontal",
-            "vertical",
-            "twostep",
-            "squared"
-          ],
-          "x-taplo": {
-            "docs": {
-              "enumValues": [
-                "Golden ratio",
-                "Horizontal",
-                "Vertical",
-                "Twostep",
-                "Squared"
-              ]
-            }
-          },
-          "description": "Defines the tiling strategy used in the layout."
+          "$ref": "#/definitions/tilingStrategyEnum"
         },
         "paddings": {
-          "type": "object",
-          "description": "Padding settings for the windows in the layout.",
-          "properties": {
-            "tiles": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100,
-              "description": "Padding between windows (in pixels)."
-            },
-            "borders": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100,
-              "description": "Padding between monitor borders and windows (in pixels)."
-            },
-            "focalized": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 120,
-              "description": "Padding between monitor borders and focalized windows (in pixels)."
-            }
-          }
+          "$ref": "#/definitions/layoutPaddings"
         },
         "strategy": {
           "type": "object",
@@ -74,7 +34,8 @@
                   "type": "boolean",
                   "description": "If true, the layout will be vertical."
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "twostep": {
               "type": "object",
@@ -96,7 +57,8 @@
                   "minimum": 10,
                   "maximum": 90
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "horizontal": {
               "type": "object",
@@ -106,7 +68,8 @@
                   "type": "boolean",
                   "description": "If true, the layout will grow on the right side."
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "vertical": {
               "type": "object",
@@ -116,11 +79,14 @@
                   "type": "boolean",
                   "description": "If true, the layout will grow on the bottom side."
                 }
-              }
+              },
+              "additionalProperties": false
             }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "general": {
       "type": "object",
@@ -215,7 +181,8 @@
               "minimum": 10,
               "maximum": 240
             }
-          }
+          },
+          "additionalProperties": false
         },
         "floating_wins": {
           "type": "object",
@@ -261,9 +228,11 @@
               "minItems": 2,
               "maxItems": 2
             }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "modules": {
       "type": "object",
@@ -321,6 +290,7 @@
               }
             }
           },
+          "additionalProperties": false,
           "x-taplo": {
             "links": {
               "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#custom-keybindings-with-moduleskeybindingsbindings-"
@@ -358,124 +328,50 @@
               "maximum": 100
             },
             "active": {
-              "type": "object",
-              "description": "Active overlay settings.",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enables/disables the active overlay."
+              "allOf": [
+                {
+                  "$ref": "#/definitions/specificOverlaySettings"
                 },
-                "color": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^#[0-9A-Fa-f]{6}$"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 255
-                      },
-                      "minItems": 3,
-                      "maxItems": 3
-                    }
-                  ],
-                  "description": "Color of the active overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                {
+                  "description": "Active overlay settings."
                 }
-              }
+              ]
             },
             "inactive": {
-              "type": "object",
-              "description": "Inactive overlays settings.",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enables/disables the inactive overlays."
+              "allOf": [
+                {
+                  "$ref": "#/definitions/specificOverlaySettings"
                 },
-                "color": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^#[0-9A-Fa-f]{6}$"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 255
-                      },
-                      "minItems": 3,
-                      "maxItems": 3
-                    }
-                  ],
-                  "description": "Color of the inactive overlays. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                {
+                  "description": "Inactive overlay settings."
                 }
-              }
+              ]
             },
             "focalized": {
-              "type": "object",
-              "description": "Focalized overlay settings.",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enables/disables the focalized overlay."
+              "allOf": [
+                {
+                  "$ref": "#/definitions/specificOverlaySettings"
                 },
-                "color": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^#[0-9A-Fa-f]{6}$"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 255
-                      },
-                      "minItems": 3,
-                      "maxItems": 3
-                    }
-                  ],
-                  "description": "Color of the focalized overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                {
+                  "description": "Focalized overlay settings."
                 }
-              }
+              ]
             },
             "floating": {
-              "type": "object",
-              "description": "Floating overlay settings.",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enables/disables the floating overlay."
+              "allOf": [
+                {
+                  "$ref": "#/definitions/specificOverlaySettings"
                 },
-                "color": {
-                  "oneOf": [
-                    {
-                      "type": "string",
-                      "pattern": "^#[0-9A-Fa-f]{6}$"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 255
-                      },
-                      "minItems": 3,
-                      "maxItems": 3
-                    }
-                  ],
-                  "description": "Color of the focalized overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+                {
+                  "description": "Floating overlay settings."
                 }
-              }
+              ]
             }
-          }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
     },
     "core": {
       "type": "object",
@@ -519,7 +415,36 @@
             "additionalProperties": false
           }
         }
-      }
+      },
+      "additionalProperties": false
+    },
+    "monitors": {
+      "type": "object",
+      "description": "Monitors configuration settings.",
+      "patternProperties": {
+        "^[^\"'`\n]+$": {
+          "type": "object",
+          "description": "Monitor configuration settings.",
+          "properties": {
+            "layout": {
+              "type": "object",
+              "description": "Configuration settings for the tiling layout.",
+              "properties": {
+                "tiling_strategy": {
+                  "$ref": "#/definitions/tilingStrategyEnum"
+                },
+                "paddings": {
+                  "$ref": "#/definitions/layoutPaddings"
+                }
+              },
+              "additionalProperties": false
+            },
+            "additionalProperties": false
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "definitions": {
@@ -566,6 +491,76 @@
           "pattern": "^peek (left|right|up|down) ([1-9][0-9])$"
         }
       ]
+    },
+    "tilingStrategyEnum": {
+      "description": "Defines the tiling strategy used in the layout.",
+      "type": "string",
+      "enum": ["golden_ratio", "horizontal", "vertical", "twostep", "squared"],
+      "x-taplo": {
+        "docs": {
+          "enumValues": [
+            "Golden ratio",
+            "Horizontal",
+            "Vertical",
+            "Twostep",
+            "Squared"
+          ]
+        }
+      }
+    },
+    "layoutPaddings": {
+      "type": "object",
+      "description": "Padding settings for the windows in the layout.",
+      "properties": {
+        "tiles": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Padding between windows (in pixels)."
+        },
+        "borders": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Padding between monitor borders and windows (in pixels)."
+        },
+        "focalized": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120,
+          "description": "Padding between monitor borders and focalized windows (in pixels)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "specificOverlaySettings": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enables/disables the overlay."
+        },
+        "color": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "minItems": 3,
+              "maxItems": 3
+            }
+          ],
+          "description": "Color of the overlay. Can be a HEX color string (\"#RRGGBB\") or an RGB array ([R, G, B])."
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

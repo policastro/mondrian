@@ -180,7 +180,8 @@ impl TilesManagerBase for TilesManager {
                 } else if let Some(c) = self.inactive_trees.remove(&k) {
                     return (k, c);
                 } else {
-                    WinTree::new(m, self.config.layout_strategy.clone())
+                    let layout_strategy = self.config.get_layout_strategy(k.monitor_name.as_str());
+                    WinTree::new(m, layout_strategy.clone())
                 };
 
                 (k, container)
@@ -207,8 +208,11 @@ impl TilesManagerBase for TilesManager {
         let anim_player = &mut self.animation_player;
         self.active_trees.iter_mut().for_each(|(k, c)| {
             let (border_pad, tile_pad) = match self.focalized_wins.contains_key(k) {
-                true => (self.config.get_focalized_pad(), (0, 0)),
-                false => (self.config.get_borders_pad(), self.config.get_tile_pad_xy()),
+                true => (self.config.get_focalized_padding(&k.monitor_name), (0, 0)),
+                false => (
+                    self.config.get_borders_padding(&k.monitor_name),
+                    self.config.get_tiles_padding_xy(&k.monitor_name),
+                ),
             };
 
             // INFO: prevent updates when the monitor has a maximized window

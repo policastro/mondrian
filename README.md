@@ -21,12 +21,13 @@ To start _Mondrian_, just download the `mondrian.exe` executable from the latest
 
 The application takes the following arguments (all of them are optional):
 
-    ./mondrian.exe --log <LOG_TYPE> --loglevel <LOGLEVEL>
+    ./mondrian.exe --log <LOG_TYPE> --loglevel <LOGLEVEL> --dumpinfo
 
 Where:
 
 - `<LOG_TYPE>` can be 0 (no log file is created), 1 (error log files is created) or 2 (all log files are created). By default, it is set to 1.
 - `<LOG_LEVEL>` can be 0 (off), 1 (error), 2 (warn), 3 (info), 4 (debug) or 5 (trace). By default, it is set to 3.
+- `dumpinfo` is a flag that, if set, will dump system information into a file (`./logs/info.txt`).
 
 All the log files will be stored in the application directory under the `logs` subfolder. When a log file reaches 10MB, it will be archived in a `.gz` file (up to three previous versions).
 
@@ -126,6 +127,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.floating.enabled`      | Enables/disables the overlay for the floating windows in focused                                      | `true`,`false`                                                                                                           | `true`                             |
 | `modules.overlays.floating.color`        | Color of the overlay                                                                                  | `[r, g, b]` or as hex string (`"#rrggbb"`)                                                                               | `[220, 198, 224]` (or `"#DCC6E0"`) |
 | `core.ignore_rules`                      | Custom rules to exclude windows from being managed                                                    | check the relative [section](#core-ignore-rules-guide) for more info.                                                    | -                                  |
+| `monitors.*`                             | Per-monitor configurations                                                                            | check the relative [section](#per-monitor-configurations-guide) for more info.                                           | -                                  |
 
 All the options are optional and if not specified, the default values will be used.
 
@@ -212,6 +214,63 @@ ignore_rules = [
     { title = "Title" },                                                          # match any window with a title="Title"
     { title = "/Title[0-9]/" }                                                    # match any window with a title that matches the regex "Title[0-9]"
 ]
+```
+
+#### Per-monitor configurations <a name="per-monitor-configurations-guide"></a>
+
+You can override some configuration for each monitor with the `monitors` option:
+
+```toml
+# with this syntax
+[monitors."Monitor 1 name"]
+...
+
+[monitors."Monitor 2 name"]
+...
+
+# or with this one
+[monitors]
+"Monitor 1 name" = { ... }
+"Monitor 2 name" = { ... }
+```
+
+The following options are available:
+
+| **Option**                             | **Reference**               |
+| -------------------------------------- | --------------------------- |
+| `monitors.*.layout.tiling_strategy`    | `layout.tiling_strategy`    |
+| `monitors.*.layout.paddings.tiles`     | `layout.paddings.tiles`     |
+| `monitors.*.layout.paddings.borders`   | `layout.paddings.borders`   |
+| `monitors.*.layout.paddings.focalized` | `layout.paddings.focalized` |
+
+To find the name of the monitors, you can start the application with the `--dumpinfo` flag and look at the `MONITORS INFO` section of the `./logs/info.txt` file. The section looks like this:
+
+```
+========================================
+           MONITORS INFO
+========================================
+
+[Monitor DISPLAY1]
+ID:             DISPLAY1
+Primary:        Yes
+Resolution:     2560 x 1440
+
+[Monitor DISPLAY2]
+ID:             DISPLAY2
+Primary:        No
+Resolution:     3840 x 2160
+
+========================================
+```
+
+The `ID` is the name of the monitor, which you can use in the `monitors` option:
+
+```toml
+[monitors."DISPLAY1"]
+layout.tiling_strategy = "horizontal"
+
+[monitors."DISPLAY2"]
+layout.paddings.borders = 12
 ```
 
 ## FAQ

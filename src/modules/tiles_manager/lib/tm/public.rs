@@ -346,7 +346,7 @@ impl TilesManagerOperations for TilesManager {
         let containers: HashMap<ContainerKey, WinTree> = monitors
             .into_iter()
             .map(|m| {
-                let t = WinTree::new(m.clone().into(), self.config.layout_strategy.clone());
+                let t = WinTree::new(m.clone().into(), self.config.get_layout_strategy(&m.id));
                 (ContainerKey::new(desktop_id, m.id.clone(), String::new()), t)
             })
             .collect();
