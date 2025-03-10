@@ -74,7 +74,10 @@ impl PositionEventHandler {
             get_key_state(VK_CONTROL.0).pressed,
         );
 
-        let dest_point = get_cursor_pos();
+        let dest_point = match get_cursor_pos().inspect(|_| log::warn!("Failed to get cursor pos")) {
+            Ok(point) => point,
+            _ => return,
+        };
 
         let (prev_area, was_maximized) = match self.windows.remove(&hwnd.0) {
             Some(prev_area) => prev_area,

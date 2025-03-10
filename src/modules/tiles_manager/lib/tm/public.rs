@@ -28,8 +28,10 @@ type InterOp = IntermonitorMoveOp;
 type Error = TilesManagerError;
 
 pub trait TilesManagerOperations: TilesManagerInternalOperations {
-    fn add(&mut self, win: WindowRef) -> Result<(), Error>;
-    fn remove(&mut self, win: WindowRef, skip_focalized: bool) -> Result<(), Error>;
+    fn on_open(&mut self, window: WindowRef) -> Result<(), Error>;
+    fn on_restore(&mut self, window: WindowRef) -> Result<(), Error>;
+    fn on_close(&mut self, win: WindowRef) -> Result<(), Error>;
+    fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error>;
     fn swap_focused(&mut self, direction: Direction) -> Result<(), Error>;
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error>;
     fn move_focused(&mut self, direction: Direction) -> Result<(), Error>;
@@ -60,13 +62,25 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
 }
 
 impl TilesManagerOperations for TilesManager {
-    fn add(&mut self, win: WindowRef) -> Result<(), Error> {
-        TilesManagerInternalOperations::add(self, win)?;
+    fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
+        TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok())?;
         self.update_layout(true)
     }
 
-    fn remove(&mut self, win: WindowRef, skip_focalized: bool) -> Result<(), Error> {
-        match TilesManagerInternalOperations::remove(self, win, skip_focalized)? {
+    fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
+        TilesManagerInternalOperations::add(self, win, None)?;
+        self.update_layout(true)
+    }
+
+    fn on_close(&mut self, win: WindowRef) -> Result<(), Error> {
+        match TilesManagerInternalOperations::remove(self, win, false)? {
+            true => self.update_layout(true),
+            false => Ok(()),
+        }
+    }
+
+    fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error> {
+        match TilesManagerInternalOperations::remove(self, win, true)? {
             true => self.update_layout(true),
             false => Ok(()),
         }
@@ -297,7 +311,7 @@ impl TilesManagerOperations for TilesManager {
         let (k, t) = match self.active_trees.find_mut(fw) {
             Some(e) => (e.key, e.value),
             None => {
-                let cursor_pos = get_cursor_pos();
+                let cursor_pos = get_cursor_pos().map_err(|_| Error::Generic)?;
                 match self.active_trees.find_at_mut(cursor_pos) {
                     Some(e) => (e.key, e.value),
                     None => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {

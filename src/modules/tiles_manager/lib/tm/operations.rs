@@ -17,7 +17,7 @@ use std::collections::HashMap;
 type Error = TilesManagerError;
 
 pub trait TilesManagerInternalOperations: TilesManagerBase {
-    fn add(&mut self, win: WindowRef) -> Result<(), Error>;
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<(), Error>;
     fn remove(&mut self, win: WindowRef, skip_focalized: bool) -> Result<bool, Error>;
     fn release(&mut self, window: WindowRef, release: Option<bool>) -> Result<(), Error>;
     fn maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
@@ -34,7 +34,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
 }
 
 impl TilesManagerInternalOperations for TilesManager {
-    fn add(&mut self, win: WindowRef) -> Result<(), Error> {
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<(), Error> {
         let tile_state = self.get_window_state(win);
         if tile_state.is_some_and(|s| matches!(s, WindowTileState::Floating | WindowTileState::Maximized)) {
             return Ok(());
@@ -44,8 +44,9 @@ impl TilesManagerInternalOperations for TilesManager {
             return Err(Error::WindowAlreadyAdded);
         }
 
-        let center = win.get_area().map(|a| a.get_center());
-        let center = center.ok_or(Error::NoWindowsInfo)?;
+        let center = prefer_position
+            .or_else(|| win.get_area().map(|a| a.get_center()))
+            .ok_or(Error::NoWindowsInfo)?;
         let c = self.active_trees.find_at_or_near_mut(center);
         let c = c.ok_or(Error::NoWindowsInfo)?;
         self.focalized_wins.remove(&c.key);
@@ -126,7 +127,7 @@ impl TilesManagerInternalOperations for TilesManager {
         } else {
             self.floating_wins.remove(&window);
             self.animation_player.dequeue(window);
-            self.add(window)?;
+            self.add(window, None)?;
             let _ = window.set_topmost(false);
         }
 
@@ -149,7 +150,7 @@ impl TilesManagerInternalOperations for TilesManager {
 
             if src_e.key != trg_e.key {
                 self.remove(window, false)?;
-                self.add(window)?;
+                self.add(window, None)?;
             }
 
             self.maximized_wins.insert(window);

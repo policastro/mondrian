@@ -13,7 +13,6 @@ use crate::app::mondrian_message::WindowEvent;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
-use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
@@ -203,11 +202,10 @@ fn handle_tm(
         TMCommand::WindowEvent(window_event) => match window_event {
             WindowEvent::Maximized(hwnd) => tm.on_maximize(hwnd.into(), true),
             WindowEvent::Unmaximized(hwnd) => tm.on_maximize(hwnd.into(), false),
-            WindowEvent::Opened(hwnd) | WindowEvent::Restored(hwnd) => tm.add(WindowRef::new(hwnd)),
-            WindowEvent::Closed(hwnd) | WindowEvent::Minimized(hwnd) => {
-                let minimized = matches!(window_event, WindowEvent::Minimized(_));
-                tm.remove(hwnd.into(), minimized)
-            }
+            WindowEvent::Opened(hwnd) => tm.on_open(hwnd.into()),
+            WindowEvent::Restored(hwnd) => tm.on_restore(hwnd.into()),
+            WindowEvent::Closed(hwnd) => tm.on_close(hwnd.into()),
+            WindowEvent::Minimized(hwnd) => tm.on_minimize(hwnd.into()),
             WindowEvent::StartMoveSize(_) => {
                 tm.pause_updates(true);
                 tm.cancel_animation();

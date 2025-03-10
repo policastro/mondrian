@@ -111,7 +111,7 @@ impl TilesManagerBase for TilesManager {
         });
 
         for w in wins.iter() {
-            self.add(*w)?;
+            self.add(*w, None)?;
         }
 
         Ok(())
