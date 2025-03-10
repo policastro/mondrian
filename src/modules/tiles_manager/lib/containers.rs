@@ -37,6 +37,7 @@ pub(super) trait Containers<K, U: Clone + Eq + Hash> {
         ref_point: (i32, i32),
         direction: Direction,
     ) -> Option<ContainerEntry<K, &mut WinTree>>;
+    fn find_leaf(&self, win: WindowRef) -> Option<AreaLeaf<WindowRef>>;
 }
 
 impl<K, V> ContainerEntry<K, V> {
@@ -194,6 +195,10 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
             });
 
         closest.map(|c| ContainerEntry::new(c.0.clone(), c.1))
+    }
+
+    fn find_leaf(&self, win: WindowRef) -> Option<AreaLeaf<WindowRef>> {
+        self.find(win).map(|c| c.value.find_leaf(win, 0))?
     }
 }
 

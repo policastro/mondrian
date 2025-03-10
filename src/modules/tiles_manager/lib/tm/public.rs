@@ -32,9 +32,9 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn on_restore(&mut self, window: WindowRef) -> Result<(), Error>;
     fn on_close(&mut self, win: WindowRef) -> Result<(), Error>;
     fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error>;
-    fn swap_focused(&mut self, direction: Direction) -> Result<(), Error>;
+    fn swap_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error>;
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error>;
-    fn move_focused(&mut self, direction: Direction) -> Result<(), Error>;
+    fn move_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error>;
     fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error>;
     fn minimize_focused(&mut self) -> Result<(), Error>;
     fn focalize_focused(&mut self) -> Result<(), Error>;
@@ -86,7 +86,7 @@ impl TilesManagerOperations for TilesManager {
         }
     }
 
-    fn swap_focused(&mut self, direction: Direction) -> Result<(), Error> {
+    fn swap_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
         let src_win = get_foreground().ok_or(Error::NoWindow)?;
 
         let src_k = self.active_trees.find(src_win).ok_or(Error::NoWindow)?.key;
@@ -103,6 +103,13 @@ impl TilesManagerOperations for TilesManager {
         let trg_win = *self.focalized_wins.get(&trg_k).unwrap_or(&trg_win);
 
         self.swap_windows(src_win, trg_win)?;
+
+        if center_cursor {
+            let leaf = self.active_trees.find_leaf(src_win).ok_or(Error::NoWindow)?;
+            let (x, y) = leaf.viewbox.get_center();
+            set_cursor_pos(x, y);
+        }
+
         self.update_layout(true)
     }
 
@@ -111,7 +118,7 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
-    fn move_focused(&mut self, direction: Direction) -> Result<(), Error> {
+    fn move_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
         const C_ERR: Error = Error::ContainerNotFound { refresh: false };
         let curr = get_foreground().ok_or(Error::NoWindow)?;
 
@@ -132,6 +139,13 @@ impl TilesManagerOperations for TilesManager {
             .get_center();
 
         self.move_to(curr, point, false)?;
+
+        if center_cursor {
+            let leaf = self.active_trees.find_leaf(curr).ok_or(Error::NoWindow)?;
+            let (x, y) = leaf.viewbox.get_center();
+            set_cursor_pos(x, y);
+        }
+
         self.update_layout(true)
     }
 

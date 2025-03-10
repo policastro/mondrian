@@ -230,9 +230,11 @@ fn handle_tm(
         },
         TMCommand::Focus(direction) => tm.change_focus(direction, configs.move_cursor_on_focus),
         TMCommand::Minimize => tm.minimize_focused(),
-        TMCommand::Insert(direction) => tm.move_focused(direction),
-        TMCommand::Move(direction, insert_if_empty) => match tm.swap_focused(direction) {
-            Err(TilesManagerError::NoWindow) if insert_if_empty => tm.move_focused(direction),
+        TMCommand::Insert(direction) => tm.move_focused(direction, configs.move_cursor_on_focus),
+        TMCommand::Move(direction, insert_if_empty) => match tm.swap_focused(direction, configs.move_cursor_on_focus) {
+            Err(TilesManagerError::NoWindow) if insert_if_empty => {
+                tm.move_focused(direction, configs.move_cursor_on_focus)
+            }
             res => res,
         },
         TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
