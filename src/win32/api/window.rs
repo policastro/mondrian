@@ -140,7 +140,12 @@ pub fn is_window_visible(hwnd: HWND) -> bool {
 }
 
 /// Returns true if the window is manageable by the tiles manager
-pub fn is_user_managable_window(hwnd: HWND, check_visibility: bool, check_iconic: bool, check_title_bar: bool) -> bool {
+pub fn is_user_manageable_window(
+    hwnd: HWND,
+    check_visibility: bool,
+    check_iconic: bool,
+    check_title_bar: bool,
+) -> bool {
     if hwnd.0 == 0 {
         return false;
     }

@@ -12,7 +12,7 @@ use crate::win32::api::key::get_key_state;
 use crate::win32::api::window::get_window_minmax_size;
 use crate::win32::api::window::is_fullscreen;
 use crate::win32::api::window::is_maximized;
-use crate::win32::api::window::is_user_managable_window;
+use crate::win32::api::window::is_user_manageable_window;
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -139,7 +139,7 @@ impl WinEventHandler for PositionEventHandler {
     fn init(&mut self) {}
 
     fn handle(&mut self, event: &WindowsEvent) {
-        if !is_user_managable_window(event.hwnd, true, true, true) {
+        if !is_user_manageable_window(event.hwnd, true, true, true) {
             return;
         }
         match event.event {

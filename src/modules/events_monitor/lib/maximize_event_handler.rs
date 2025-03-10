@@ -1,7 +1,7 @@
 use super::filter::skip_window;
 use crate::app::mondrian_message::{MondrianMessage, WindowEvent};
 use crate::app::structs::win_matcher::WinMatcher;
-use crate::win32::api::window::{has_child_window_style, is_fullscreen, is_maximized, is_user_managable_window};
+use crate::win32::api::window::{has_child_window_style, is_fullscreen, is_maximized, is_user_manageable_window};
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use std::collections::HashSet;
@@ -37,7 +37,7 @@ impl WinEventHandler for MaximizeEventHandler {
         let is_fullscreen = if is_maximized { false } else { is_fullscreen(event.hwnd) };
         let is_max_full = is_maximized || is_fullscreen;
         if !contained && is_max_full {
-            let is_managed = is_user_managable_window(event.hwnd, true, true, !is_fullscreen);
+            let is_managed = is_user_manageable_window(event.hwnd, true, true, !is_fullscreen);
             let is_managed = match is_fullscreen {
                 false => is_managed,
                 true => is_managed && !has_child_window_style(event.hwnd),

@@ -1,7 +1,7 @@
 use super::filter::skip_window;
 use crate::app::mondrian_message::{MondrianMessage, WindowEvent};
 use crate::app::structs::win_matcher::WinMatcher;
-use crate::win32::api::window::{is_user_managable_window, is_window_visible};
+use crate::win32::api::window::{enum_user_manageable_windows, is_user_manageable_window, is_window_visible};
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use std::collections::HashSet;
@@ -30,7 +30,7 @@ impl OpenCloseEventHandler {
 
 impl OpenCloseEventHandler {
     fn send_open_event(&mut self, hwnd: HWND) {
-        let is_managed = is_user_managable_window(hwnd, true, true, true);
+        let is_managed = is_user_manageable_window(hwnd, true, true, true);
 
         if is_managed && self.windows.insert(hwnd.0) {
             let win_event = WindowEvent::Opened(hwnd);
@@ -43,7 +43,9 @@ impl OpenCloseEventHandler {
 }
 
 impl WinEventHandler for OpenCloseEventHandler {
-    fn init(&mut self) {}
+    fn init(&mut self) {
+        self.windows = enum_user_manageable_windows().into_iter().map(|w| w.hwnd.0).collect();
+    }
 
     fn handle(&mut self, event: &WindowsEvent) {
         let foreground = event.event == EVENT_SYSTEM_FOREGROUND;
