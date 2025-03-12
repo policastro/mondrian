@@ -40,8 +40,12 @@ impl TilesManagerInternalOperations for TilesManager {
             return Ok(());
         }
 
-        if self.active_trees.find(win).is_some() {
-            return Err(Error::WindowAlreadyAdded);
+        if let Some(e) = self.active_trees.find(win) {
+            // NOTE: if there is a focalized window, we need to remove the focalized state
+            return match self.focalized_wins.get(&e.key).is_some_and(|w| *w != win) {
+                true => self.focalized_wins.remove(&e.key).map(|_| ()).ok_or(Error::Generic),
+                false => Err(Error::WindowAlreadyAdded),
+            };
         }
 
         let center = prefer_position
@@ -166,7 +170,6 @@ impl TilesManagerInternalOperations for TilesManager {
 
         if focalize.is_some_and(|f| f) {
             self.focalized_wins.insert(k.clone(), window);
-            let _ = self.release(window, Some(false));
             return Ok(());
         }
 
@@ -179,7 +182,6 @@ impl TilesManagerInternalOperations for TilesManager {
 
         if let std::collections::hash_map::Entry::Vacant(e) = self.focalized_wins.entry(k.clone()) {
             e.insert(window);
-            let _ = self.release(window, Some(false));
         } else {
             self.focalized_wins.remove(&k);
         }
