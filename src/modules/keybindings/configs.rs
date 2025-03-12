@@ -86,6 +86,10 @@ impl Binding {
         &self.modifiers
     }
 
+    pub fn key(&self) -> &KeybdKey {
+        &self.key
+    }
+
     pub fn action(&self) -> &MondrianMessage {
         &self.action
     }

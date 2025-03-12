@@ -26,6 +26,7 @@ winvd = "0.0.48"
 notify-debouncer-mini = "0.6.0"
 ico = "0.4.0"
 rust-embed = { version = "8.5.0", features = ["include-exclude"] }
+chrono = "0.4.40"
 
 [dependencies.log4rs]
 version = "1.3.0"

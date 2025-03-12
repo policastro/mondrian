@@ -13,6 +13,7 @@ pub mod area_tree {
 pub mod structs {
     pub mod area;
     pub mod direction;
+    pub mod info_entry;
     pub mod orientation;
     pub mod point;
     pub mod win_matcher;

@@ -65,6 +65,7 @@ bindings = [
     { modifiers = "ALT", key = "m", action = "minimize" },
     { modifiers = "ALT", key = "v", action = "invert" },
     { modifiers = "ALT+SHIFT", key = "p", action = "pause" },
+    { modifiers = "ALT+CTRL+SHIFT", key = "i", action = "dumpstateinfo" },
     { modifiers = "ALT+SHIFT", key = "r", action = "refresh-config" },
 ]
 

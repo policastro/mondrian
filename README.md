@@ -21,13 +21,13 @@ To start _Mondrian_, just download the `mondrian.exe` executable from the latest
 
 The application takes the following arguments (all of them are optional):
 
-    ./mondrian.exe --log <LOG_TYPE> --loglevel <LOGLEVEL> --dumpinfo
+    ./mondrian.exe --log <LOG_TYPE> --loglevel <LOGLEVEL> --dumpstateinfo
 
 Where:
 
 - `<LOG_TYPE>` can be 0 (no log file is created), 1 (error log files is created) or 2 (all log files are created). By default, it is set to 1.
 - `<LOG_LEVEL>` can be 0 (off), 1 (error), 2 (warn), 3 (info), 4 (debug) or 5 (trace). By default, it is set to 3.
-- `dumpinfo` is a flag that, if set, will dump system information into a file (`./logs/info.txt`).
+- `dumpstateinfo` is a flag that, if set, will dump the application state into a file (`./logs/app_state.txt`).
 
 All the log files will be stored in the application directory under the `logs` subfolder. When a log file reaches 10MB, it will be archived in a `.gz` file (up to three previous versions).
 
@@ -171,6 +171,7 @@ The **available actions** are:
 - `release`: removes the focused window from the tiling manager, or adds it back;
 - `focalize`: focalizes the focused window (i.e. hides the neighboring windows) or unfocalizes it (i.e. restores the neighboring windows);
 - `amplify`: swaps the focused window with the biggest one in the same monitor;
+- `dumpstateinfo`: dumps the current application state info to the `./logs/app_state.txt` file;
 - `pause [keybindings|overlays]`: if no parameter is specified, pauses/unpauses the application. Otherwise, pauses/unpauses the specified module;
 - `quit`: closes the application.
 
@@ -216,6 +217,26 @@ ignore_rules = [
 ]
 ```
 
+To understand how to exclude specific windows, you can trigger the `dumpstateinfo` [action](#keybindings-guide), then open the `./logs/app_state.txt` file and look for the `Currently managed windows` subsection, which will look like this:
+
+```
+--------------------------------------------------------------------------------
+                              [ 🔲 Tiles Manager ]
+--------------------------------------------------------------------------------
+...
+
+🗔 Currently managed windows
+   ▸ Window { hwnd: 12345, exe: "app1.exe", class: "ClassName1", ... }
+      ▸ Monitor: DISPLAY1
+      ▸ State: Normal
+   ▸ Window { hwnd: 54321, exe: "app2.exe", class: "ClassName2", ... }
+      ▸ Monitor: DISPLAY2
+      ▸ State: Floating
+   ...
+
+...
+```
+
 #### Per-monitor configurations <a name="per-monitor-configurations-guide"></a>
 
 You can override some configuration for each monitor with the `monitors` option:
@@ -243,27 +264,22 @@ The following options are available:
 | `monitors.*.layout.paddings.borders`   | `layout.paddings.borders`   |
 | `monitors.*.layout.paddings.focalized` | `layout.paddings.focalized` |
 
-To find the name of the monitors, you can start the application with the `--dumpinfo` flag and look at the `MONITORS INFO` section of the `./logs/info.txt` file. The section looks like this:
+To find the name of the monitors, you can start the application with the `--dumpstateinfo` flag (or you can trigger the `dumpstateinfo` [action](#keybindings-guide)), then open the `./logs/app_state.txt` file and look for the `Monitors` subsection under the `Tiles Manager` section. The section looks like this:
 
 ```
-========================================
-           MONITORS INFO
-========================================
+--------------------------------------------------------------------------------
+                              [ 🔲 Tiles Manager ]
+--------------------------------------------------------------------------------
+...
 
-[Monitor DISPLAY1]
-ID:             DISPLAY1
-Primary:        Yes
-Resolution:     2560 x 1440
+🖥️ Monitors
+   ▸ Monitor { handle: 1234567, id: "DISPLAY1", primary: true, ... }
+   ▸ Monitor { handle: 7654321, id: "DISPLAY2", primary: false, ... }
 
-[Monitor DISPLAY2]
-ID:             DISPLAY2
-Primary:        No
-Resolution:     3840 x 2160
-
-========================================
+...
 ```
 
-The `ID` is the name of the monitor, which you can use in the `monitors` option:
+The `id` field is the name of the monitor, which you can use in the `monitors` option:
 
 ```toml
 [monitors."DISPLAY1"]

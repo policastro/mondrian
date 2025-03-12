@@ -2,8 +2,29 @@ use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::win32::window::window_ref::WindowRef;
+use info_response_builder::build_info_response;
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub struct LoggerModule;
+
+impl LoggerModule {
+    const APP_STATE_FILENAME: &str = "./logs/app_state.txt";
+    const COL_WIDTH: usize = 80;
+
+    pub fn new() -> LoggerModule {
+        LoggerModule {}
+    }
+
+    pub fn get_app_state_file() -> File {
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(Self::APP_STATE_FILENAME)
+            .expect("cannot open file")
+    }
+}
 
 impl ModuleImpl for LoggerModule {
     fn start(&mut self) {}
@@ -20,11 +41,75 @@ impl ModuleImpl for LoggerModule {
             MondrianMessage::WindowEvent(e) => {
                 log::info!("[Window:{:?}]: {}", e, WindowRef::new(e.get_hwnd()).snapshot())
             }
+            MondrianMessage::QueryInfo => {
+                let mut data_file = Self::get_app_state_file();
+
+                let col_width = Self::COL_WIDTH;
+                let divider = "=".repeat(col_width);
+                let current_date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                writeln!(data_file, "{divider}").ok();
+                writeln!(data_file, "{:^col_width$}", "📝 App State Dump").ok();
+                writeln!(data_file, "  {current_date:^col_width$}").ok();
+                writeln!(data_file, "{divider}\n").ok();
+            }
+            MondrianMessage::QueryInfoResponse { name, icon, infos } => {
+                let mut data_file = Self::get_app_state_file();
+
+                let col_width = Self::COL_WIDTH;
+                let divider = "-".repeat(Self::COL_WIDTH);
+                let icon_str: Option<String> = icon.clone().into();
+                let icon_str = icon_str.map(|s| format!("{} ", s)).unwrap_or_default();
+                writeln!(data_file, "{divider}").ok();
+                writeln!(data_file, "{:^col_width$}", format!("[ {icon_str}{name} ]")).ok();
+                writeln!(data_file, "{divider}").ok();
+                writeln!(data_file, "{}", build_info_response(infos, 3, "▸")).ok();
+            }
             _ => log::trace!("{:?}", event),
         }
     }
 
     fn name(&self) -> String {
         "logger".to_string()
+    }
+}
+
+mod info_response_builder {
+    use crate::app::structs::info_entry::InfoEntry;
+
+    pub fn build_info_response<P: Into<String> + Clone + Copy>(
+        infos: &Vec<InfoEntry>,
+        indent_step: usize,
+        prefix: P,
+    ) -> String {
+        let result_string = &mut String::new();
+        build_info_response_rec(result_string, infos, 0, indent_step, prefix);
+        result_string.to_string()
+    }
+
+    fn build_info_response_rec<P: Into<String> + Clone + Copy>(
+        result_string: &mut String,
+        infos: &Vec<InfoEntry>,
+        indent: usize,
+        indent_step: usize,
+        prefix: P,
+    ) {
+        let spacing = " ".repeat(indent_step).repeat(indent);
+        let prefix_str = match indent > 0 {
+            true => &prefix.into().to_string(),
+            false => "",
+        };
+
+        for info in infos {
+            if indent == 0 {
+                result_string.push('\n');
+            }
+            let icon: String = info.icon.clone().into();
+            let text = match &info.value {
+                None => format!("{spacing}{prefix_str}{icon} {}\n", info.title),
+                Some(v) => format!("{spacing}{prefix_str}{icon} {}: {}\n", info.title, v),
+            };
+            result_string.push_str(&text);
+            build_info_response_rec(result_string, &info.subentries, indent + 1, indent_step, prefix);
+        }
     }
 }

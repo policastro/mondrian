@@ -3,6 +3,8 @@ use crate::win32::window::window_ref::WindowRef;
 
 use super::structs::area::Area;
 use super::structs::direction::Direction;
+use super::structs::info_entry::InfoEntry;
+use super::structs::info_entry::InfoEntryIcon;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -180,6 +182,12 @@ pub enum MondrianMessage {
     Focalize,
     Amplify,
     Minimize,
+    QueryInfo,
+    QueryInfoResponse {
+        name: String,
+        icon: InfoEntryIcon,
+        infos: Vec<InfoEntry>,
+    },
     ListManagedWindows,
     OpenLogFolder,
     About,
@@ -205,6 +213,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "release",
             "focalize",
             "amplify",
+            "dumpstateinfo",
             "pause [keybindings|overlays]",
             "quit",
         ];
@@ -228,6 +237,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "peek" => parts.len() == 3,
             "focalize" => parts.len() == 1,
             "amplify" => parts.len() == 1,
+            "dumpstateinfo" => parts.len() == 1,
             "pause" => parts.len() <= 2,
             "quit" => parts.len() == 1,
             _ => false,
@@ -279,6 +289,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "invert" => Ok(MondrianMessage::Invert),
             "focalize" => Ok(MondrianMessage::Focalize),
             "amplify" => Ok(MondrianMessage::Amplify),
+            "dumpstateinfo" => Ok(MondrianMessage::QueryInfo),
             "release" => Ok(MondrianMessage::Release(None)),
             "pause" => {
                 let command = match parts.get(1).to_owned() {
@@ -299,6 +310,7 @@ impl Serialize for MondrianMessage {
     where
         S: serde::Serializer,
     {
+        // TODO: does not include all possible actions
         match self {
             MondrianMessage::RefreshConfig => serializer.serialize_str("refresh-config"),
             MondrianMessage::OpenConfig => serializer.serialize_str("open-config"),

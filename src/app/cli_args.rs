@@ -29,7 +29,11 @@ pub struct CliArgs {
     #[arg( long = "loglevel", help = "Can be 0 (off), 1 (error), 2 (warn), 3 (info), 4 (debug) or 5 (trace)", value_parser=valid_log_level, default_value_t = 3)]
     log_level: u8,
 
-    #[arg(long = "dumpinfo", help = "Dump some info to a file", default_value_t = false)]
+    #[arg(
+        long = "dumpstateinfo",
+        help = "Dumps app state info to a file",
+        default_value_t = false
+    )]
     pub dump_info: bool,
 }
 

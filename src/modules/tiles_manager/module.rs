@@ -10,9 +10,15 @@ use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::MoveSizeResult;
 use crate::app::mondrian_message::SystemEvent;
 use crate::app::mondrian_message::WindowEvent;
+use crate::app::structs::area::Area;
+use crate::app::structs::info_entry::InfoEntry;
+use crate::app::structs::info_entry::InfoEntryIcon;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
+use crate::win32::api::monitor::enum_display_monitors;
+use crate::win32::window::window_obj::WindowObjInfo;
+use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
@@ -248,6 +254,15 @@ fn handle_tm(
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
             Ok(())
         }
+        TMCommand::QueryInfo => {
+            tx.send(MondrianMessage::QueryInfoResponse {
+                name: "Tiles Manager".to_string(),
+                icon: InfoEntryIcon::TilesManager,
+                infos: get_info_entries(tm),
+            })
+            .unwrap();
+            Ok(())
+        }
         TMCommand::Update(animate) => tm.update_layout(animate),
         TMCommand::Quit => return false,
     };
@@ -270,4 +285,31 @@ fn handle_tm(
     }
 
     true
+}
+
+fn get_info_entries(tm: &TilesManager) -> Vec<InfoEntry> {
+    let monitors = enum_display_monitors();
+    let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), (*m).clone().into())).collect();
+    let windows = tm.get_managed_windows();
+    let windows_str = windows
+        .iter()
+        .map(|w| (WindowRef::from(*w.0).snapshot(), w.1))
+        .map(|w| {
+            let c = w.0.get_area().map(|a| a.get_center());
+            let monitor = monitors_areas
+                .iter()
+                .find_map(|m| c.filter(|c| m.1.contains(*c)).map(|_| m.0.clone()));
+            let monitor_info = InfoEntry::simple("Monitor", monitor.unwrap_or("/".to_string()));
+            let state_info = InfoEntry::simple("State", format!("{:?}", w.1));
+
+            InfoEntry::list(
+                format!("Window {}", format!("{:?}", w.0).trim_start_matches("WindowSnapshot ")),
+                [monitor_info, state_info],
+            )
+        });
+
+    vec![
+        InfoEntry::list("Monitors", monitors.iter().map(|m| format!("{m:?}").into())).with_icon(InfoEntryIcon::Monitor),
+        InfoEntry::list("Currently managed windows", windows_str).with_icon(InfoEntryIcon::Window),
+    ]
 }

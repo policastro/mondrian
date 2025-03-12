@@ -2,6 +2,7 @@ use crate::app::assets::Asset;
 use crate::app::cli_args::CliArgs;
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
+use crate::app::structs::info_entry::{InfoEntry, InfoEntryIcon};
 use crate::modules::events_monitor::module::EventsMonitorModule;
 use crate::modules::file_watcher::module::FileWatcherModule;
 use crate::modules::keybindings::module::KeybindingsModule;
@@ -22,8 +23,6 @@ use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::filter::threshold::ThresholdFilter;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 
 pub fn main() {
@@ -40,14 +39,10 @@ pub fn main() {
         .join(".config/mondrian/mondrian.toml");
 
     log_info();
-    if args.dump_info {
-        let _ = dump_info().inspect_err(|_| log::warn!("Failed to dump info"));
-    }
-
-    start_app(&cfg_file);
+    start_app(&cfg_file, args.dump_info);
 }
 
-fn start_app(cfg_file: &PathBuf) {
+fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     let mut configs = match init_configs(cfg_file) {
         Ok(c) => c,
         Err(e) => {
@@ -60,7 +55,7 @@ fn start_app(cfg_file: &PathBuf) {
     let (bus_tx, bus_rx) = std::sync::mpsc::channel();
 
     let modules: Vec<Box<dyn Module>> = vec![
-        Box::new(LoggerModule {}),
+        Box::new(LoggerModule::new()),
         Box::new(EventsMonitorModule::new(bus_tx.clone())),
         Box::new(TilesManagerModule::new(bus_tx.clone())),
         Box::new(OverlaysModule::new(bus_tx.clone())),
@@ -84,9 +79,23 @@ fn start_app(cfg_file: &PathBuf) {
         log::info!("Module '{}' started", m.name());
     });
 
+    if dump_info {
+        bus_tx.send(MondrianMessage::QueryInfo).ok();
+    }
+
     log::info!("Application started!");
     loop {
         let event = if let Ok(e) = bus_rx.recv() { e } else { continue };
+
+        if event == MondrianMessage::QueryInfo {
+            bus_tx
+                .send(MondrianMessage::QueryInfoResponse {
+                    name: "General".to_string(),
+                    icon: InfoEntryIcon::General,
+                    infos: get_info_entries(cfg_file),
+                })
+                .ok();
+        }
 
         match event.clone() {
             MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
@@ -200,19 +209,11 @@ fn log_info() {
     }
 }
 
-fn dump_info() -> Result<(), std::io::Error> {
-    let mut file = File::create("./logs/info.txt")?;
-    writeln!(file, "========================================")?;
-    writeln!(file, "           MONITORS INFO")?;
-    writeln!(file, "========================================")?;
-    for m in enum_display_monitors() {
-        writeln!(file)?;
-        writeln!(file, "[Monitor {}]", m.id)?;
-        writeln!(file, "ID:             {}", m.id)?;
-        writeln!(file, "Primary:        {}", if m.primary { "Yes" } else { "No" })?;
-        writeln!(file, "Resolution:     {} x {}", m.resolution.0, m.resolution.1)?;
-    }
-    writeln!(file)?;
-    writeln!(file, "========================================")?;
-    Ok(())
+fn get_info_entries(cfg_file: &PathBuf) -> Vec<InfoEntry> {
+    let configs = init_configs(cfg_file);
+    let configs_info = configs
+        .map(|_| "Ok".to_string())
+        .unwrap_or_else(|e| format!("ERROR - {:?}", e));
+    let infos = InfoEntry::simple("Configuration", configs_info).with_icon(InfoEntryIcon::Configs);
+    vec![infos]
 }
