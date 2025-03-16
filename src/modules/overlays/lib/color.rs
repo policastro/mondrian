@@ -1,4 +1,5 @@
 use core::fmt;
+use regex::Regex;
 use serde::de;
 use serde::de::Visitor;
 use serde::Deserialize;
@@ -43,7 +44,7 @@ impl<'de> Deserialize<'de> for Color {
             type Value = Color;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a tuple (u8, u8, u8) or a hex string (#rrggbb)")
+                formatter.write_str("a tuple (R, G, B)/(R, G, B, A) or a hex string (#rrggbb/#rrggbbaa)")
             }
 
             fn visit_seq<V>(self, mut seq: V) -> Result<Color, V::Error>
@@ -53,26 +54,35 @@ impl<'de> Deserialize<'de> for Color {
                 let r = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(0, &self))?;
                 let g = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 let b = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(2, &self))?;
-                Ok(Color::solid(r, g, b))
+                let a = seq
+                    .next_element()
+                    .unwrap_or(Some(255u8))
+                    .ok_or_else(|| de::Error::invalid_length(3, &self))?;
+                Ok(Color::new(r, g, b, a))
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Color, E>
             where
                 E: de::Error,
             {
-                if v.len() == 7 && v.starts_with('#') {
-                    let r = u8::from_str_radix(&v[1..3], 16).map_err(E::custom)?;
-                    let g = u8::from_str_radix(&v[3..5], 16).map_err(E::custom)?;
-                    let b = u8::from_str_radix(&v[5..7], 16).map_err(E::custom)?;
-                    Ok(Color::solid(r, g, b))
-                } else if v.len() != 6 {
-                    let r = u8::from_str_radix(&v[0..2], 16).map_err(E::custom)?;
-                    let g = u8::from_str_radix(&v[2..4], 16).map_err(E::custom)?;
-                    let b = u8::from_str_radix(&v[4..6], 16).map_err(E::custom)?;
-                    return Ok(Color::solid(r, g, b));
-                } else {
-                    return Err(E::invalid_length(v.len(), &self));
+                let hex_color_regex = Regex::new(r"^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$").unwrap();
+                if !hex_color_regex.is_match(v) {
+                    return Err(E::invalid_value(de::Unexpected::Str(v), &self));
                 }
+
+                let base_index = if v.starts_with('#') { 1 } else { 0 };
+                let r = u8::from_str_radix(&v[base_index..base_index + 2], 16);
+                let g = u8::from_str_radix(&v[base_index + 2..base_index + 4], 16);
+                let b = u8::from_str_radix(&v[base_index + 4..base_index + 6], 16);
+                let a = u8::from_str_radix(v.get(base_index + 6..base_index + 8).unwrap_or("FF"), 16);
+                let (r, g, b, a) = (
+                    r.map_err(E::custom)?,
+                    g.map_err(E::custom)?,
+                    b.map_err(E::custom)?,
+                    a.map_err(E::custom)?,
+                );
+
+                Ok(Color::new(r, g, b, a))
             }
         }
 
