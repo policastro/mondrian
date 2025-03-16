@@ -26,7 +26,7 @@ The application takes the following arguments (all of them are optional):
 Where:
 
 - `<LOG_TYPE>` can be 0 (no log file is created), 1 (error log files is created) or 2 (all log files are created). By default, it is set to 1.
-- `<LOG_LEVEL>` can be 0 (off), 1 (error), 2 (warn), 3 (info), 4 (debug) or 5 (trace). By default, it is set to 3.
+- `<LOG_LEVEL>` can be 0 (off), 1 (trace), 2 (debug), 3 (info), 4 (warn) or 5 (error). By default, it is set to 3.
 - `dumpstateinfo` is a flag that, if set, will dump the application state into a file (`./logs/app_state.txt`).
 
 All the log files will be stored in the application directory under the `logs` subfolder. When a log file reaches 10MB, it will be archived in a `.gz` file (up to three previous versions).
