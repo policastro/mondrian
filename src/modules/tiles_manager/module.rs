@@ -61,8 +61,11 @@ impl TilesManagerModule {
         let tm_configs = TilesManagerConfig::from(&self.configs);
 
         let app_tx = self.bus_tx.clone();
+        let animations_enabled = self.configs.animations_enabled;
         let on_update_start = move |wins| {
-            app_tx.send(MondrianMessage::CoreUpdateStart(wins)).unwrap();
+            app_tx
+                .send(MondrianMessage::CoreUpdateStart(wins, animations_enabled))
+                .unwrap();
         };
 
         let app_tx = self.bus_tx.clone();

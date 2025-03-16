@@ -54,7 +54,7 @@ impl<T: Copy> AreaNode<T> {
             return;
         }
 
-        return main_tree.as_mut().unwrap().insert(id, area, strategy);
+        main_tree.as_mut().unwrap().insert(id, area, strategy)
     }
 
     pub fn insert_at(&mut self, id: T, point: (i32, i32), area: Area, vertical_limit: u8) {
@@ -293,8 +293,8 @@ impl<T: Copy + Eq + Hash + Debug> AreaNode<T> {
             };
 
             let (is_lx_ignored, is_rx_ignored) = (
-                lx.id.map_or(true, |id| Self::is_ignored(ignored_ids, id)),
-                rx.id.map_or(true, |id| Self::is_ignored(ignored_ids, id)),
+                lx.id.is_none_or(|id| Self::is_ignored(ignored_ids, id)),
+                rx.id.is_none_or(|id| Self::is_ignored(ignored_ids, id)),
             );
 
             let lx_area = match rx_leaves > 0 || !is_rx_ignored {
@@ -320,7 +320,7 @@ impl<T: Copy + Eq + Hash + Debug> AreaNode<T> {
         ignored_ids: Option<&HashSet<T>>,
     ) -> usize {
         if self.is_leaf() {
-            let ignored = self.id.map_or(true, |id| Self::is_ignored(ignored_ids, id));
+            let ignored = self.id.is_none_or(|id| Self::is_ignored(ignored_ids, id));
             return if ignored { 0 } else { 1 };
         }
 
@@ -336,7 +336,7 @@ impl<T: Copy + Eq + Hash + Debug> AreaNode<T> {
     }
 
     fn is_ignored(ignore_ids: Option<&HashSet<T>>, id: T) -> bool {
-        ignore_ids.map_or(false, |ids| ids.contains(&id))
+        ignore_ids.is_some_and(|ids| ids.contains(&id))
     }
 }
 

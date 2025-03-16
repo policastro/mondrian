@@ -1,12 +1,14 @@
 pub mod api {
     pub mod accessibility;
     pub mod cursor;
+    pub mod gdiplus;
     pub mod key;
     pub mod misc;
     pub mod monitor;
     pub mod session;
     pub mod window;
 }
+
 pub mod callbacks {
     pub mod enum_monitors;
     pub mod enum_windows;

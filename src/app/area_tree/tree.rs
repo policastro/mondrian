@@ -66,10 +66,7 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
     }
 
     pub fn find_leaf(&self, id: T, padding: i16) -> Option<AreaLeaf<T>> {
-        let leaf = match self.ids_map.get(&id) {
-            Some(l) => l,
-            None => return None,
-        };
+        let leaf = self.ids_map.get(&id)?;
         if padding == 0 {
             return Some(*leaf);
         }

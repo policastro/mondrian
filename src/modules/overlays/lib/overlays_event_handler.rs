@@ -1,4 +1,5 @@
-use super::overlay_manager::OverlaysManager;
+use super::overlay_manager::OverlaysManagerEnum;
+use super::overlay_manager::OverlaysManagerTrait;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
@@ -10,16 +11,16 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZEEND;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZESTART;
 
 pub struct OverlayEventHandler {
-    overlays: Arc<Mutex<OverlaysManager>>,
-    update_while_resizing: bool,
+    overlays: Arc<Mutex<OverlaysManagerEnum>>,
+    update_while_dragging: bool,
     moving: bool,
 }
 
 impl OverlayEventHandler {
-    pub fn new(overlays: Arc<Mutex<OverlaysManager>>, update_while_resizing: bool) -> OverlayEventHandler {
+    pub fn new(overlays: Arc<Mutex<OverlaysManagerEnum>>, update_while_dragging: bool) -> OverlayEventHandler {
         OverlayEventHandler {
             overlays,
-            update_while_resizing,
+            update_while_dragging,
             moving: false,
         }
     }
@@ -41,14 +42,14 @@ impl WinEventHandler for OverlayEventHandler {
         {
             self.overlays.lock().unwrap().focus(event.hwnd);
         } else if event.event == EVENT_SYSTEM_MOVESIZESTART {
-            self.moving = !self.update_while_resizing;
+            self.moving = !self.update_while_dragging;
         } else if event.event == EVENT_SYSTEM_MOVESIZEEND {
             self.moving = false;
         }
     }
 
     fn get_managed_events(&self) -> Option<Vec<u32>> {
-        if self.update_while_resizing {
+        if self.update_while_dragging {
             Some(vec![EVENT_OBJECT_LOCATIONCHANGE, EVENT_SYSTEM_FOREGROUND])
         } else {
             Some(vec![

@@ -22,9 +22,9 @@ impl WinMatcher {
         match query.starts_with('/') && query.ends_with('/') {
             true => {
                 let re = regex::Regex::new(&query[1..query.len() - 1]).unwrap();
-                value.as_ref().map_or(false, |v| re.is_match(v))
+                value.as_ref().is_some_and(|v| re.is_match(v))
             }
-            false => value.as_ref().map_or(false, |v| v.contains(query)),
+            false => value.as_ref().is_some_and(|v| v.contains(query)),
         }
     }
 

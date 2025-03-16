@@ -10,7 +10,8 @@ use serde::Serialize;
 #[serde(default, deny_unknown_fields)]
 pub struct OverlaysModuleConfigs {
     pub enabled: bool,
-    pub update_while_resizing: bool,
+    pub update_while_dragging: bool,
+    pub update_while_animating: bool,
 
     #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub thickness: u8,
@@ -50,7 +51,8 @@ impl Default for OverlaysModuleConfigs {
     fn default() -> Self {
         OverlaysModuleConfigs {
             enabled: true,
-            update_while_resizing: true,
+            update_while_dragging: true,
+            update_while_animating: true,
             thickness: 4,
             border_radius: 15,
             padding: 0,
@@ -69,6 +71,16 @@ impl From<&AppConfigs> for OverlaysModuleConfigs {
 }
 
 impl OverlaysModuleConfigs {
+    pub(crate) fn get_hidden(&self) -> OverlayParams {
+        OverlayParams::new(
+            true,
+            Color::new(0, 0, 0, 0),
+            self.thickness,
+            self.border_radius,
+            self.padding,
+        )
+    }
+
     pub(crate) fn get_active(&self) -> Option<OverlayParams> {
         let overlay_params = self.create_overlay_params(&self.active);
         match &self.active.enabled {
@@ -143,19 +155,19 @@ impl ExtOverlayParams {
     }
 
     pub(crate) fn default_active() -> ExtOverlayParams {
-        ExtOverlayParams::new(true, Color::new(155, 209, 229))
+        ExtOverlayParams::new(true, Color::solid(155, 209, 229))
     }
 
     pub(crate) fn default_inactive() -> ExtOverlayParams {
-        ExtOverlayParams::new(true, Color::new(156, 156, 156))
+        ExtOverlayParams::new(true, Color::solid(156, 156, 156))
     }
 
     pub(crate) fn default_focalized() -> ExtOverlayParams {
-        ExtOverlayParams::new(true, Color::new(234, 153, 153))
+        ExtOverlayParams::new(true, Color::solid(234, 153, 153))
     }
 
     pub(crate) fn default_floating() -> ExtOverlayParams {
-        ExtOverlayParams::new(true, Color::new(220, 198, 224))
+        ExtOverlayParams::new(true, Color::solid(220, 198, 224))
     }
 }
 

@@ -13,7 +13,7 @@ pub fn post_empty_thread_message(thread_id: u32, msg: u32) {
     let _ = unsafe { PostThreadMessageW(thread_id, msg, None, None) };
 }
 
-pub fn post_empyt_message(hwnd: HWND, msg: u32) {
+pub fn post_empty_message(hwnd: HWND, msg: u32) {
     post_message::<usize>(hwnd, msg, None);
 }
 

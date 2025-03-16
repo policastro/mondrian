@@ -176,7 +176,7 @@ pub enum MondrianMessage {
     Pause(Option<bool>),
     PauseModule(String, Option<bool>),
     UpdatedWindows(HashMap<isize, WindowTileState>, TMCommand),
-    CoreUpdateStart(HashSet<WindowRef>),
+    CoreUpdateStart(HashSet<WindowRef>, bool),
     CoreUpdateError,
     CoreUpdateComplete,
     Focalize,

@@ -1,16 +1,33 @@
 use super::overlay::Overlay;
 use super::overlay::OverlayParams;
-use super::utils::overlay::OverlayBase;
 use crate::win32::api::window::get_foreground_window;
+use enum_dispatch::enum_dispatch;
 use std::collections::HashMap;
 use windows::Win32::Foundation::HWND;
 
+#[enum_dispatch(OverlaysManagerTrait)]
+pub enum OverlaysManagerEnum {
+    MultiOverlaysManager,
+    MonoOverlaysManager,
+}
+
+#[enum_dispatch]
+pub trait OverlaysManagerTrait {
+    fn rebuild(&mut self, windows: &HashMap<isize, Option<OverlayParams>>);
+    fn focus(&mut self, hwnd: HWND);
+    fn reposition(&mut self, hwnd: HWND);
+    fn suspend(&mut self, hwnd: HWND);
+    fn resume(&mut self, hwnd: HWND);
+    fn resume_all(&mut self);
+}
+
 struct OverlayEntry {
-    overlay: Overlay<OverlayParams>,
+    overlay: Overlay,
     suspended: bool,
 }
+
 impl OverlayEntry {
-    fn new(overlay: Overlay<OverlayParams>) -> OverlayEntry {
+    fn new(overlay: Overlay) -> OverlayEntry {
         OverlayEntry {
             overlay,
             suspended: false,
@@ -18,132 +35,211 @@ impl OverlayEntry {
     }
 }
 
-pub struct OverlaysManager {
+pub struct MonoOverlaysManager {
+    last_foreground: Option<isize>,
     overlays: HashMap<isize, OverlayEntry>,
-    active_params: OverlayParams,
-    inactive_params: OverlayParams,
-    custom_active_params: HashMap<isize, OverlayParams>,
+    default_params: OverlayParams,
+    params_map: HashMap<isize, OverlayParams>,
     class_name: String,
 }
 
-impl OverlaysManager {
-    pub fn new(active: Option<OverlayParams>, inactive: Option<OverlayParams>, class_name: &str) -> OverlaysManager {
-        OverlaysManager {
+impl MonoOverlaysManager {
+    pub fn new(default_params: OverlayParams, class_name: &str) -> MonoOverlaysManager {
+        MonoOverlaysManager {
+            last_foreground: None,
             overlays: HashMap::new(),
-            active_params: active.unwrap_or(OverlayParams::empty()),
-            inactive_params: inactive.unwrap_or(OverlayParams::empty()),
-            custom_active_params: HashMap::new(),
+            default_params,
+            params_map: HashMap::new(),
             class_name: class_name.to_string(),
         }
     }
+}
 
-    pub fn rebuild(&mut self, windows: &HashMap<isize, Option<OverlayParams>>) {
-        let foreground = get_foreground_window().unwrap_or_default();
-
-        self.custom_active_params = windows
+impl OverlaysManagerTrait for MonoOverlaysManager {
+    fn rebuild(&mut self, windows: &HashMap<isize, Option<OverlayParams>>) {
+        self.params_map = windows
             .iter()
-            .filter_map(|(w, params)| params.as_ref().map(|p| (*w, *p)))
+            .map(|(w, params)| (*w, params.unwrap_or(self.default_params)))
             .collect();
 
         windows.keys().for_each(|w| {
             let hwnd = HWND(*w);
-            let is_foreground = hwnd == foreground;
-            let overlay_entry = OverlayEntry::new(Overlay::new(hwnd, &self.class_name.clone()));
-            let entry = self.overlays.entry(*w).or_insert_with(|| overlay_entry);
+            let overlay = Overlay::new(hwnd, &self.class_name.clone(), Default::default());
+            self.overlays.entry(*w).or_insert_with(|| OverlayEntry::new(overlay));
+        });
 
-            if entry.suspended {
-                return;
+        self.overlays.retain(|w, _| windows.contains_key(w));
+        self.focus(get_foreground_window().unwrap_or_default());
+    }
+
+    fn focus(&mut self, hwnd: HWND) {
+        if let Some(e) = self
+            .last_foreground
+            .filter(|lf| *lf == hwnd.0)
+            .and_then(|lf| self.overlays.get_mut(&lf))
+        {
+            update_overlay(e, Some(*self.params_map.get(&hwnd.0).unwrap()));
+            return;
+        }
+
+        if let Some(e) = self.last_foreground.and_then(|lf| self.overlays.get_mut(&lf)) {
+            e.overlay.hide();
+        }
+
+        if let Some(e) = self.overlays.get_mut(&hwnd.0) {
+            update_overlay(e, Some(*self.params_map.get(&hwnd.0).unwrap()));
+            self.last_foreground = Some(hwnd.0);
+            if !e.suspended {
+                e.overlay.show();
             }
+        } else {
+            self.last_foreground = None;
+        }
+    }
 
-            let p = match is_foreground {
-                true => *self.custom_active_params.get(w).unwrap_or(&self.active_params),
-                false => self.inactive_params,
+    fn reposition(&mut self, hwnd: HWND) {
+        if let Some(e) = self.overlays.get_mut(&hwnd.0).filter(|o| !o.suspended) {
+            update_overlay(e, None);
+        }
+    }
+
+    fn suspend(&mut self, hwnd: HWND) {
+        if let Some(e) = self.overlays.get_mut(&hwnd.0).filter(|o| !o.suspended) {
+            e.suspended = true;
+            e.overlay.hide();
+        }
+    }
+
+    fn resume(&mut self, hwnd: HWND) {
+        if let Some(e) = self.overlays.get_mut(&hwnd.0).filter(|o| o.suspended) {
+            e.suspended = false;
+            if self.last_foreground == Some(hwnd.0) {
+                update_overlay(e, Some(*self.params_map.get(&hwnd.0).unwrap()));
+                e.overlay.show();
+            }
+        }
+    }
+
+    fn resume_all(&mut self) {
+        for (w, o) in self.overlays.iter_mut().filter(|(_, o)| o.suspended) {
+            o.suspended = false;
+            if self.last_foreground == Some(*w) {
+                update_overlay(o, Some(*self.params_map.get(w).unwrap()));
+                o.overlay.show();
+            }
+        }
+    }
+}
+
+pub struct MultiOverlaysManager {
+    last_foreground: Option<isize>,
+    overlays: HashMap<isize, OverlayEntry>,
+    default_active_params: OverlayParams,
+    inactive_params: OverlayParams,
+    active_params_map: HashMap<isize, OverlayParams>,
+    class_name: String,
+}
+
+impl MultiOverlaysManager {
+    pub fn new(
+        default_active_params: OverlayParams,
+        inactive_params: OverlayParams,
+        class_name: &str,
+    ) -> MultiOverlaysManager {
+        MultiOverlaysManager {
+            last_foreground: None,
+            overlays: HashMap::new(),
+            default_active_params,
+            inactive_params,
+            active_params_map: HashMap::new(),
+            class_name: class_name.to_string(),
+        }
+    }
+}
+
+impl OverlaysManagerTrait for MultiOverlaysManager {
+    fn rebuild(&mut self, windows: &HashMap<isize, Option<OverlayParams>>) {
+        let foreground = get_foreground_window().unwrap_or_default().0;
+
+        self.active_params_map = windows
+            .iter()
+            .map(|(w, params)| (*w, params.unwrap_or(self.default_active_params)))
+            .collect();
+
+        windows.keys().for_each(|w| {
+            let overlay = Overlay::new(HWND(*w), &self.class_name.clone(), Default::default());
+            let entry = self.overlays.entry(*w).or_insert_with(|| OverlayEntry::new(overlay));
+
+            let p = if *w == foreground {
+                self.last_foreground = Some(*w);
+                self.active_params_map.get(w).copied().unwrap()
+            } else {
+                self.inactive_params
             };
 
-            Self::reposition_or_create(&mut entry.overlay, p);
+            update_overlay(entry, Some(p));
         });
 
         self.overlays.retain(|w, _| windows.contains_key(w));
     }
 
-    pub fn focus(&mut self, hwnd: HWND) {
-        if let Some(focus_e) = self.overlays.get_mut(&hwnd.0).filter(|o| !o.suspended) {
-            let params = *self.custom_active_params.get(&hwnd.0).unwrap_or(&self.active_params);
-            focus_e.overlay.configure(params);
+    fn focus(&mut self, hwnd: HWND) {
+        if self.last_foreground.is_some_and(|lf| lf == hwnd.0) {
+            if let Some(e) = self.last_foreground.and_then(|lf| self.overlays.get_mut(&lf)) {
+                update_overlay(e, Some(*self.active_params_map.get(&hwnd.0).unwrap()));
+            }
+            return;
+        }
 
-            self.overlays.iter_mut().filter(|o| o.0 != &hwnd.0).for_each(|(_, e)| {
-                e.overlay.configure(self.inactive_params);
-            });
+        if let Some(e) = self.last_foreground.and_then(|lf| self.overlays.get_mut(&lf)) {
+            update_overlay(e, Some(self.inactive_params));
+        }
+
+        if let Some(focus_entry) = self.overlays.get_mut(&hwnd.0) {
+            update_overlay(focus_entry, Some(*self.active_params_map.get(&hwnd.0).unwrap()));
+            self.last_foreground = Some(hwnd.0);
+        } else {
+            self.last_foreground = None;
         }
     }
 
-    pub fn reposition(&mut self, hwnd: HWND) {
+    fn reposition(&mut self, hwnd: HWND) {
         if let Some(e) = self.overlays.get_mut(&hwnd.0).filter(|o| !o.suspended) {
-            e.overlay.reposition(None);
+            update_overlay(e, None);
         };
     }
 
-    pub fn suspend(&mut self, window: HWND) {
+    fn suspend(&mut self, window: HWND) {
         if let Some(e) = self.overlays.get_mut(&window.0).filter(|o| !o.suspended) {
             e.suspended = true;
             e.overlay.hide();
         }
     }
 
-    pub fn resume(&mut self, window: HWND) {
+    fn resume(&mut self, window: HWND) {
         if let Some(e) = self.overlays.get_mut(&window.0).filter(|o| o.suspended) {
-            let foreground = get_foreground_window().unwrap_or_default().0;
-            let (active, inactive) = (self.active_params, self.inactive_params);
-            let p = match foreground == window.0 {
-                true => *self.custom_active_params.get(&window.0).unwrap_or(&active),
-                false => inactive,
-            };
             e.suspended = false;
-            Self::reposition_or_create(&mut e.overlay, p);
+            update_overlay(e, None);
+            e.overlay.show();
         }
     }
 
-    pub fn resume_all(&mut self) {
-        let foreground = get_foreground_window().unwrap_or_default().0;
-        let (active, inactive) = (self.active_params, self.inactive_params);
-        self.overlays.iter_mut().filter(|o| o.1.suspended).for_each(|e| {
-            let p = match foreground == *e.0 {
-                true => *self.custom_active_params.get(e.0).unwrap_or(&active),
-                false => inactive,
-            };
-            e.1.suspended = false;
-            Self::reposition_or_create(&mut e.1.overlay, p);
+    fn resume_all(&mut self) {
+        self.overlays.values_mut().filter(|e| e.suspended).for_each(|e| {
+            e.suspended = false;
+            update_overlay(e, None);
+            e.overlay.show();
         });
     }
+}
 
-    pub fn destroy(&mut self) {
-        self.custom_active_params.clear();
-        self.overlays.clear();
-    }
-
-    fn reposition_or_create(overlay: &mut Overlay<OverlayParams>, params: OverlayParams) {
-        match overlay.exists() {
-            true => {
-                overlay.reposition(Some(params));
-                overlay.show();
-            }
-            false => overlay.create(params),
+fn update_overlay(overlay_entry: &mut OverlayEntry, new_params: Option<OverlayParams>) {
+    let overlay = &mut overlay_entry.overlay;
+    if overlay.exists() {
+        if !new_params.is_some_and(|p| overlay.configure(p)) {
+            overlay.reposition();
         }
-    }
-}
-
-impl Drop for OverlaysManager {
-    fn drop(&mut self) {
-        self.destroy();
-    }
-}
-
-impl OverlayBase for OverlayParams {
-    fn get_padding(&self) -> u8 {
-        self.padding
-    }
-
-    fn get_thickness(&self) -> u8 {
-        self.thickness
+    } else {
+        overlay.create(new_params);
     }
 }

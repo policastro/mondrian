@@ -70,19 +70,20 @@ bindings = [
 ]
 
 [modules.overlays]
-enabled = true               # enables or disables the overlays module
-update_while_resizing = true # the overlays will be updated while resizing
-padding = 0                  # padding between the overlay and the window
-thickness = 2                # thickness of the border
-border_radius = 10           # border radius
-active.enabled = true        # shows the active overlay
-active.color = "#9BD1E5"     # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-inactive.enabled = true      # shows the inactive overlays
-inactive.color = "#696969"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-focalized.enabled = true     # shows the focalized overlay
-focalized.color = "#EA9999"  # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-floating.enabled = true      # shows the floating overlay
-floating.color = "#DCC6E0"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+enabled = true                # enables or disables the overlays module
+update_while_dragging = true  # the overlays will be updated while dragging the window
+update_while_animating = true # the overlays will be updated while the animation is running 
+padding = 0                   # padding between the overlay and the window
+thickness = 2                 # thickness of the border
+border_radius = 10            # border radius
+active.enabled = true         # shows the active overlay
+active.color = "#9BD1E5"      # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+inactive.enabled = true       # shows the inactive overlays
+inactive.color = "#696969"    # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+focalized.enabled = true      # shows the focalized overlay
+focalized.color = "#EA9999"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+floating.enabled = true       # shows the floating overlay
+floating.color = "#DCC6E0"    # color of the border, as [r, g, b] or as hex string ("#rrggbb")
 
 [core]
 ignore_rules = [

@@ -11,6 +11,7 @@ use crate::modules::overlays::module::OverlaysModule;
 use crate::modules::tiles_manager::module::TilesManagerModule;
 use crate::modules::tray::module::TrayModule;
 use crate::modules::Module;
+use crate::win32::api::gdiplus::{init_gdiplus, shutdown_gdiplus};
 use crate::win32::api::monitor::enum_display_monitors;
 use clap::Parser;
 use log::LevelFilter;
@@ -43,6 +44,8 @@ pub fn main() {
 }
 
 fn start_app(cfg_file: &PathBuf, dump_info: bool) {
+    init_gdiplus();
+
     let mut configs = match init_configs(cfg_file) {
         Ok(c) => c,
         Err(e) => {
@@ -120,6 +123,8 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
             break;
         }
     }
+
+    shutdown_gdiplus();
 
     log::info!("Application stopped!");
 }

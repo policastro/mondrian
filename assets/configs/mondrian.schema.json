@@ -305,9 +305,13 @@
               "type": "boolean",
               "description": "Enables/disables the module."
             },
-            "update_while_resizing": {
+            "update_while_dragging": {
               "type": "boolean",
-              "description": "Updates the overlays while resizing."
+              "description": "Updates the overlays while dragging the window."
+            },
+            "update_while_animating": {
+              "type": "boolean",
+              "description": "Updates the overlays while the animation is running."
             },
             "thickness": {
               "type": "integer",

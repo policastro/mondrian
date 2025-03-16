@@ -1,5 +1,8 @@
 use super::configs::OverlaysModuleConfigs;
-use super::lib::overlay_manager::OverlaysManager;
+use super::lib::overlay_manager::MonoOverlaysManager;
+use super::lib::overlay_manager::MultiOverlaysManager;
+use super::lib::overlay_manager::OverlaysManagerEnum;
+use super::lib::overlay_manager::OverlaysManagerTrait;
 use super::lib::overlays_event_handler::OverlayEventHandler;
 use super::lib::utils::overlay::overlay_win_proc;
 use crate::app::configs::AppConfigs;
@@ -27,14 +30,14 @@ pub struct OverlaysModule {
     bus: Sender<MondrianMessage>,
     configs: OverlaysModuleConfigs,
     enabled: bool,
-    overlays: Option<Arc<Mutex<OverlaysManager>>>,
+    overlays: Option<Arc<Mutex<OverlaysManagerEnum>>>,
     main_thread: Option<thread::JoinHandle<()>>,
     main_thread_id: Arc<AtomicU32>,
 }
 
 impl OverlaysModule {
     pub fn new(bus: Sender<MondrianMessage>) -> OverlaysModule {
-        register_class(OVERLAY_CLASS_NAME, Some(overlay_win_proc)); // Overlays class
+        register_class(OVERLAY_CLASS_NAME, Some(overlay_win_proc));
 
         OverlaysModule {
             configs: OverlaysModuleConfigs::default(),
@@ -57,17 +60,25 @@ impl ModuleImpl for OverlaysModule {
             return;
         }
 
-        let (active, inactive) = (self.configs.get_active(), self.configs.get_inactive());
-        let om = OverlaysManager::new(active, inactive, OVERLAY_CLASS_NAME);
+        let (active, inactive) = (
+            self.configs.get_active().unwrap_or(self.configs.get_hidden()),
+            self.configs.get_inactive(),
+        );
+        let om = match inactive {
+            Some(inactive) => {
+                OverlaysManagerEnum::from(MultiOverlaysManager::new(active, inactive, OVERLAY_CLASS_NAME))
+            }
+            None => OverlaysManagerEnum::from(MonoOverlaysManager::new(active, OVERLAY_CLASS_NAME)),
+        };
         self.overlays = Some(Arc::new(Mutex::new(om)));
 
         let overlay_manager = self.overlays.clone().unwrap();
         let main_thread_id = self.main_thread_id.clone();
-        let update_while_resizing = self.configs.update_while_resizing;
+        let update_while_dragging = self.configs.update_while_dragging;
         let main_thread = thread::spawn(move || {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             let mut wem = WindowsEventManager::new();
-            wem.hook(OverlayEventHandler::new(overlay_manager, update_while_resizing));
+            wem.hook(OverlayEventHandler::new(overlay_manager, update_while_dragging));
             wem.start_event_loop();
         });
 
@@ -79,8 +90,7 @@ impl ModuleImpl for OverlaysModule {
         if let Some(main_thread) = self.main_thread.take() {
             post_empty_thread_message(self.main_thread_id.load(Ordering::SeqCst), WM_QUIT);
             main_thread.join().unwrap();
-            let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-            overlays.lock().unwrap().destroy();
+            self.overlays = None;
             self.main_thread_id.store(0, Ordering::SeqCst);
         }
     }
@@ -132,7 +142,7 @@ impl ModuleImpl for OverlaysModule {
                 overlays.lock().unwrap().rebuild(&wins);
             }
             MondrianMessage::WindowEvent(WindowEvent::StartMoveSize(win)) => {
-                if !self.is_running() || self.configs.update_while_resizing {
+                if !self.is_running() || self.configs.update_while_dragging {
                     return;
                 }
 
@@ -140,15 +150,15 @@ impl ModuleImpl for OverlaysModule {
                 overlays.lock().unwrap().suspend(*win);
             }
             MondrianMessage::WindowEvent(WindowEvent::EndMoveSize(win, _)) => {
-                if !self.is_running() {
+                if !self.is_running() || self.configs.update_while_dragging {
                     return;
                 }
 
                 let overlays = self.overlays.as_mut().expect("Overlays not initialized");
                 overlays.lock().unwrap().resume(*win);
             }
-            MondrianMessage::CoreUpdateStart(wins) => {
-                if !self.is_running() {
+            MondrianMessage::CoreUpdateStart(wins, animations_enabled) => {
+                if !self.is_running() || !animations_enabled || self.configs.update_while_animating {
                     return;
                 }
 
@@ -156,7 +166,7 @@ impl ModuleImpl for OverlaysModule {
                 wins.iter().for_each(|w| overlays.lock().unwrap().suspend(w.hwnd))
             }
             MondrianMessage::CoreUpdateError | MondrianMessage::CoreUpdateComplete => {
-                if !self.is_running() {
+                if !self.is_running() || self.configs.update_while_animating {
                     return;
                 }
 
