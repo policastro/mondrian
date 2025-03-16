@@ -32,6 +32,8 @@ pub mod overlay {
     use windows::Win32::Graphics::Gdi::BI_RGB;
     use windows::Win32::Graphics::Gdi::BLENDFUNCTION;
     use windows::Win32::Graphics::Gdi::DIB_RGB_COLORS;
+    use windows::Win32::Graphics::GdiPlus::CompositingModeSourceCopy;
+    use windows::Win32::Graphics::GdiPlus::CompositingQualityHighSpeed;
     use windows::Win32::Graphics::GdiPlus::FillModeWinding;
     use windows::Win32::Graphics::GdiPlus::GdipAddPathArc;
     use windows::Win32::Graphics::GdiPlus::GdipClosePathFigure;
@@ -46,11 +48,17 @@ pub mod overlay {
     use windows::Win32::Graphics::GdiPlus::GdipDrawPath;
     use windows::Win32::Graphics::GdiPlus::GdipDrawRectangle;
     use windows::Win32::Graphics::GdiPlus::GdipFillPath;
+    use windows::Win32::Graphics::GdiPlus::GdipSetCompositingMode;
+    use windows::Win32::Graphics::GdiPlus::GdipSetCompositingQuality;
+    use windows::Win32::Graphics::GdiPlus::GdipSetInterpolationMode;
+    use windows::Win32::Graphics::GdiPlus::GdipSetPixelOffsetMode;
     use windows::Win32::Graphics::GdiPlus::GdipSetSmoothingMode;
     use windows::Win32::Graphics::GdiPlus::GpGraphics;
     use windows::Win32::Graphics::GdiPlus::GpPath;
     use windows::Win32::Graphics::GdiPlus::GpPen;
     use windows::Win32::Graphics::GdiPlus::GpSolidFill;
+    use windows::Win32::Graphics::GdiPlus::InterpolationModeDefault;
+    use windows::Win32::Graphics::GdiPlus::PixelOffsetModeNone;
     use windows::Win32::Graphics::GdiPlus::SmoothingModeAntiAlias;
     use windows::Win32::Graphics::GdiPlus::UnitPixel;
     use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
@@ -62,8 +70,10 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::UpdateLayeredWindow;
     use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
     use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
-    use windows::Win32::UI::WindowsAndMessaging::HWND_TOP;
     use windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE;
+    use windows::Win32::UI::WindowsAndMessaging::SWP_NOREDRAW;
+    use windows::Win32::UI::WindowsAndMessaging::SWP_NOSENDCHANGING;
+    use windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE;
     use windows::Win32::UI::WindowsAndMessaging::ULW_ALPHA;
     use windows::Win32::UI::WindowsAndMessaging::WM_CREATE;
@@ -219,8 +229,8 @@ pub mod overlay {
             None => return,
         };
 
-        let flags = SWP_NOACTIVATE;
-        let _ = unsafe { SetWindowPos(overlay, HWND_TOP, x, y, cx, cy, flags) };
+        let flags = SWP_NOREDRAW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING;
+        let _ = unsafe { SetWindowPos(overlay, target, x, y, cx, cy, flags) };
     }
 
     fn update_overlay(hwnd: HWND, ctx: &OverlayGraphicContext, width: i32, height: i32) {
@@ -246,9 +256,12 @@ pub mod overlay {
             let hbm_old = SelectObject(hdc_mem, hbm);
 
             let mut graphics: *mut GpGraphics = ptr::null_mut();
-
             GdipCreateFromHDC(hdc_mem, &mut graphics);
             GdipSetSmoothingMode(graphics, SmoothingModeAntiAlias); // TODO: configurable antialias?
+            GdipSetCompositingMode(graphics, CompositingModeSourceCopy);
+            GdipSetCompositingQuality(graphics, CompositingQualityHighSpeed);
+            GdipSetPixelOffsetMode(graphics, PixelOffsetModeNone);
+            GdipSetInterpolationMode(graphics, InterpolationModeDefault);
 
             let (x, y, w, h) = (
                 ctx.thickness,

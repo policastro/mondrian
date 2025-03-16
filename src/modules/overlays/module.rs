@@ -74,11 +74,10 @@ impl ModuleImpl for OverlaysModule {
 
         let overlay_manager = self.overlays.clone().unwrap();
         let main_thread_id = self.main_thread_id.clone();
-        let update_while_dragging = self.configs.update_while_dragging;
         let main_thread = thread::spawn(move || {
             main_thread_id.store(get_current_thread_id(), Ordering::SeqCst);
             let mut wem = WindowsEventManager::new();
-            wem.hook(OverlayEventHandler::new(overlay_manager, update_while_dragging));
+            wem.hook(OverlayEventHandler::new(overlay_manager));
             wem.start_event_loop();
         });
 
