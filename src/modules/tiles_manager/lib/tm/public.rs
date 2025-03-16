@@ -50,7 +50,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn on_resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
     fn on_focus(&mut self, window: WindowRef) -> Result<(), Error>;
-    fn amplify_focused(&mut self) -> Result<(), Error>;
+    fn amplify_focused(&mut self, center_cursor: bool) -> Result<(), Error>;
     fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error>;
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error>;
@@ -292,7 +292,7 @@ impl TilesManagerOperations for TilesManager {
         Ok(())
     }
 
-    fn amplify_focused(&mut self) -> Result<(), Error> {
+    fn amplify_focused(&mut self, center_cursor: bool) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
 
         let tile_state = self.get_window_state(curr).ok_or(Error::NoWindow)?;
@@ -314,6 +314,13 @@ impl TilesManagerOperations for TilesManager {
         }
 
         self.swap_windows(curr, max_leaf.ok_or(Error::NoWindow)?.id)?;
+
+        if center_cursor {
+            let leaf = self.active_trees.find_leaf(curr).ok_or(Error::NoWindow)?;
+            let (x, y) = leaf.viewbox.get_center();
+            set_cursor_pos(x, y);
+        }
+
         self.update_layout(true)
     }
 

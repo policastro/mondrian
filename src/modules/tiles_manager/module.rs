@@ -251,7 +251,7 @@ fn handle_tm(
         TMCommand::Release(b) => tm.release_focused(b),
         TMCommand::Peek(direction, ratio) => tm.peek_current(direction, ratio),
         TMCommand::Focalize => tm.focalize_focused(),
-        TMCommand::Amplify => tm.amplify_focused(),
+        TMCommand::Amplify => tm.amplify_focused(configs.move_cursor_on_focus),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
