@@ -9,7 +9,7 @@ use std::sync::mpsc::Sender;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     EVENT_OBJECT_CLOAKED, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE, EVENT_OBJECT_SHOW, EVENT_OBJECT_UNCLOAKED,
-    EVENT_SYSTEM_FOREGROUND,
+    EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND,
 };
 
 pub struct OpenCloseEventHandler {
@@ -37,23 +37,43 @@ impl OpenCloseEventHandler {
             if skip_window(&win_event, &self.filter) {
                 return;
             }
-            self.sender.send(win_event.into()).expect("Failed to send event open");
+
+            self.sender
+                .send(win_event.into())
+                .inspect_err(|_| log::warn!("Failed to send open event for window {}", hwnd.0))
+                .ok();
         }
     }
 }
 
 impl WinEventHandler for OpenCloseEventHandler {
     fn init(&mut self) {
-        self.windows = enum_user_manageable_windows().into_iter().map(|w| w.hwnd.0).collect();
+        self.windows = enum_user_manageable_windows()
+            .into_iter()
+            .filter(|w| is_user_manageable_window(w.hwnd, true, true, true))
+            .map(|w| w.hwnd.0)
+            .collect();
     }
 
     fn handle(&mut self, event: &WindowsEvent) {
-        let foreground = event.event == EVENT_SYSTEM_FOREGROUND;
-        let is_uncloaked = event.event == EVENT_OBJECT_UNCLOAKED;
-        let is_shown = event.event == EVENT_OBJECT_SHOW;
+        if event.hwnd.0 == 0 {
+            return;
+        }
 
-        if foreground || is_uncloaked || is_shown {
+        if event.event == EVENT_SYSTEM_FOREGROUND
+            || event.event == EVENT_OBJECT_UNCLOAKED
+            || event.event == EVENT_OBJECT_SHOW
+        {
             self.send_open_event(event.hwnd);
+            return;
+        }
+
+        if event.event == EVENT_SYSTEM_MINIMIZEEND {
+            let is_managed = is_user_manageable_window(event.hwnd, true, true, true);
+            if is_managed && !skip_window(&WindowEvent::Minimized(event.hwnd), &self.filter) {
+                self.windows.insert(event.hwnd.0);
+            }
+            return;
         }
 
         if !self.windows.contains(&event.hwnd.0) {
@@ -65,12 +85,13 @@ impl WinEventHandler for OpenCloseEventHandler {
             event.event == EVENT_OBJECT_DESTROY,
             event.event == EVENT_OBJECT_HIDE,
         );
+
         if is_cloaked || ((is_destroyed || is_hidden) && !is_window_visible(event.hwnd)) {
             self.windows.remove(&event.hwnd.0);
-            let _ = self
-                .sender
+            self.sender
                 .send(WindowEvent::Closed(event.hwnd).into())
-                .inspect_err(|e| log::error!("OpenCloseEventHandler: {:?}", e));
+                .inspect_err(|e| log::warn!("Failed to send close event: {:?}", e))
+                .ok();
         }
     }
 
@@ -79,6 +100,7 @@ impl WinEventHandler for OpenCloseEventHandler {
             EVENT_SYSTEM_FOREGROUND,
             EVENT_OBJECT_CLOAKED,
             EVENT_OBJECT_SHOW,
+            EVENT_SYSTEM_MINIMIZEEND,
             EVENT_OBJECT_DESTROY,
             EVENT_OBJECT_UNCLOAKED,
             EVENT_OBJECT_HIDE,

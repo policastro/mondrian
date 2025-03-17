@@ -40,7 +40,7 @@ impl WinEventHandler for MinimizeEventHandler {
 
         match self.sender.send(win_event.into()) {
             Ok(_) => (),
-            Err(err) => log::error!("Failed to send event min/max: {}", err),
+            Err(err) => log::warn!("Failed to send event min/max: {}", err),
         }
     }
 
