@@ -1,6 +1,7 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TilesManagerError {
     Generic,
+    VirtualDesktopError(winvd::Error),
     WindowAlreadyAdded,
     NoWindowsInfo,
     ContainerNotFound { refresh: bool },

@@ -272,7 +272,7 @@ fn handle_tm(
 
     match res {
         Err(error) if error.require_refresh() => {
-            let _ = tm.update_layout(true);
+            tm.update_layout(true).ok();
             log::error!("{:?}", error)
         }
         Err(error) if error.is_warn() => log::warn!("{:?}", error),

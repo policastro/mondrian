@@ -18,7 +18,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
 use winvd::get_current_desktop;
-use winvd::get_desktops;
 use winvd::Desktop;
 
 type Error = TilesManagerError;
@@ -49,12 +48,80 @@ pub trait TilesManagerBase {
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static;
     fn add_open_windows(&mut self) -> Result<(), Error>;
-    fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState>;
     fn get_managed_windows(&self) -> HashMap<isize, WindowTileState>;
     fn cancel_animation(&mut self);
     fn init(&mut self) -> Result<(), Error>;
     fn update_layout(&mut self, animate: bool) -> Result<(), Error>;
     fn pause_updates(&mut self, pause: bool);
+}
+
+impl TilesManager {
+    pub fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState> {
+        let is_managed = self.active_trees.find(window).is_some();
+        let is_floating = self.floating_wins.contains(&window);
+        let is_maximized = self.maximized_wins.contains(&window);
+        let is_focalized = self
+            .active_trees
+            .find(window)
+            .is_some_and(|e| self.focalized_wins.matches(&e.key, window));
+
+        if is_managed && !is_floating && !is_maximized && !is_focalized {
+            Some(WindowTileState::Normal)
+        } else if is_floating {
+            Some(WindowTileState::Floating)
+        } else if is_focalized {
+            Some(WindowTileState::Focalized)
+        } else if is_maximized {
+            Some(WindowTileState::Maximized)
+        } else {
+            None
+        }
+    }
+
+    pub fn build_vd_containers(&mut self, vd: Desktop) -> Result<HashMap<ContainerKey, WinTree>, Error> {
+        let vd_id = vd.get_id().map_err(Error::VirtualDesktopError)?.to_u128();
+        let containers = enum_display_monitors()
+            .iter()
+            .map(|m| {
+                let layout = self.config.get_layout_strategy(m.id.as_str());
+                let tree = WinTree::new((*m).clone().into(), layout);
+                (ContainerKey::new(vd_id, m.id.clone(), String::new()), tree)
+            })
+            .collect();
+
+        Ok(containers)
+    }
+
+    pub fn activate_containers(
+        &mut self,
+        vd: Option<Desktop>,
+        monitor_name: Option<String>,
+        layer: Option<String>,
+    ) -> Result<(), Error> {
+        let vd_id = vd.and_then(|vd| vd.get_id().ok()).map(|id| id.to_u128());
+
+        self.inactive_trees.extend(self.active_trees.drain());
+
+        let active_keys: Vec<_> = self
+            .inactive_trees
+            .keys()
+            .filter(|k| {
+                let is_vd = vd_id.as_ref().is_none_or(|id| k.is_virtual_desktop(*id));
+                let is_monitor = monitor_name.as_ref().is_none_or(|name| k.is_monitor(name));
+                let is_layer = layer.as_ref().is_none_or(|layer| k.is_layer(layer));
+                is_vd && is_monitor && is_layer
+            })
+            .cloned()
+            .collect();
+
+        for k in active_keys {
+            if let Some(c) = self.inactive_trees.remove(&k) {
+                self.active_trees.insert(k.clone(), c);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl TilesManagerBase for TilesManager {
@@ -104,10 +171,9 @@ impl TilesManagerBase for TilesManager {
 
         // INFO: bigger windows first
         wins.sort_by(|a, b| {
-            b.get_area()
-                .unwrap_or_default()
-                .get_area()
-                .cmp(&a.get_area().unwrap_or_default().get_area())
+            let area_1 = a.get_area().unwrap_or_default().get_area();
+            let area_2 = b.get_area().unwrap_or_default().get_area();
+            area_2.cmp(&area_1)
         });
 
         for w in wins.iter() {
@@ -115,28 +181,6 @@ impl TilesManagerBase for TilesManager {
         }
 
         Ok(())
-    }
-
-    fn get_window_state(&self, window: WindowRef) -> Option<WindowTileState> {
-        let is_managed = self.active_trees.find(window).is_some();
-        let is_floating = self.floating_wins.contains(&window);
-        let is_maximized = self.maximized_wins.contains(&window);
-        let is_focalized = self
-            .active_trees
-            .find(window)
-            .is_some_and(|e| self.focalized_wins.matches(&e.key, window));
-
-        if is_managed && !is_floating && !is_maximized && !is_focalized {
-            Some(WindowTileState::Normal)
-        } else if is_floating {
-            Some(WindowTileState::Floating)
-        } else if is_focalized {
-            Some(WindowTileState::Focalized)
-        } else if is_maximized {
-            Some(WindowTileState::Maximized)
-        } else {
-            None
-        }
     }
 
     fn get_managed_windows(&self) -> HashMap<isize, WindowTileState> {
@@ -157,46 +201,10 @@ impl TilesManagerBase for TilesManager {
     }
 
     fn init(&mut self) -> Result<(), Error> {
-        let vds: Vec<u128> = get_desktops()
-            .expect("Failed to get desktops")
-            .into_iter()
-            .filter(|d| d.get_id().is_ok())
-            .map(|d| d.get_id().expect("Failed to get id").to_u128())
-            .collect();
-
-        let monitors = enum_display_monitors();
-
-        let keys: Vec<(ContainerKey, Area)> = vds
-            .iter()
-            .flat_map(|vd| monitors.iter().map(|m| (*vd, m)))
-            .map(|(vd, m)| (ContainerKey::new(vd, m.id.clone(), String::new()), (*m).clone().into()))
-            .collect();
-
-        let containers: HashMap<ContainerKey, WinTree> = keys
-            .into_iter()
-            .map(|(k, m)| {
-                let container = if let Some(c) = self.active_trees.remove(&k) {
-                    return (k, c);
-                } else if let Some(c) = self.inactive_trees.remove(&k) {
-                    return (k, c);
-                } else {
-                    let layout_strategy = self.config.get_layout_strategy(k.monitor_name.as_str());
-                    WinTree::new(m, layout_strategy.clone())
-                };
-
-                (k, container)
-            })
-            .collect();
-
-        let current_vd = get_current_desktop().map_err(|_| Error::Generic)?;
+        let current_vd = get_current_desktop().map_err(Error::VirtualDesktopError)?;
         self.current_vd = Some(current_vd);
-
-        let current_vd_id = current_vd.get_id().map_err(|_| Error::Generic)?.to_u128();
-
-        (self.active_trees, self.inactive_trees) = containers
-            .into_iter()
-            .partition(|(k, _)| k.virtual_desktop == current_vd_id);
-
+        self.active_trees = self.build_vd_containers(current_vd)?;
+        self.inactive_trees.clear();
         Ok(())
     }
 
@@ -274,5 +282,9 @@ impl ContainerKey {
 
     pub fn is_monitor(&self, monitor_name: &str) -> bool {
         self.monitor_name == monitor_name
+    }
+
+    pub fn is_layer(&self, layer: &str) -> bool {
+        self.layer == layer
     }
 }

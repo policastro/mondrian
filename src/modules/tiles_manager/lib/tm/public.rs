@@ -1,10 +1,8 @@
 use super::error::TilesManagerError;
-use super::manager::ContainerKey;
 use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
 use super::operations::MonitorSearchStrategy;
 use super::operations::TilesManagerInternalOperations;
-use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::WindowTileState;
@@ -194,7 +192,7 @@ impl TilesManagerOperations for TilesManager {
 
     fn invert_orientation(&mut self) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
-        let t = self.active_trees.find_mut(curr).ok_or(Error::Generic)?.value;
+        let t = self.active_trees.find_mut(curr).ok_or(Error::NoWindow)?.value;
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
         t.switch_subtree_orientations(center);
 
@@ -229,7 +227,7 @@ impl TilesManagerOperations for TilesManager {
         const C_ERR: Error = Error::ContainerNotFound { refresh: true };
 
         let src_win = self.active_trees.find(win).ok_or(C_ERR)?;
-        let src_win = src_win.value.find_leaf(win, 0).ok_or(Error::Generic)?.id;
+        let src_win = src_win.value.find_leaf(win, 0).ok_or(Error::NoWindow)?.id;
         let trg_leaf = self.active_trees.find_at(target);
         let trg_leaf = trg_leaf.and_then(|t| t.value.find_leaf_at(target, 0));
 
@@ -336,7 +334,7 @@ impl TilesManagerOperations for TilesManager {
                 match self.active_trees.find_at_mut(cursor_pos) {
                     Some(e) => (e.key, e.value),
                     None => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {
-                        Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::Generic)?),
+                        Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::NoWindow)?),
                         None => return Err(Error::Generic),
                     },
                 }
@@ -363,7 +361,7 @@ impl TilesManagerOperations for TilesManager {
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error> {
         let current_vd = self.current_vd.as_ref().ok_or(Error::Generic)?;
-        let active_vd = get_current_desktop().map_err(|_| Error::Generic)?;
+        let active_vd = get_current_desktop().map_err(Error::VirtualDesktopError)?;
 
         if current_vd
             .get_id()
@@ -376,27 +374,26 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error> {
-        let desktop_id = desktop.get_id().map_err(|_| Error::Generic)?.to_u128();
+        let vd_id = desktop.get_id().map_err(Error::VirtualDesktopError)?.to_u128();
 
-        let monitors = enum_display_monitors();
-        let containers: HashMap<ContainerKey, WinTree> = monitors
-            .into_iter()
-            .map(|m| {
-                let t = WinTree::new(m.clone().into(), self.config.get_layout_strategy(&m.id));
-                (ContainerKey::new(desktop_id, m.id.clone(), String::new()), t)
-            })
-            .collect();
+        if self
+            .active_trees
+            .iter()
+            .chain(self.inactive_trees.iter())
+            .any(|(k, _)| k.is_virtual_desktop(vd_id))
+        {
+            return Ok(());
+        }
 
+        let containers = self.build_vd_containers(desktop)?;
         self.inactive_trees.extend(containers);
         self.update_layout(true)
     }
 
     fn on_vd_destroyed(&mut self, destroyed: Desktop, fallback: Desktop) -> Result<(), Error> {
-        let destroyed_id = destroyed.get_id().map_err(|_| Error::Generic)?.to_u128();
-
-        self.inactive_trees.retain(|k, _| k.virtual_desktop != destroyed_id);
-        self.active_trees.retain(|k, _| k.virtual_desktop != destroyed_id);
-
+        let old_vd_id = destroyed.get_id().map_err(Error::VirtualDesktopError)?.to_u128();
+        self.active_trees.retain(|k, _| !k.is_virtual_desktop(old_vd_id));
+        self.inactive_trees.retain(|k, _| !k.is_virtual_desktop(old_vd_id));
         if self.current_vd == Some(destroyed) {
             return self.on_vd_changed(destroyed, fallback);
         }
@@ -404,49 +401,36 @@ impl TilesManagerOperations for TilesManager {
         self.update_layout(true)
     }
 
-    fn on_vd_changed(&mut self, previous: Desktop, current: Desktop) -> Result<(), Error> {
-        let prev_desk_id = previous.get_id().map_err(|_| Error::Generic)?.to_u128();
-        let curr_desk_id = current.get_id().map_err(|_| Error::Generic)?.to_u128();
+    fn on_vd_changed(&mut self, _previous: Desktop, current: Desktop) -> Result<(), Error> {
+        let curr_desk_id = current.get_id().map_err(Error::VirtualDesktopError)?.to_u128();
 
-        if self.active_trees.keys().any(|k| !k.is_virtual_desktop(prev_desk_id)) {
+        if self.current_vd == Some(current) {
             return Ok(());
         }
 
-        self.inactive_trees.extend(self.active_trees.drain());
+        if self
+            .active_trees
+            .iter()
+            .chain(self.inactive_trees.iter())
+            .all(|(k, _)| !k.is_virtual_desktop(curr_desk_id))
+        {
+            let containers = self.build_vd_containers(current)?;
+            self.inactive_trees.extend(containers);
+        }
 
-        let active_keys: Vec<ContainerKey> = self
-            .inactive_trees
-            .keys()
-            .filter(|k| k.is_virtual_desktop(curr_desk_id))
-            .cloned()
-            .collect();
-
-        self.active_trees.extend(
-            active_keys
-                .into_iter()
-                .map(|k| (k.clone(), self.inactive_trees.remove(&(k.clone())).unwrap())),
-        );
-        self.current_vd = Some(current);
-
+        self.activate_containers(Some(current), None, None)?;
         self.add_open_windows()?;
         self.update_layout(true)
     }
 
     fn on_workarea_changed(&mut self) -> Result<(), Error> {
-        let monitors = enum_display_monitors();
-
-        for m in monitors.iter() {
+        enum_display_monitors().iter().for_each(|m| {
             self.active_trees
                 .iter_mut()
+                .chain(self.inactive_trees.iter_mut())
                 .filter(|(k, _)| k.is_monitor(&m.id))
                 .for_each(|(_, c)| c.set_area(Area::from(m.clone())));
-
-            self.inactive_trees
-                .iter_mut()
-                .filter(|(k, _)| k.is_monitor(&m.id))
-                .for_each(|(_, c)| c.set_area(Area::from(m.clone())));
-        }
-
+        });
         self.update_layout(true)
     }
 }

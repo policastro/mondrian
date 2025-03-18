@@ -227,20 +227,21 @@ impl TilesManagerInternalOperations for TilesManager {
         let src_k = self.active_trees.find(w1).ok_or(Error::NoWindow)?.key;
         let trg_k = self.active_trees.find(w2).ok_or(Error::NoWindow)?.key;
 
+        const C_ERR: Error = Error::ContainerNotFound { refresh: false };
         if src_k == trg_k {
-            let t = self.active_trees.get_mut(&src_k).ok_or(Error::Generic)?;
+            let t = self.active_trees.get_mut(&src_k).ok_or(C_ERR)?;
             t.swap_ids(w1, w2);
             if self.focalized_wins.matches(&src_k, w1) {
                 self.focalized_wins.insert(src_k, w2);
             }
         } else {
-            let t = self.active_trees.get_mut(&src_k).ok_or(Error::Generic)?;
+            let t = self.active_trees.get_mut(&src_k).ok_or(C_ERR)?;
             t.replace_id(w1, w2);
             if self.focalized_wins.matches(&src_k, w1) {
                 self.focalized_wins.insert(src_k, w2);
             }
 
-            let t = self.active_trees.get_mut(&trg_k).ok_or(Error::Generic)?;
+            let t = self.active_trees.get_mut(&trg_k).ok_or(C_ERR)?;
             t.replace_id(w2, w1);
             if self.focalized_wins.matches(&trg_k, w2) {
                 self.focalized_wins.insert(trg_k, w1);
@@ -279,7 +280,7 @@ impl TilesManagerInternalOperations for TilesManager {
         };
 
         let t = self.active_trees.find_mut(win).ok_or(Error::NoWindow)?.value;
-        let area = t.find_leaf(win, 0).ok_or(Error::Generic)?.viewbox;
+        let area = t.find_leaf(win, 0).ok_or(Error::NoWindow)?.viewbox;
         let center = area.get_center();
 
         let clamp_values = Some((10, 90));
