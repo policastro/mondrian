@@ -48,7 +48,7 @@ pub trait TilesManagerBase {
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static;
     fn add_open_windows(&mut self) -> Result<(), Error>;
-    fn get_managed_windows(&self) -> HashMap<isize, WindowTileState>;
+    fn get_managed_windows(&self) -> HashMap<WindowRef, WindowTileState>;
     fn cancel_animation(&mut self);
     fn init(&mut self) -> Result<(), Error>;
     fn update_layout(&mut self, animate: bool) -> Result<(), Error>;
@@ -183,15 +183,15 @@ impl TilesManagerBase for TilesManager {
         Ok(())
     }
 
-    fn get_managed_windows(&self) -> HashMap<isize, WindowTileState> {
-        let mut tiled: HashMap<isize, WindowTileState> = self
+    fn get_managed_windows(&self) -> HashMap<WindowRef, WindowTileState> {
+        let mut tiled: HashMap<WindowRef, WindowTileState> = self
             .active_trees
             .values()
             .flat_map(|c| c.get_ids())
-            .filter_map(|win| self.get_window_state(win).map(|state| (win.hwnd.0, state)))
+            .filter_map(|win| self.get_window_state(win).map(|state| (win, state)))
             .collect();
 
-        tiled.extend(self.floating_wins.iter().map(|w| (w.hwnd.0, WindowTileState::Floating)));
+        tiled.extend(self.floating_wins.iter().map(|w| (*w, WindowTileState::Floating)));
 
         tiled
     }

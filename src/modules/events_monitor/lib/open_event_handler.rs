@@ -4,6 +4,7 @@ use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::api::window::{enum_user_manageable_windows, is_user_manageable_window, is_window_visible};
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
+use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 use windows::Win32::Foundation::HWND;
@@ -15,7 +16,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 pub struct OpenCloseEventHandler {
     sender: Sender<MondrianMessage>,
     filter: WinMatcher,
-    windows: HashSet<isize>,
+    windows: HashSet<WindowRef>,
 }
 
 impl OpenCloseEventHandler {
@@ -32,15 +33,15 @@ impl OpenCloseEventHandler {
     fn send_open_event(&mut self, hwnd: HWND) {
         let is_managed = is_user_manageable_window(hwnd, true, true, true);
 
-        if is_managed && self.windows.insert(hwnd.0) {
-            let win_event = WindowEvent::Opened(hwnd);
+        if is_managed && self.windows.insert(hwnd.into()) {
+            let win_event = WindowEvent::Opened(hwnd.into());
             if skip_window(&win_event, &self.filter) {
                 return;
             }
 
             self.sender
                 .send(win_event.into())
-                .inspect_err(|_| log::warn!("Failed to send open event for window {}", hwnd.0))
+                .inspect_err(|_| log::warn!("Failed to send open event for window {:?}", hwnd))
                 .ok();
         }
     }
@@ -51,12 +52,12 @@ impl WinEventHandler for OpenCloseEventHandler {
         self.windows = enum_user_manageable_windows()
             .into_iter()
             .filter(|w| is_user_manageable_window(w.hwnd, true, true, true))
-            .map(|w| w.hwnd.0)
+            .map(|w| w.hwnd.into())
             .collect();
     }
 
     fn handle(&mut self, event: &WindowsEvent) {
-        if event.hwnd.0 == 0 {
+        if event.hwnd.is_invalid() {
             return;
         }
 
@@ -70,13 +71,13 @@ impl WinEventHandler for OpenCloseEventHandler {
 
         if event.event == EVENT_SYSTEM_MINIMIZEEND {
             let is_managed = is_user_manageable_window(event.hwnd, true, true, true);
-            if is_managed && !skip_window(&WindowEvent::Minimized(event.hwnd), &self.filter) {
-                self.windows.insert(event.hwnd.0);
+            if is_managed && !skip_window(&WindowEvent::Minimized(event.hwnd.into()), &self.filter) {
+                self.windows.insert(event.hwnd.into());
             }
             return;
         }
 
-        if !self.windows.contains(&event.hwnd.0) {
+        if !self.windows.contains(&event.hwnd.into()) {
             return;
         }
 
@@ -87,9 +88,9 @@ impl WinEventHandler for OpenCloseEventHandler {
         );
 
         if is_cloaked || ((is_destroyed || is_hidden) && !is_window_visible(event.hwnd)) {
-            self.windows.remove(&event.hwnd.0);
+            self.windows.remove(&event.hwnd.into());
             self.sender
-                .send(WindowEvent::Closed(event.hwnd).into())
+                .send(WindowEvent::Closed(event.hwnd.into()).into())
                 .inspect_err(|e| log::warn!("Failed to send close event: {:?}", e))
                 .ok();
         }

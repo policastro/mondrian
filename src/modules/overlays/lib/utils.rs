@@ -204,10 +204,10 @@ pub mod overlay {
         let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
         let style = WS_POPUP;
 
-        let b = get_box_from_target(target.unwrap_or(HWND(0)), params.thickness, params.padding);
+        let b = get_box_from_target(target.unwrap_or_default(), params.thickness, params.padding);
         let b = b.unwrap_or_default().into();
         let hwnd = create_window(ex_style, cs_ptr, style, b, target, hmod, params);
-        let hwnd = hwnd.unwrap_or(HWND(0));
+        let hwnd = hwnd.unwrap_or_default();
 
         show_window(hwnd, SW_SHOWNOACTIVATE);
 

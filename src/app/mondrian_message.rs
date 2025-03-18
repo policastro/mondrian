@@ -1,17 +1,15 @@
-use crate::modules::tiles_manager::lib::tm::command::TMCommand;
-use crate::win32::window::window_ref::WindowRef;
-
 use super::structs::area::Area;
 use super::structs::direction::Direction;
 use super::structs::info_entry::InfoEntry;
 use super::structs::info_entry::InfoEntryIcon;
+use crate::modules::tiles_manager::lib::tm::command::TMCommand;
+use crate::win32::window::window_ref::WindowRef;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
-use windows::Win32::Foundation::HWND;
 use winvd::Desktop;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -111,15 +109,15 @@ impl SystemEvent {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum WindowEvent {
-    Opened(HWND),
-    Closed(HWND),
-    Minimized(HWND),
-    Restored(HWND),
-    Maximized(HWND),
-    Unmaximized(HWND),
-    Focused(HWND),
-    StartMoveSize(HWND),
-    EndMoveSize(HWND, MoveSizeResult),
+    Opened(WindowRef),
+    Closed(WindowRef),
+    Minimized(WindowRef),
+    Restored(WindowRef),
+    Maximized(WindowRef),
+    Unmaximized(WindowRef),
+    Focused(WindowRef),
+    StartMoveSize(WindowRef),
+    EndMoveSize(WindowRef, MoveSizeResult),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -130,17 +128,17 @@ pub enum MoveSizeResult {
 }
 
 impl WindowEvent {
-    pub fn get_hwnd(&self) -> HWND {
+    pub fn get_window_ref(&self) -> WindowRef {
         match self {
-            WindowEvent::Opened(hwnd)
-            | WindowEvent::Closed(hwnd)
-            | WindowEvent::Minimized(hwnd)
-            | WindowEvent::Restored(hwnd)
-            | WindowEvent::Maximized(hwnd)
-            | WindowEvent::Unmaximized(hwnd)
-            | WindowEvent::Focused(hwnd)
-            | WindowEvent::StartMoveSize(hwnd)
-            | WindowEvent::EndMoveSize(hwnd, _) => *hwnd,
+            WindowEvent::Opened(winref)
+            | WindowEvent::Closed(winref)
+            | WindowEvent::Minimized(winref)
+            | WindowEvent::Restored(winref)
+            | WindowEvent::Maximized(winref)
+            | WindowEvent::Unmaximized(winref)
+            | WindowEvent::Focused(winref)
+            | WindowEvent::StartMoveSize(winref)
+            | WindowEvent::EndMoveSize(winref, _) => *winref,
         }
     }
 }
@@ -175,7 +173,7 @@ pub enum MondrianMessage {
     Invert,
     Pause(Option<bool>),
     PauseModule(String, Option<bool>),
-    UpdatedWindows(HashMap<isize, WindowTileState>, TMCommand),
+    UpdatedWindows(HashMap<WindowRef, WindowTileState>, TMCommand),
     CoreUpdateStart(HashSet<WindowRef>, bool),
     CoreUpdateError,
     CoreUpdateComplete,

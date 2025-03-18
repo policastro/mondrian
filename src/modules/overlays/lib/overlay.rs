@@ -6,6 +6,7 @@ use crate::win32::api::misc::post_message;
 use crate::win32::api::window::destroy_window;
 use crate::win32::api::window::show_window;
 use crate::win32::win_event_loop::start_win_event_loop;
+use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
 use std::thread;
@@ -15,7 +16,7 @@ use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNA;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 pub struct Overlay {
-    target: HWND,
+    target: WindowRef,
     main_thread: Option<thread::JoinHandle<()>>,
     overlay_handle: Arc<AtomicIsize>,
     params: OverlayParams,
@@ -23,10 +24,10 @@ pub struct Overlay {
 }
 
 impl Overlay {
-    pub fn new(target_handle: HWND, class_name: &str, params: OverlayParams) -> Overlay {
+    pub fn new(target: WindowRef, class_name: &str, params: OverlayParams) -> Overlay {
         Overlay {
             class_name: class_name.to_string(),
-            target: target_handle,
+            target,
             overlay_handle: Arc::new(AtomicIsize::new(0)),
             params,
             main_thread: None,
@@ -45,12 +46,12 @@ impl Overlay {
         let target = self.target;
         let params = self.params;
         let main_thread = thread::spawn(move || {
-            let hwnd = overlay::create(params, Some(target), class_name.as_str());
-            if hwnd.0 == 0 {
+            let hwnd = overlay::create(params, Some(target.into()), class_name.as_str());
+            if hwnd.is_invalid() {
                 return;
             }
 
-            overlay_handle.store(hwnd.0, std::sync::atomic::Ordering::Release);
+            overlay_handle.store(hwnd.0 as isize, std::sync::atomic::Ordering::Release);
             start_win_event_loop();
             overlay_handle.store(0, std::sync::atomic::Ordering::Release);
             destroy_window(hwnd);
@@ -80,7 +81,7 @@ impl Overlay {
 
         self.params = params;
         if let Some(o) = self.get_overlay_handle() {
-            overlay::move_to_target(o, self.target, &self.params);
+            overlay::move_to_target(o, self.target.into(), &self.params);
             post_message(o, WM_USER_CONFIGURE, Some(params));
         };
 
@@ -90,13 +91,13 @@ impl Overlay {
     pub fn get_overlay_handle(&self) -> Option<HWND> {
         match self.overlay_handle.load(std::sync::atomic::Ordering::Acquire) {
             0 => None,
-            o => Some(HWND(o)),
+            o => Some(HWND(o as *mut core::ffi::c_void)),
         }
     }
 
     pub fn reposition(&mut self) {
         if let Some(o) = self.get_overlay_handle() {
-            overlay::move_to_target(o, self.target, &self.params);
+            overlay::move_to_target(o, self.target.into(), &self.params);
         }
     }
 

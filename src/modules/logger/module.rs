@@ -1,7 +1,6 @@
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
-use crate::win32::window::window_ref::WindowRef;
 use info_response_builder::build_info_response;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -39,7 +38,7 @@ impl ModuleImpl for LoggerModule {
     fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
         match event {
             MondrianMessage::WindowEvent(e) => {
-                log::info!("[Window:{:?}]: {}", e, WindowRef::new(e.get_hwnd()).snapshot())
+                log::info!("[Window:{:?}]: {}", e, e.get_window_ref().snapshot())
             }
             MondrianMessage::QueryInfo => {
                 let mut data_file = Self::get_app_state_file();

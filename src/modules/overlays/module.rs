@@ -162,7 +162,7 @@ impl ModuleImpl for OverlaysModule {
                 }
 
                 let overlays = self.overlays.as_mut().expect("Overlays not initialized");
-                wins.iter().for_each(|w| overlays.lock().unwrap().suspend(w.hwnd))
+                wins.iter().for_each(|w| overlays.lock().unwrap().suspend(*w))
             }
             MondrianMessage::CoreUpdateError | MondrianMessage::CoreUpdateComplete => {
                 if !self.is_running() || self.configs.update_while_animating {

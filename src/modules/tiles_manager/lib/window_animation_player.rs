@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
-use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::SET_WINDOW_POS_FLAGS;
 use windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE;
 use windows::Win32::UI::WindowsAndMessaging::SWP_NOSENDCHANGING;
@@ -27,7 +26,7 @@ pub struct WindowAnimationPlayer {
     animation_thread: Option<std::thread::JoinHandle<()>>,
     animation_duration: Duration,
     framerate: u8,
-    previous_foreground: Option<HWND>,
+    previous_foreground: Option<WindowRef>,
     on_start: Arc<dyn Fn(HashSet<WindowRef>) + Send + Sync + 'static>,
     on_error: Arc<dyn Fn() + Send + Sync + 'static>,
     on_complete: Arc<dyn Fn() + Send + Sync + 'static>,
@@ -91,13 +90,15 @@ impl WindowAnimationPlayer {
         }
 
         if let Some(hwnd) = self.previous_foreground.take() {
-            WindowRef::new(hwnd).focus();
+            hwnd.focus();
         }
     }
 
     pub fn play(&mut self, animation: Option<WindowAnimation>) {
         self.cancel();
-        self.previous_foreground = get_foreground_window().filter(|fw| self.windows.iter().any(|(w, _)| w.hwnd == *fw));
+        self.previous_foreground = get_foreground_window()
+            .map(|fw| fw.into())
+            .filter(|fw| self.windows.iter().any(|(w, _)| w == fw));
 
         let wins = self.windows.clone();
         let wins_info: Vec<(WindowRef, Area, Area)> = wins

@@ -27,6 +27,10 @@ pub struct WindowRef {
     pub hwnd: HWND,
 }
 
+// NOTE: makes HWND thread safe
+unsafe impl Send for WindowRef {}
+unsafe impl Sync for WindowRef {}
+
 impl Hash for WindowRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hwnd.0.hash(state);
@@ -45,9 +49,21 @@ impl From<HWND> for WindowRef {
     }
 }
 
+impl From<WindowRef> for HWND {
+    fn from(val: WindowRef) -> Self {
+        val.hwnd
+    }
+}
+
+impl From<WindowRef> for isize {
+    fn from(val: WindowRef) -> Self {
+        val.hwnd.0 as isize
+    }
+}
+
 impl From<isize> for WindowRef {
     fn from(hwnd: isize) -> Self {
-        HWND(hwnd).into()
+        HWND(hwnd as *mut core::ffi::c_void).into()
     }
 }
 

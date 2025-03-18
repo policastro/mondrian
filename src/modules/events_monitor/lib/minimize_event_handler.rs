@@ -29,8 +29,8 @@ impl WinEventHandler for MinimizeEventHandler {
         }
 
         let win_event = match event.event {
-            EVENT_SYSTEM_MINIMIZESTART => WindowEvent::Minimized(event.hwnd),
-            EVENT_SYSTEM_MINIMIZEEND => WindowEvent::Restored(event.hwnd),
+            EVENT_SYSTEM_MINIMIZESTART => WindowEvent::Minimized(event.hwnd.into()),
+            EVENT_SYSTEM_MINIMIZEEND => WindowEvent::Restored(event.hwnd.into()),
             _ => return,
         };
 

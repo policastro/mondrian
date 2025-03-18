@@ -6,7 +6,7 @@ use windows::Win32::{
 };
 
 pub fn start_win_event_loop() {
-    start_mono_win_event_loop(HWND(0));
+    start_mono_win_event_loop(HWND::default());
 }
 
 pub fn start_mono_win_event_loop(hwnd: HWND) {
@@ -23,7 +23,7 @@ pub fn next_win_event_loop_iteration(msg: Option<&mut MaybeUninit<MSG>>) -> bool
     let mut msg = msg.map_or(MaybeUninit::uninit(), |m| *m);
 
     unsafe {
-        if GetMessageA(msg.as_mut_ptr(), HWND(0), 0, 0).0 > 0 {
+        if GetMessageA(msg.as_mut_ptr(), HWND::default(), 0, 0).0 > 0 {
             let _ = TranslateMessage(msg.as_ptr());
             let _ = DispatchMessageA(msg.as_ptr());
             true

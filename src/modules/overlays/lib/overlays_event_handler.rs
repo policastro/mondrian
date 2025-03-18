@@ -22,17 +22,16 @@ impl WinEventHandler for OverlayEventHandler {
     fn init(&mut self) {}
 
     fn handle(&mut self, event: &WindowsEvent) {
-        if event.hwnd.0 == 0 {
+        if event.hwnd.is_invalid() {
             return;
         }
 
         if event.event == EVENT_OBJECT_LOCATIONCHANGE {
             if let Ok(mut om) = self.overlays.try_lock() {
-                om.reposition(event.hwnd);
+                om.reposition(event.hwnd.into());
             }
-        } else if event.event == EVENT_SYSTEM_FOREGROUND && get_foreground_window().is_some_and(|f| f.0 == event.hwnd.0)
-        {
-            self.overlays.lock().unwrap().focus(event.hwnd);
+        } else if event.event == EVENT_SYSTEM_FOREGROUND && get_foreground_window().is_some_and(|f| f == event.hwnd) {
+            self.overlays.lock().unwrap().focus(event.hwnd.into());
         }
     }
 

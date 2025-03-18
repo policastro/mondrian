@@ -18,7 +18,6 @@ use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::window::window_obj::WindowObjInfo;
-use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
@@ -209,26 +208,26 @@ fn handle_tm(
     let _ = tm.check_for_vd_changes();
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
-            WindowEvent::Maximized(hwnd) => tm.on_maximize(hwnd.into(), true),
-            WindowEvent::Unmaximized(hwnd) => tm.on_maximize(hwnd.into(), false),
-            WindowEvent::Opened(hwnd) => tm.on_open(hwnd.into()),
-            WindowEvent::Restored(hwnd) => tm.on_restore(hwnd.into()),
-            WindowEvent::Closed(hwnd) => tm.on_close(hwnd.into()),
-            WindowEvent::Minimized(hwnd) => tm.on_minimize(hwnd.into()),
+            WindowEvent::Maximized(winref) => tm.on_maximize(winref, true),
+            WindowEvent::Unmaximized(winref) => tm.on_maximize(winref, false),
+            WindowEvent::Opened(winref) => tm.on_open(winref),
+            WindowEvent::Restored(winref) => tm.on_restore(winref),
+            WindowEvent::Closed(winref) => tm.on_close(winref),
+            WindowEvent::Minimized(winref) => tm.on_minimize(winref),
             WindowEvent::StartMoveSize(_) => {
                 tm.pause_updates(true);
                 tm.cancel_animation();
                 Ok(())
             }
-            WindowEvent::EndMoveSize(hwnd, res) => {
+            WindowEvent::EndMoveSize(winref, res) => {
                 tm.pause_updates(false);
                 match res {
-                    MoveSizeResult::Resized(p_area, c_area) => tm.on_resize(hwnd.into(), c_area.get_shift(&p_area)),
-                    MoveSizeResult::Moved(coords, intra, inter) => tm.on_move(hwnd.into(), coords, intra, inter),
+                    MoveSizeResult::Resized(p_area, c_area) => tm.on_resize(winref, c_area.get_shift(&p_area)),
+                    MoveSizeResult::Moved(coords, intra, inter) => tm.on_move(winref, coords, intra, inter),
                     MoveSizeResult::None => Ok(()),
                 }
             }
-            WindowEvent::Focused(hwnd) => tm.on_focus(hwnd.into()),
+            WindowEvent::Focused(winref) => tm.on_focus(winref),
         },
         TMCommand::SystemEvent(evt) => match evt {
             SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),
@@ -294,22 +293,19 @@ fn get_info_entries(tm: &TilesManager) -> Vec<InfoEntry> {
     let monitors = enum_display_monitors();
     let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), (*m).clone().into())).collect();
     let windows = tm.get_managed_windows();
-    let windows_str = windows
-        .iter()
-        .map(|w| (WindowRef::from(*w.0).snapshot(), w.1))
-        .map(|w| {
-            let c = w.0.get_area().map(|a| a.get_center());
-            let monitor = monitors_areas
-                .iter()
-                .find_map(|m| c.filter(|c| m.1.contains(*c)).map(|_| m.0.clone()));
-            let monitor_info = InfoEntry::simple("Monitor", monitor.unwrap_or("/".to_string()));
-            let state_info = InfoEntry::simple("State", format!("{:?}", w.1));
+    let windows_str = windows.iter().map(|w| (w.0.snapshot(), w.1)).map(|w| {
+        let c = w.0.get_area().map(|a| a.get_center());
+        let monitor = monitors_areas
+            .iter()
+            .find_map(|m| c.filter(|c| m.1.contains(*c)).map(|_| m.0.clone()));
+        let monitor_info = InfoEntry::simple("Monitor", monitor.unwrap_or("/".to_string()));
+        let state_info = InfoEntry::simple("State", format!("{:?}", w.1));
 
-            InfoEntry::list(
-                format!("Window {}", format!("{:?}", w.0).trim_start_matches("WindowSnapshot ")),
-                [monitor_info, state_info],
-            )
-        });
+        InfoEntry::list(
+            format!("Window {}", format!("{:?}", w.0).trim_start_matches("WindowSnapshot ")),
+            [monitor_info, state_info],
+        )
+    });
 
     vec![
         InfoEntry::list("Monitors", monitors.iter().map(|m| format!("{m:?}").into())).with_icon(InfoEntryIcon::Monitor),

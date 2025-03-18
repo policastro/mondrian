@@ -33,6 +33,10 @@ pub struct WindowsEventDispatcher {
     pub handlers: HashMap<u32, Box<dyn WinEventHandler + Send>>,
 }
 
+// NOTE: makes HWND thread safe
+unsafe impl Send for WindowsEventDispatcher {}
+unsafe impl Sync for WindowsEventDispatcher {}
+
 impl WindowsEventDispatcher {
     pub fn new() -> WindowsEventDispatcher {
         WindowsEventDispatcher {

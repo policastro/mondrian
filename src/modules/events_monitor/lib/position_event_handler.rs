@@ -29,7 +29,7 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZESTART;
 pub struct PositionEventHandler {
     sender: Sender<MondrianMessage>,
     filter: WinMatcher,
-    windows: HashMap<isize, (Area, bool)>,
+    windows: HashMap<WindowRef, (Area, bool)>,
     default_insert_in_monitor: bool,
     default_free_move_in_monitor: bool,
 }
@@ -50,24 +50,24 @@ impl PositionEventHandler {
         }
     }
 
-    fn start_movesize(&mut self, hwnd: HWND) {
-        if self.windows.contains_key(&hwnd.0) {
+    fn start_movesize(&mut self, winref: WindowRef) {
+        if self.windows.contains_key(&winref) {
             return; // NOTE: already in movesize
         }
 
         // NOTE: check is_maximized as first operation
-        let is_maximized = self.is_maximized(hwnd);
-        let area = WindowRef::new(hwnd).get_area();
+        let is_maximized = self.is_maximized(winref.into());
+        let area = winref.get_area();
         if let Some(area) = area {
-            let event = WindowEvent::StartMoveSize(hwnd);
+            let event = WindowEvent::StartMoveSize(winref);
             if !skip_window(&event, &self.filter) {
                 self.sender.send(event.into()).expect("Failed to send event");
-                self.windows.insert(hwnd.0, (area, is_maximized));
+                self.windows.insert(winref, (area, is_maximized));
             }
         }
     }
 
-    fn end_movesize(&mut self, hwnd: HWND) {
+    fn end_movesize(&mut self, winref: WindowRef) {
         let (shift, alt, ctrl) = (
             get_key_state(VK_SHIFT.0).pressed,
             get_key_state(VK_MENU.0).pressed,
@@ -79,17 +79,17 @@ impl PositionEventHandler {
             _ => return,
         };
 
-        let (prev_area, was_maximized) = match self.windows.remove(&hwnd.0) {
+        let (prev_area, was_maximized) = match self.windows.remove(&winref) {
             Some(prev_area) => prev_area,
             None => return,
         };
 
-        let curr_area = match WindowRef::new(hwnd).get_area() {
+        let curr_area = match winref.get_area() {
             Some(area) => area,
             None => return,
         };
 
-        let (min_w, min_h) = get_window_minmax_size(hwnd).0;
+        let (min_w, min_h) = get_window_minmax_size(winref.into()).0;
         let (pw, ph) = (prev_area.width as i32, prev_area.height as i32);
         let (w, h) = (curr_area.width as i32, curr_area.height as i32);
 
@@ -98,18 +98,18 @@ impl PositionEventHandler {
         let intermon_op = IntermonitorMoveOp::calc(def_insert, def_free_move, alt, shift, ctrl);
 
         if was_maximized {
-            let result = match self.is_maximized(hwnd) {
+            let result = match self.is_maximized(winref.into()) {
                 true => MoveSizeResult::None,
                 false => MoveSizeResult::Moved(dest_point, intramon_op, intermon_op),
             };
-            self.send(WindowEvent::EndMoveSize(hwnd, result));
+            self.send(WindowEvent::EndMoveSize(winref, result));
             return;
         }
 
         let is_shrinking = pw > w || ph > h;
         let is_resizing = (pw != w || ph != h) && w != min_w && h != min_h;
         if is_shrinking || is_resizing {
-            let win_event = WindowEvent::EndMoveSize(hwnd, MoveSizeResult::Resized(prev_area, curr_area));
+            let win_event = WindowEvent::EndMoveSize(winref, MoveSizeResult::Resized(prev_area, curr_area));
             self.send(win_event);
             return;
         }
@@ -121,7 +121,7 @@ impl PositionEventHandler {
             false => MoveSizeResult::Resized(prev_area, curr_area),
         };
 
-        self.send(WindowEvent::EndMoveSize(hwnd, result_event));
+        self.send(WindowEvent::EndMoveSize(winref, result_event));
     }
 
     fn is_maximized(&self, hwnd: HWND) -> bool {
@@ -145,9 +145,11 @@ impl WinEventHandler for PositionEventHandler {
         if !is_user_manageable_window(event.hwnd, true, true, true) {
             return;
         }
+
+        let winref = event.hwnd.into();
         match event.event {
-            EVENT_SYSTEM_MOVESIZESTART => self.start_movesize(event.hwnd),
-            EVENT_SYSTEM_MOVESIZEEND => self.end_movesize(event.hwnd),
+            EVENT_SYSTEM_MOVESIZESTART => self.start_movesize(winref),
+            EVENT_SYSTEM_MOVESIZEEND => self.end_movesize(winref),
             _ => (),
         }
     }

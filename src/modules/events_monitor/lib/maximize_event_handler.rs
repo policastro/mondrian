@@ -4,6 +4,7 @@ use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::api::window::{has_child_window_style, is_fullscreen, is_maximized, is_user_manageable_window};
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
+use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE;
@@ -11,7 +12,7 @@ use windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE;
 pub struct MaximizeEventHandler {
     sender: Sender<MondrianMessage>,
     filter: WinMatcher,
-    maximized_wins: HashSet<isize>,
+    maximized_wins: HashSet<WindowRef>,
 }
 
 impl MaximizeEventHandler {
@@ -28,11 +29,11 @@ impl WinEventHandler for MaximizeEventHandler {
     fn init(&mut self) {}
 
     fn handle(&mut self, event: &WindowsEvent) {
-        if event.hwnd.0 == 0 {
+        if event.hwnd.is_invalid() {
             return;
         }
 
-        let contained = self.maximized_wins.contains(&event.hwnd.0);
+        let contained = self.maximized_wins.contains(&event.hwnd.into());
         let is_maximized = is_maximized(event.hwnd);
         let is_fullscreen = if is_maximized { false } else { is_fullscreen(event.hwnd) };
         let is_max_full = is_maximized || is_fullscreen;
@@ -43,16 +44,16 @@ impl WinEventHandler for MaximizeEventHandler {
                 true => is_managed && !has_child_window_style(event.hwnd),
             };
             if is_managed {
-                let app_event = WindowEvent::Maximized(event.hwnd);
+                let app_event = WindowEvent::Maximized(event.hwnd.into());
                 if skip_window(&app_event, &self.filter) {
                     return;
                 }
-                self.maximized_wins.insert(event.hwnd.0);
+                self.maximized_wins.insert(event.hwnd.into());
                 self.sender.send(app_event.into()).expect("Failed to send event close");
             }
         } else if contained && !is_max_full {
-            self.maximized_wins.remove(&event.hwnd.0);
-            let win_event = WindowEvent::Unmaximized(event.hwnd);
+            self.maximized_wins.remove(&event.hwnd.into());
+            let win_event = WindowEvent::Unmaximized(event.hwnd.into());
             self.sender.send(win_event.into()).expect("Failed to send event close");
         }
     }

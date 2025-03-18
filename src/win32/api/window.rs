@@ -6,12 +6,14 @@ use std::ffi::{OsStr, OsString};
 use std::mem::size_of;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{CloseHandle, BOOL, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
+use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HMODULE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{MonitorFromWindow, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExW;
-use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ};
+use windows::Win32::System::Threading::{
+    OpenProcess, PROCESS_ACCESS_RIGHTS, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+};
 use windows::Win32::UI::Controls::STATE_SYSTEM_INVISIBLE;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -54,7 +56,7 @@ pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
 
 pub fn get_foreground_window() -> Option<HWND> {
     match unsafe { GetForegroundWindow() } {
-        HWND(0) => None,
+        hwnd if hwnd.is_invalid() => None,
         hwnd => Some(hwnd),
     }
 }
@@ -74,31 +76,34 @@ pub fn get_window_style(hwnd: HWND) -> u32 {
     unsafe { GetWindowLongW(hwnd, GWL_STYLE) as u32 }
 }
 
+fn get_window_thread_process_id(hwnd: HWND) -> Option<u32> {
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+    Some(pid)
+}
+
+fn open_process(process_access_rights: PROCESS_ACCESS_RIGHTS, inherit_handle: bool, pid: u32) -> Result<HANDLE, ()> {
+    unsafe { OpenProcess(process_access_rights, inherit_handle, pid).map_err(|_| ()) }
+}
+
 pub fn get_executable_path(hwnd: HWND) -> Option<String> {
     let size;
     let mut buf: [u16; MAX_PATH as usize] = [0; MAX_PATH as usize];
     unsafe {
-        let mut pid: u32 = 0;
-        GetWindowThreadProcessId(hwnd, Some(&mut pid));
-
-        let h_process = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, BOOL(0), pid) {
-            Ok(h_process) => h_process,
-            Err(_) => return None,
-        };
-
-        size = GetModuleFileNameExW(h_process, HMODULE(0), &mut buf);
-
+        let pid: u32 = get_window_thread_process_id(hwnd)?;
+        let h_process = open_process(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, false, pid).ok()?;
+        size = GetModuleFileNameExW(h_process, HMODULE::default(), &mut buf);
         CloseHandle(h_process).expect("CloseHandle failed");
     }
 
-    match size {
-        0 => None,
-        _ => Some(
-            OsString::from_wide(&buf[0..size as usize])
-                .to_string_lossy()
-                .into_owned(),
-        ),
+    if size == 0 {
+        return None;
     }
+
+    let path = OsString::from_wide(&buf[0..size as usize])
+        .to_string_lossy()
+        .into_owned();
+    Some(path)
 }
 
 pub fn get_executable_name(hwnd: HWND) -> Option<String> {
@@ -146,12 +151,12 @@ pub fn is_user_manageable_window(
     check_iconic: bool,
     check_title_bar: bool,
 ) -> bool {
-    if hwnd.0 == 0 {
+    if hwnd.is_invalid() {
         return false;
     }
 
     // INFO: to exclude admin windows
-    if get_executable_name(hwnd).is_none() || get_executable_name(hwnd).is_some_and(|s| s == "mondrian.exe") {
+    if get_executable_name(hwnd).is_none_or(|s| s == "mondrian.exe") {
         return false;
     }
 
@@ -195,11 +200,11 @@ pub fn is_iconic(hwnd: HWND) -> bool {
 }
 
 pub fn is_owner_window(hwnd: HWND) -> bool {
-    unsafe { GetWindow(hwnd, GW_OWNER) == HWND(0) }
+    unsafe { GetWindow(hwnd, GW_OWNER).is_err() }
 }
 
 pub fn is_window_cloaked(hwnd: HWND) -> bool {
-    let cloaked: BOOL = BOOL(0);
+    let cloaked: BOOL = false.into();
     match unsafe {
         DwmGetWindowAttribute(
             hwnd,
@@ -289,11 +294,11 @@ pub fn create_window<T>(
     data: T,
 ) -> Option<HWND> {
     let data = Some(Box::into_raw(Box::new(data)) as *mut _ as _);
-    let parent = parent.unwrap_or(HWND(0));
+    let parent = parent.unwrap_or_default();
     let hwnd = unsafe { CreateWindowExW(ex_style, cs_ptr, None, style, x, y, w, h, parent, None, hmod, data) };
-    match hwnd == HWND(0) {
-        true => None,
-        false => Some(hwnd),
+    match hwnd {
+        Ok(hwnd) => Some(hwnd), // TODO: to be checked
+        Err(_) => None,
     }
 }
 
