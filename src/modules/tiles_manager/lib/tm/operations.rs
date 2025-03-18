@@ -66,13 +66,13 @@ impl TilesManagerInternalOperations for TilesManager {
     }
 
     fn remove(&mut self, win: WindowRef, skip_focalized_monitors: bool) -> Result<bool, Error> {
-        let tile_state = self.get_window_state(win).ok_or(Error::NoWindow)?;
+        let tile_state = self.get_window_state(win).ok_or(Error::WinNotManaged(win))?;
         if matches!(tile_state, WindowTileState::Floating) {
             self.floating_wins.remove(&win);
             return Ok(false);
         }
 
-        let k = self.active_trees.find(win).ok_or(Error::NoWindow)?.key;
+        let k = self.active_trees.find(win).ok_or(Error::WinNotManaged(win))?.key;
         if matches!(tile_state, WindowTileState::Focalized) {
             self.focalized_wins.remove(&k);
         }
@@ -81,7 +81,7 @@ impl TilesManagerInternalOperations for TilesManager {
             return Ok(false);
         }
 
-        let t = self.active_trees.find_mut(win).ok_or(Error::NoWindow)?.value;
+        let t = self.active_trees.find_mut(win).ok_or(Error::WinNotManaged(win))?.value;
         t.remove(win);
 
         if matches!(tile_state, WindowTileState::Maximized) {

@@ -205,7 +205,9 @@ fn handle_tm(
     event: TMCommand,
 ) -> bool {
     let prev_wins = tm.get_managed_windows();
-    let _ = tm.check_for_vd_changes();
+    tm.check_for_vd_changes()
+        .inspect_err(|m| log::trace!("VD changes check error: {m:?}"))
+        .ok();
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
             WindowEvent::Maximized(winref) => tm.on_maximize(winref, true),
@@ -272,10 +274,9 @@ fn handle_tm(
     match res {
         Err(error) if error.require_refresh() => {
             tm.update_layout(true).ok();
-            log::error!("{:?}", error)
+            log::warn!("TilesManager refreshed due to error: {:?}", error)
         }
-        Err(error) if error.is_warn() => log::warn!("{:?}", error),
-        Err(error) => log::error!("{:?}", error),
+        Err(error) => log::log!(error.get_log_level(), "{}", error.get_info()),
         Ok(_) => {}
     }
 

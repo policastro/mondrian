@@ -419,6 +419,7 @@ impl TilesManagerOperations for TilesManager {
         }
 
         self.activate_containers(Some(current), None, None)?;
+        self.current_vd = Some(current);
         self.add_open_windows()?;
         self.update_layout(true)
     }
