@@ -201,7 +201,7 @@ Each rule has the following format:
 ```toml
 [core]
 ignore_rules = [
-    { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME" }
+    { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }
 ]
 ```
 
@@ -212,7 +212,7 @@ Some example:
 ```toml
 [core]
 ignore_rules = [
-    { title = "Title", exename = "app.exe", classname = "ApplicationWindow" },    # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow"
+    { title = "Title", exename = "app.exe", classname = "ApplicationWindow", style = "00000000" },    # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow" and style="00000000"
     { title = "Title" },                                                          # match any window with a title="Title"
     { title = "/Title[0-9]/" }                                                    # match any window with a title that matches the regex "Title[0-9]"
 ]
@@ -227,10 +227,10 @@ To understand how to exclude specific windows, you can trigger the `dumpstateinf
 ...
 
 🗔 Currently managed windows
-   ▸ Window { hwnd: 12345, exe: "app1.exe", class: "ClassName1", ... }
+   ▸ Window { hwnd: 12345, exe: "app1.exe", class: "ClassName1", style: "00000000", ... }
       ▸ Monitor: DISPLAY1
       ▸ State: Normal
-   ▸ Window { hwnd: 54321, exe: "app2.exe", class: "ClassName2", ... }
+   ▸ Window { hwnd: 54321, exe: "app2.exe", class: "ClassName2", style: "00000000", ... }
       ▸ Monitor: DISPLAY2
       ▸ State: Floating
    ...

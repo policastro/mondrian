@@ -7,6 +7,7 @@ pub enum WinMatcher {
     Exename(String),
     Title(String),
     Classname(String),
+    Style(String),
     Any(HashSet<WinMatcher>),
     All(HashSet<WinMatcher>),
 }
@@ -22,9 +23,9 @@ impl WinMatcher {
         match query.starts_with('/') && query.ends_with('/') {
             true => {
                 let re = regex::Regex::new(&query[1..query.len() - 1]).unwrap();
-                value.as_ref().is_some_and(|v| re.is_match(v))
+                value.as_ref().is_none_or(|v| re.is_match(v))
             }
-            false => value.as_ref().is_some_and(|v| v.contains(query)),
+            false => value.as_ref().is_none_or(|v| v.contains(query)),
         }
     }
 
@@ -37,6 +38,7 @@ impl WinMatcher {
             WinMatcher::Exename(query) => self.match_value(query, window.exe_name()),
             WinMatcher::Title(query) => self.match_value(query, window.title()),
             WinMatcher::Classname(query) => self.match_value(query, window.class_name()),
+            WinMatcher::Style(query) => self.match_value(query, &Some(window.style())),
             WinMatcher::Any(filters) => filters.iter().any(|f| f.matches_internal(window)),
             WinMatcher::All(filters) => filters.iter().all(|f| f.matches_internal(window)),
         }
@@ -48,6 +50,7 @@ pub struct WinMatcherTarget<T: WindowObjInfo> {
     title: Option<Option<String>>,
     class_name: Option<Option<String>>,
     exe_name: Option<Option<String>>,
+    style: Option<String>,
 }
 
 impl<T: WindowObjInfo> From<T> for WinMatcherTarget<T> {
@@ -57,21 +60,28 @@ impl<T: WindowObjInfo> From<T> for WinMatcherTarget<T> {
             title: None,
             class_name: None,
             exe_name: None,
+            style: None,
         }
     }
 }
 
 impl<T: WindowObjInfo> WinMatcherTarget<T> {
     pub fn title(&mut self) -> &Option<String> {
-        self.title.get_or_insert_with(|| self.win_obj.get_title())
+        self.title.get_or_insert(self.win_obj.get_title())
     }
 
     pub fn class_name(&mut self) -> &Option<String> {
-        self.class_name.get_or_insert_with(|| self.win_obj.get_class_name())
+        self.class_name.get_or_insert(self.win_obj.get_class_name())
     }
 
     pub fn exe_name(&mut self) -> &Option<String> {
-        self.exe_name.get_or_insert_with(|| self.win_obj.get_exe_name())
+        self.exe_name.get_or_insert(self.win_obj.get_exe_name())
+    }
+
+    pub fn style(&mut self) -> String {
+        self.style
+            .get_or_insert(format!("{:x}", self.win_obj.get_window_style()))
+            .clone()
     }
 }
 

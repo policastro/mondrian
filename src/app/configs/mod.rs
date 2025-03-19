@@ -34,6 +34,7 @@ impl AppConfigs {
             exename: Some("mondrian.exe".to_owned()),
             classname: None,
             title: None,
+            style: None,
         }];
         base_filters.extend(self.core.ignore_rules.clone());
         Some(WinMatcher::from(&base_filters))

@@ -76,7 +76,7 @@ impl Debug for WindowSnapshot {
             .field("class", &self.class_name.clone().unwrap_or("/".to_string()))
             .field("visible", &self.visible)
             .field("iconic", &self.iconic)
-            .field("style", &self.style)
+            .field("style", &format!("{:x}", self.style))
             .field("cloaked", &self.cloaked)
             .field("area", &self.area.map_or("/".to_string(), |a| format!("{:?}", a)))
             .field(
@@ -99,7 +99,7 @@ impl Display for WindowSnapshot {
         let visible = if self.visible { "v" } else { "!v" };
         let iconic = if self.iconic { "i" } else { "!i" };
         let cloaked = if self.cloaked { "c" } else { "!c" };
-        let style = format!("0x{:x}", self.style);
+        let style = format!("{:x}", self.style);
         if cfg!(debug_assertions) {
             write!(
                 f,
