@@ -178,6 +178,11 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
             self.ids_map.insert(leaf.id, *leaf);
         })
     }
+
+    pub fn clear(&mut self) {
+        self.ids_map.clear();
+        self.root = AreaNode::new(None, Orientation::Horizontal, 50);
+    }
 }
 
 impl<T: Debug + Copy + Eq + Hash> Debug for AreaTree<T> {

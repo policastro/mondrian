@@ -296,10 +296,7 @@ pub fn create_window<T>(
     let data = Some(Box::into_raw(Box::new(data)) as *mut _ as _);
     let parent = parent.unwrap_or_default();
     let hwnd = unsafe { CreateWindowExW(ex_style, cs_ptr, None, style, x, y, w, h, parent, None, hmod, data) };
-    match hwnd {
-        Ok(hwnd) => Some(hwnd), // TODO: to be checked
-        Err(_) => None,
-    }
+    hwnd.ok()
 }
 
 pub fn get_dwmwa_extended_frame_bounds(hwnd: HWND) -> Option<[i32; 4]> {

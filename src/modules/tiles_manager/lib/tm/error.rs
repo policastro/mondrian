@@ -3,23 +3,29 @@ use crate::win32::window::window_ref::WindowRef;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TilesManagerError {
     Generic,
-    VirtualDesktopError(winvd::Error),
-    WindowAlreadyAdded,
+    VDError(winvd::Error),
+    WindowAlreadyAdded(WindowRef),
     NoWindowsInfo,
     ContainerNotFound { refresh: bool },
     WinNotManaged(WindowRef),
     NoWindow,
+    NoContainerAtPoint((i32, i32)),
+    VDContainersAlreadyCreated,
+    VDContainersAlreadyActivated,
+}
+
+impl<T> From<TilesManagerError> for Result<T, TilesManagerError> {
+    fn from(value: TilesManagerError) -> Self {
+        Err(value)
+    }
 }
 
 impl TilesManagerError {
     pub fn get_log_level(&self) -> log::Level {
         match self {
-            TilesManagerError::Generic
-            | TilesManagerError::WindowAlreadyAdded
-            | TilesManagerError::NoWindow
-            | TilesManagerError::WinNotManaged(_) => log::Level::Debug,
-            TilesManagerError::NoWindowsInfo => log::Level::Warn,
-            _ => log::Level::Error,
+            Self::NoContainerAtPoint(_) => log::Level::Error,
+            Self::NoWindowsInfo => log::Level::Warn,
+            _ => log::Level::Debug,
         }
     }
 
@@ -28,6 +34,6 @@ impl TilesManagerError {
     }
 
     pub fn require_refresh(&self) -> bool {
-        matches!(self, TilesManagerError::ContainerNotFound { refresh: true })
+        matches!(self, Self::ContainerNotFound { refresh: true })
     }
 }
