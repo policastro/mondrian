@@ -18,8 +18,15 @@ type Error = TilesManagerError;
 type TileState = WindowTileState;
 
 pub trait TilesManagerInternalOperations: TilesManagerBase {
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<(), Error>;
+    /// Adds a window to the tile manager. Returns true if the layout has changed.
+    /// When `prefer_position` is Some, the window will be added to the monitor that contains the
+    /// given position. Otherwise, the window will be added to the monitor that contains the center of the window.
+    /// If the target monitor has a focalized window or a maximized window, it will be restored.
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<bool, Error>;
+
+    /// Removes a window from the tile manager. Returns true if the layout has changed.
     fn remove(&mut self, win: WindowRef) -> Result<bool, Error>;
+
     fn release(&mut self, window: WindowRef, release: Option<bool>) -> Result<(), Error>;
     fn maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
     fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> Result<(), Error>;
@@ -29,21 +36,29 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
         direction: Direction,
         search_strategy: MonitorSearchStrategy,
     ) -> Option<AreaLeaf<WindowRef>>;
+
+    /// Swaps the position of two windows. The new positions are propagated to the inactive
+    /// containers if necessary.
     fn swap_windows(&mut self, win1: WindowRef, win2: WindowRef) -> Result<(), Error>;
     fn resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
-    fn move_to(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error>;
+
+    /// Moves a window to the monitor that contains the given position.
+    /// If `free_move` is true, the window will be moved to the given position without following
+    /// the layout strategy of the tile manager.
+    /// If the target monitor is the same as the current monitor, the window will not be moved.
+    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error>;
 }
 
 const C_ERR: Error = Error::ContainerNotFound { refresh: false };
 
 impl TilesManagerInternalOperations for TilesManager {
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<(), Error> {
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<bool, Error> {
         let tile_state = self.get_window_state(win);
         if tile_state
             .as_ref()
             .is_ok_and(|s| matches!(s, TileState::Floating | TileState::Maximized | TileState::Focalized))
         {
-            return Ok(());
+            return Ok(false);
         }
 
         let center = prefer_position.or_else(|| win.get_area().map(|a| a.get_center()));
@@ -53,7 +68,7 @@ impl TilesManagerInternalOperations for TilesManager {
         if matches!(k.layer, ContainerLayer::Focalized) && tile_state.is_err() {
             self.restore_monitor(&k)?;
             if self.active_trees.find(win).is_ok() {
-                return Ok(());
+                return Ok(true);
             }
         }
 
@@ -68,7 +83,7 @@ impl TilesManagerInternalOperations for TilesManager {
             self.maximize(*maximized_win, false)?;
         }
 
-        Ok(())
+        Ok(true)
     }
 
     fn remove(&mut self, win: WindowRef) -> Result<bool, Error> {
@@ -270,7 +285,7 @@ impl TilesManagerInternalOperations for TilesManager {
         Ok(())
     }
 
-    fn move_to(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error> {
+    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error> {
         let tile_state = self.get_window_state(win)?;
         if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
             return Ok(());

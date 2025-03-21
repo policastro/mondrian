@@ -208,6 +208,7 @@ fn handle_tm(
     tm.check_for_vd_changes()
         .inspect_err(|m| log::trace!("VD changes check error: {m:?}"))
         .ok();
+
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
             WindowEvent::Maximized(winref) => tm.on_maximize(winref, true),
@@ -253,6 +254,7 @@ fn handle_tm(
         TMCommand::Peek(direction, ratio) => tm.peek_current(direction, ratio),
         TMCommand::Focalize => tm.focalize_focused(),
         TMCommand::Amplify => tm.amplify_focused(configs.move_cursor_on_focus),
+        TMCommand::CycleFocalized(next) => tm.cycle_focalized(next),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_managed_windows();
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();

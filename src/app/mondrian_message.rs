@@ -178,6 +178,9 @@ pub enum MondrianMessage {
     CoreUpdateError,
     CoreUpdateComplete,
     Focalize,
+    CycleFocalized {
+        next: bool,
+    },
     Amplify,
     Minimize,
     QueryInfo,
@@ -210,6 +213,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "invert",
             "release",
             "focalize",
+            "cycle-focalized [next|prev]",
             "amplify",
             "dumpstateinfo",
             "pause [keybindings|overlays]",
@@ -234,6 +238,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "release" => parts.len() == 1,
             "peek" => parts.len() == 3,
             "focalize" => parts.len() == 1,
+            "cycle-focalized" => parts.len() <= 2,
             "amplify" => parts.len() == 1,
             "dumpstateinfo" => parts.len() == 1,
             "pause" => parts.len() <= 2,
@@ -286,6 +291,15 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             }
             "invert" => Ok(MondrianMessage::Invert),
             "focalize" => Ok(MondrianMessage::Focalize),
+            "cycle-focalized" => {
+                let next = match parts.get(1) {
+                    Some(v) if *v == "next" => true,
+                    Some(v) if *v == "prev" => false,
+                    None => true,
+                    _ => Err(serde::de::Error::custom(err))?,
+                };
+                Ok(MondrianMessage::CycleFocalized { next })
+            }
             "amplify" => Ok(MondrianMessage::Amplify),
             "dumpstateinfo" => Ok(MondrianMessage::QueryInfo),
             "release" => Ok(MondrianMessage::Release(None)),

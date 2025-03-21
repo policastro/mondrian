@@ -14,6 +14,7 @@ use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::utils::get_current_time_ms;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
 use crate::win32::api::monitor::enum_display_monitors;
+use crate::win32::api::monitor::Monitor;
 use crate::win32::api::window::enum_user_manageable_windows;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
@@ -35,6 +36,7 @@ pub struct TilesManager {
     pub config: TilesManagerConfig,
     pub animation_player: WindowAnimationPlayer,
     pub focus_history: FocusHistory,
+    pub managed_monitors: Vec<Monitor>,
     pub(crate) current_vd: Option<Desktop>,
 }
 
@@ -102,6 +104,7 @@ impl TilesManagerBase for TilesManager {
             peeked_containers: HashMap::new(),
             current_vd: None,
             focus_history: FocusHistory::new(),
+            managed_monitors: Vec::new(),
             config,
             animation_player,
         }
@@ -147,6 +150,7 @@ impl TilesManagerBase for TilesManager {
     fn init(&mut self) -> Result<(), Error> {
         let current_vd = get_current_desktop().map_err(Error::VDError)?;
         self.inactive_trees.clear();
+        self.managed_monitors = enum_display_monitors();
         self.create_inactive_vd_containers(current_vd)?;
         self.activate_vd_containers(current_vd, Some(ContainerLayer::Normal))
     }
@@ -210,7 +214,7 @@ impl TilesManager {
         }
 
         let curr_time = get_current_time_ms()?;
-        enum_display_monitors()
+        self.managed_monitors
             .iter()
             .flat_map(|m| {
                 let layout = self.config.get_layout_strategy(m.id.as_str());
@@ -296,7 +300,6 @@ impl TilesManager {
                 .clear();
             return self.activate_monitor_layer(key.monitor.clone(), ContainerLayer::Normal);
         };
-
         Ok(())
     }
 }

@@ -171,6 +171,7 @@ The **available actions** are:
 - `invert`: inverts the orientation of the focused window and the neighboring windows;
 - `release`: removes the focused window from the tiling manager, or adds it back;
 - `focalize`: focalizes the focused window (i.e. hides the neighboring windows) or unfocalizes it (i.e. restores the neighboring windows);
+- `cycle-focalized [next|prev]`: swaps the currently focalized window with the next/previous window in the same monitor. If no parameter is specified, `next` is used;
 - `amplify`: swaps the focused window with the biggest one in the same monitor;
 - `dumpstateinfo`: dumps the current application state info to the `./logs/app_state.txt` file;
 - `pause [keybindings|overlays]`: if no parameter is specified, pauses/unpauses the application. Otherwise, pauses/unpauses the specified module;

@@ -49,6 +49,7 @@ impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
     pub fn move_to(&mut self, id: T, point: (i32, i32)) {
         if let Some(leaf) = self.ids_map.remove(&id) {
             self.root.insert_at(id, point, self.area, 20);
+            // WARNING: not sure if this is correct
             self.remove_at(leaf.viewbox.get_center());
             self.update_map();
         }
