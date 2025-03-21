@@ -17,14 +17,7 @@ pub mod tiles_manager {
     pub mod module;
     pub(crate) mod lib {
         pub mod containers;
-        pub mod tm {
-            pub mod command;
-            pub mod configs;
-            pub mod error;
-            pub mod manager;
-            pub mod operations;
-            pub mod public;
-        }
+        pub mod tm;
         pub mod utils;
         pub mod window_animation_player;
     }

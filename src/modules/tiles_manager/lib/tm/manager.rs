@@ -5,12 +5,12 @@ use super::public::FocusHistory;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
-use crate::modules::tiles_manager::lib::containers::Container;
-use crate::modules::tiles_manager::lib::containers::ContainerKey;
-use crate::modules::tiles_manager::lib::containers::ContainerLayer;
+use crate::modules::tiles_manager::lib::containers::container::Container;
+use crate::modules::tiles_manager::lib::containers::inactive::InactiveContainers;
+use crate::modules::tiles_manager::lib::containers::keys::ContainerKey;
+use crate::modules::tiles_manager::lib::containers::keys::CrossLayerContainerKey;
+use crate::modules::tiles_manager::lib::containers::layer::ContainerLayer;
 use crate::modules::tiles_manager::lib::containers::Containers;
-use crate::modules::tiles_manager::lib::containers::CrossLayerContainerKey;
-use crate::modules::tiles_manager::lib::containers::InactiveContainers;
 use crate::modules::tiles_manager::lib::utils::get_current_time_ms;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
 use crate::win32::api::monitor::enum_display_monitors;
@@ -69,121 +69,6 @@ pub trait TilesManagerBase {
 
     /// Pause the updates of the tiles manager (i.e. prevents `update_layout` from executing)
     fn pause_updates(&mut self, pause: bool);
-}
-
-impl TilesManager {
-    pub fn get_window_state(&self, window: WindowRef) -> Result<WindowTileState, Error> {
-        if self.floating_wins.contains(&window) {
-            return Ok(WindowTileState::Floating);
-        }
-
-        if self.maximized_wins.contains(&window) {
-            return Ok(WindowTileState::Maximized);
-        }
-
-        let key = self.active_trees.find(window).map(|e| e.key)?;
-        match key.layer {
-            ContainerLayer::Focalized => Ok(WindowTileState::Focalized),
-            ContainerLayer::Normal => Ok(WindowTileState::Normal),
-        }
-    }
-
-    pub fn create_inactive_vd_containers(&mut self, vd: Desktop) -> Result<(), Error> {
-        let vd_id = vd.get_id().map_err(Error::VDError)?.to_u128();
-        if self.current_vd.is_some_and(|curr_vd| curr_vd == vd) || self.inactive_trees.has_vd(vd_id) {
-            return Err(Error::VDContainersAlreadyCreated);
-        }
-
-        let curr_time = get_current_time_ms()?;
-        enum_display_monitors()
-            .iter()
-            .flat_map(|m| {
-                let layout = self.config.get_layout_strategy(m.id.as_str());
-                let t1 = WinTree::new((*m).clone().into(), layout.clone());
-                let t2 = WinTree::new((*m).clone().into(), layout);
-                [
-                    (ContainerKey::normal(vd_id, m.id.clone()), t1, curr_time),
-                    (ContainerKey::focalized(vd_id, m.id.clone()), t2, 0),
-                ]
-            })
-            .for_each(|(k, v, ts)| {
-                self.inactive_trees.insert(k, (v, ts));
-            });
-
-        Ok(())
-    }
-
-    pub fn activate_vd_containers(&mut self, vd: Desktop, layer: Option<ContainerLayer>) -> Result<(), Error> {
-        let vd_id = vd.get_id().map(|id| id.to_u128()).map_err(Error::VDError)?;
-
-        if self.current_vd.is_some_and(|current_vd| current_vd == vd) {
-            return Err(Error::VDContainersAlreadyActivated);
-        }
-
-        let current_time = get_current_time_ms()?;
-        let to_inactivate = self.active_trees.drain().map(|(k, v)| (k.into(), (v, current_time)));
-        self.inactive_trees.extend(to_inactivate);
-
-        let mut latest_keys: HashMap<String, (ContainerKey, u128)> = HashMap::new();
-        self.inactive_trees
-            .iter()
-            .filter(|(k, _)| k.is_vd(vd_id) && layer.as_ref().is_none_or(|layer| k.is_layer(*layer)))
-            .for_each(|(k, (_, ts))| {
-                let latest = latest_keys.entry(k.monitor.clone()).or_insert_with(|| (k.clone(), *ts));
-                if *ts > latest.1 {
-                    latest_keys.insert(k.monitor.clone(), (k.clone(), *ts));
-                }
-            });
-
-        for (k, _) in latest_keys.values() {
-            if let Some(c) = self.inactive_trees.remove(k) {
-                self.active_trees.insert(k.clone().into(), c.0);
-            }
-        }
-
-        self.current_vd = Some(vd);
-        Ok(())
-    }
-
-    pub fn activate_monitor_layer(&mut self, monitor_name: String, layer: ContainerLayer) -> Result<(), Error> {
-        let vd_id = self.current_vd.and_then(|vd| vd.get_id().ok()).map(|id| id.to_u128());
-        let vd_id = vd_id.ok_or(Error::Generic)?;
-        let active_key = ContainerKey::new(vd_id, monitor_name.clone(), layer);
-
-        let inactive_key = self
-            .active_trees
-            .get_key_value(&active_key.clone().into())
-            .map(|v| v.0)
-            .cloned();
-        if inactive_key.as_ref().is_none_or(|k| k.layer == layer) {
-            return Ok(());
-        }
-
-        let (active_container, _) = self.inactive_trees.remove(&active_key).ok_or(Error::Generic)?;
-
-        if let Some(inactive_key) = inactive_key {
-            let inactive_container = self.active_trees.remove(&inactive_key).ok_or(Error::Generic)?;
-            let current_time = get_current_time_ms()?;
-            self.inactive_trees
-                .insert(inactive_key.into(), (inactive_container, current_time));
-        }
-
-        self.active_trees.insert(active_key.into(), active_container);
-
-        Ok(())
-    }
-
-    pub fn restore_monitor(&mut self, key: &CrossLayerContainerKey) -> Result<(), Error> {
-        if matches!(key.layer, ContainerLayer::Focalized) {
-            self.active_trees
-                .get_mut(key)
-                .ok_or(Error::ContainerNotFound { refresh: false })?
-                .clear();
-            return self.activate_monitor_layer(key.monitor.clone(), ContainerLayer::Normal);
-        };
-
-        Ok(())
-    }
 }
 
 impl TilesManagerBase for TilesManager {
@@ -301,6 +186,117 @@ impl TilesManagerBase for TilesManager {
     }
 }
 
-impl Drop for TilesManager {
-    fn drop(&mut self) {}
+impl TilesManager {
+    pub fn get_window_state(&self, window: WindowRef) -> Result<WindowTileState, Error> {
+        if self.floating_wins.contains(&window) {
+            return Ok(WindowTileState::Floating);
+        }
+
+        if self.maximized_wins.contains(&window) {
+            return Ok(WindowTileState::Maximized);
+        }
+
+        let key = self.active_trees.find(window).map(|e| e.key)?;
+        match key.layer {
+            ContainerLayer::Focalized => Ok(WindowTileState::Focalized),
+            ContainerLayer::Normal => Ok(WindowTileState::Normal),
+        }
+    }
+
+    pub fn create_inactive_vd_containers(&mut self, vd: Desktop) -> Result<(), Error> {
+        let vd_id = vd.get_id().map_err(Error::VDError)?.to_u128();
+        if self.current_vd.is_some_and(|curr_vd| curr_vd == vd) || self.inactive_trees.has_vd(vd_id) {
+            return Err(Error::VDContainersAlreadyCreated);
+        }
+
+        let curr_time = get_current_time_ms()?;
+        enum_display_monitors()
+            .iter()
+            .flat_map(|m| {
+                let layout = self.config.get_layout_strategy(m.id.as_str());
+                let t1 = WinTree::new((*m).clone().into(), layout.clone());
+                let t2 = WinTree::new((*m).clone().into(), layout);
+                [
+                    (ContainerKey::normal(vd_id, m.id.clone()), t1, curr_time),
+                    (ContainerKey::focalized(vd_id, m.id.clone()), t2, 0),
+                ]
+            })
+            .for_each(|(k, v, ts)| {
+                self.inactive_trees.insert(k, (v, ts));
+            });
+
+        Ok(())
+    }
+
+    pub fn activate_vd_containers(&mut self, vd: Desktop, layer: Option<ContainerLayer>) -> Result<(), Error> {
+        let vd_id = vd.get_id().map(|id| id.to_u128()).map_err(Error::VDError)?;
+
+        if self.current_vd.is_some_and(|current_vd| current_vd == vd) {
+            return Err(Error::VDContainersAlreadyActivated);
+        }
+
+        let current_time = get_current_time_ms()?;
+        let to_inactivate = self.active_trees.drain().map(|(k, v)| (k.into(), (v, current_time)));
+        self.inactive_trees.extend(to_inactivate);
+
+        let mut latest_keys: HashMap<String, (ContainerKey, u128)> = HashMap::new();
+        self.inactive_trees
+            .iter()
+            .filter(|(k, _)| k.is_vd(vd_id) && layer.as_ref().is_none_or(|layer| k.is_layer(*layer)))
+            .for_each(|(k, (_, ts))| {
+                let latest = latest_keys.entry(k.monitor.clone()).or_insert_with(|| (k.clone(), *ts));
+                if *ts > latest.1 {
+                    latest_keys.insert(k.monitor.clone(), (k.clone(), *ts));
+                }
+            });
+
+        for (k, _) in latest_keys.values() {
+            if let Some(c) = self.inactive_trees.remove(k) {
+                self.active_trees.insert(k.clone().into(), c.0);
+            }
+        }
+
+        self.current_vd = Some(vd);
+        Ok(())
+    }
+
+    pub fn activate_monitor_layer(&mut self, monitor_name: String, layer: ContainerLayer) -> Result<(), Error> {
+        let vd_id = self.current_vd.and_then(|vd| vd.get_id().ok()).map(|id| id.to_u128());
+        let vd_id = vd_id.ok_or(Error::Generic)?;
+        let active_key = ContainerKey::new(vd_id, monitor_name.clone(), layer);
+
+        let inactive_key = self
+            .active_trees
+            .get_key_value(&active_key.clone().into())
+            .map(|v| v.0)
+            .cloned();
+        if inactive_key.as_ref().is_none_or(|k| k.layer == layer) {
+            return Ok(());
+        }
+
+        let (active_container, _) = self.inactive_trees.remove(&active_key).ok_or(Error::Generic)?;
+
+        if let Some(inactive_key) = inactive_key {
+            let inactive_container = self.active_trees.remove(&inactive_key).ok_or(Error::Generic)?;
+            let current_time = get_current_time_ms()?;
+            self.inactive_trees
+                .insert(inactive_key.into(), (inactive_container, current_time));
+        }
+
+        self.active_trees.insert(active_key.into(), active_container);
+
+        Ok(())
+    }
+
+    pub fn restore_monitor(&mut self, key: &CrossLayerContainerKey) -> Result<(), Error> {
+        if matches!(key.layer, ContainerLayer::Focalized) {
+            self.active_trees
+                .get_mut(key)
+                .ok_or(Error::ContainerNotFound { refresh: false })?
+                .clear();
+            return self.activate_monitor_layer(key.monitor.clone(), ContainerLayer::Normal);
+        };
+
+        Ok(())
+    }
 }
