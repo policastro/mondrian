@@ -138,7 +138,7 @@ impl TilesManagerOperations for TilesManager {
             if matches!(intra_op, IntraOp::InsertFreeMove) {
                 t.move_to(src_win, target);
             } else if let Ok(trg_win) = trg_win {
-                t.swap_ids(src_win, trg_win);
+                self.swap_windows(src_win, trg_win)?;
             }
         } else if !matches!(inter_op, InterOp::Swap) || trg_win.is_err() {
             // If it is in another monitor and insert
