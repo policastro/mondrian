@@ -9,6 +9,9 @@ pub struct Layout {
     #[serde(deserialize_with = "deserializers::to_tiling_strategy")]
     pub tiling_strategy: String,
     pub paddings: PaddingsConfigs,
+    pub half_focalized_paddings: PaddingsConfigs,
+    #[serde(deserialize_with = "deserializers::to_u8_max::<120,_>")]
+    pub focalized_padding: u8,
     pub strategy: StrategyConfigs,
 }
 
@@ -19,17 +22,11 @@ pub struct PaddingsConfigs {
     pub tiles: u8,
     #[serde(deserialize_with = "deserializers::to_u8_max::<100,_>")]
     pub borders: u8,
-    #[serde(deserialize_with = "deserializers::to_u8_max::<120,_>")]
-    pub focalized: u8,
 }
 
 impl Default for PaddingsConfigs {
     fn default() -> Self {
-        PaddingsConfigs {
-            tiles: 12,
-            borders: 18,
-            focalized: 8,
-        }
+        PaddingsConfigs { tiles: 12, borders: 18 }
     }
 }
 
@@ -48,6 +45,8 @@ impl Default for Layout {
         Layout {
             tiling_strategy: "golden_ratio".to_string(),
             paddings: PaddingsConfigs::default(),
+            half_focalized_paddings: PaddingsConfigs::default(),
+            focalized_padding: 8,
             strategy: StrategyConfigs::default(),
         }
     }

@@ -155,6 +155,7 @@ pub enum WindowTileState {
     Normal,
     Floating,
     Focalized,
+    HalfFocalized,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -178,6 +179,7 @@ pub enum MondrianMessage {
     CoreUpdateError,
     CoreUpdateComplete,
     Focalize,
+    HalfFocalize,
     CycleFocalized {
         next: bool,
     },
@@ -213,6 +215,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "invert",
             "release",
             "focalize",
+            "half-focalize",
             "cycle-focalized [next|prev]",
             "amplify",
             "dumpstateinfo",
@@ -238,6 +241,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "release" => parts.len() == 1,
             "peek" => parts.len() == 3,
             "focalize" => parts.len() == 1,
+            "half-focalize" => parts.len() == 1,
             "cycle-focalized" => parts.len() <= 2,
             "amplify" => parts.len() == 1,
             "dumpstateinfo" => parts.len() == 1,
@@ -291,6 +295,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             }
             "invert" => Ok(MondrianMessage::Invert),
             "focalize" => Ok(MondrianMessage::Focalize),
+            "half-focalize" => Ok(MondrianMessage::HalfFocalize),
             "cycle-focalized" => {
                 let next = match parts.get(1) {
                     Some(v) if *v == "next" => true,

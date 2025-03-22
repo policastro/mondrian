@@ -3,13 +3,13 @@ use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
 use super::operations::MonitorSearchStrategy;
 use super::operations::TilesManagerInternalOperations;
+use super::success::TilesManagerSuccess;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
 use crate::app::structs::direction::Direction;
 use crate::modules::tiles_manager::lib::containers::inactive::InactiveContainers;
-use crate::modules::tiles_manager::lib::containers::keys::ContainerKey;
 use crate::modules::tiles_manager::lib::containers::layer::ContainerLayer;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
@@ -20,13 +20,12 @@ use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
-use std::collections::HashMap;
-use std::collections::VecDeque;
 use winvd::get_current_desktop;
 use winvd::Desktop;
 
 type IntraOp = IntramonitorMoveOp;
 type InterOp = IntermonitorMoveOp;
+type Success = TilesManagerSuccess;
 type Error = TilesManagerError;
 
 pub trait TilesManagerOperations: TilesManagerInternalOperations {
@@ -58,7 +57,14 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error>;
     fn minimize_focused(&mut self) -> Result<(), Error>;
     fn focalize_focused(&mut self) -> Result<(), Error>;
-    fn cycle_focalized(&mut self, next: bool) -> Result<(), Error>;
+    fn half_focalize_focused(&mut self) -> Result<(), Error>;
+
+    /// Swaps the currently focalized/half-focalized window with the next/previous window in the same monitor.
+    ///
+    /// - If `half` is `Some(true)`, the operation applies only to half-focalized windows.
+    /// - If `half` is `Some(false)`, the operation applies only to the focalized window.
+    /// - If `half` is `None`, the operation cycles both focalized and half-focalized windows without distinction.
+    fn cycle_focalized_wins(&mut self, next: bool, half: Option<bool>) -> Result<(), Error>;
     fn invert_orientation(&mut self) -> Result<(), Error>;
     fn change_focus(&mut self, direction: Direction, center_mouse: bool) -> Result<(), Error>;
     fn amplify_focused(&mut self, center_cursor: bool) -> Result<(), Error>;
@@ -76,35 +82,37 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
 impl TilesManagerOperations for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok())? {
-            true => self.update_layout(true),
-            false => Ok(()),
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
         }
     }
 
     fn on_close(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::remove(self, win)? {
-            true => self.update_layout(true),
-            false => Ok(()),
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
         }
     }
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::add(self, win, None)? {
-            true => self.update_layout(true),
-            false => Ok(()),
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
         }
     }
 
     fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::remove(self, win)? {
-            true => self.update_layout(true),
-            false => Ok(()),
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
         }
     }
 
     fn on_resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
-        self.resize(win, delta)?;
-        self.update_layout(true)
+        match self.resize(win, delta)? {
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
+        }
     }
 
     fn on_move(
@@ -158,8 +166,10 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {
-        self.maximize(window, maximize)?;
-        self.update_layout(true)
+        match self.maximize(window, maximize)? {
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
+        }
     }
 
     fn on_focus(&mut self, window: WindowRef) -> Result<(), Error> {
@@ -238,8 +248,10 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error> {
-        self.release(get_foreground().ok_or(Error::NoWindow)?, release)?;
-        self.update_layout(true)
+        match self.release(get_foreground().ok_or(Error::NoWindow)?, release)? {
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
+        }
     }
 
     fn move_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
@@ -288,8 +300,10 @@ impl TilesManagerOperations for TilesManager {
         };
 
         let area = orig_area.pad(padding.0, padding.1);
-        self.resize(curr, orig_area.get_shift(&area))?;
-        self.update_layout(true)
+        match self.resize(curr, orig_area.get_shift(&area))? {
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
+        }
     }
 
     fn minimize_focused(&mut self) -> Result<(), Error> {
@@ -299,49 +313,70 @@ impl TilesManagerOperations for TilesManager {
 
     fn focalize_focused(&mut self) -> Result<(), Error> {
         let curr_win = get_foreground().ok_or(Error::NoWindow)?;
-        self.focalize(curr_win, None)?;
-        self.update_layout(true)
+        match self.focalize(curr_win, None)? {
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
+        }
     }
 
-    fn cycle_focalized(&mut self, next: bool) -> Result<(), Error> {
+    fn half_focalize_focused(&mut self) -> Result<(), Error> {
+        let curr_win = get_foreground().ok_or(Error::NoWindow)?;
+        match self.half_focalize(curr_win, None)? {
+            Success::LayoutChanged => self.update_layout(true),
+            _ => Ok(()),
+        }
+    }
+
+    fn cycle_focalized_wins(&mut self, next: bool, half: Option<bool>) -> Result<(), Error> {
         let f_win = get_foreground().ok_or(Error::NoWindow)?;
         let e = self.active_trees.find_mut(f_win)?;
-        if e.key.layer != ContainerLayer::Focalized {
+
+        let is_right_layer_type = match half {
+            Some(true) => e.key.layer == ContainerLayer::HalfFocalized,
+            Some(false) => e.key.layer == ContainerLayer::Focalized,
+            _ => e.key.layer.is_focalized(),
+        };
+
+        if !is_right_layer_type {
             return Ok(());
         }
 
-        let curr_focalized_win = *e.value.get_ids().first().ok_or(Error::Generic)?;
-        if curr_focalized_win != f_win {
+        let (main_win, others_win): (Vec<_>, Vec<_>) = e.value.get_ids().into_iter().partition(|x| *x == f_win);
+        let main_win = match main_win.len() {
+            1 => main_win[0],
+            _ => return Ok(()),
+        };
+
+        let allowed_len = match e.key.layer == ContainerLayer::HalfFocalized {
+            true => 1,
+            false => 0,
+        };
+        if others_win.len() != allowed_len {
             return Ok(());
         }
 
-        let wins = self
+        let wins: Vec<WindowRef> = self
             .inactive_trees
-            .get_normal(&ContainerKey::from(e.key))?
+            .get_normal(&e.key.into())?
             .get_ids()
-            .to_vec();
+            .iter()
+            .copied()
+            .filter(|w| !others_win.contains(w))
+            .collect();
 
         let next_win = wins
             .iter()
-            .position(|w| *w == curr_focalized_win)
-            .and_then(|i| {
-                let new_idx = i as isize + if next { 1 } else { -1 };
-                let new_idx = match new_idx < 0 {
-                    true => wins.len() as isize + new_idx,
-                    false => new_idx,
-                };
-                wins.get(new_idx as usize % wins.len())
-            })
+            .position(|w| *w == main_win)
+            .and_then(|i| wins.get((i as i8 + if next { 1 } else { -1 }).rem_euclid(wins.len() as i8) as usize))
             .ok_or(Error::Generic)?;
 
-        if curr_focalized_win == *next_win {
+        if main_win == *next_win {
             return Ok(());
         }
 
-        e.value.remove(curr_focalized_win);
-        e.value.insert(*next_win);
-        curr_focalized_win.minimize();
-        next_win.focus();
+        e.value.replace_id(main_win, *next_win);
+        next_win.restore(true);
+        main_win.minimize();
 
         self.update_layout(false)
     }
@@ -450,55 +485,5 @@ impl TilesManagerOperations for TilesManager {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Default, Clone, Debug)]
-pub struct FocusHistory {
-    map: HashMap<WindowRef, u64>,
-    order: VecDeque<WindowRef>,
-    order_map: HashMap<WindowRef, usize>,
-    current_max: u64,
-}
-
-impl FocusHistory {
-    const MAX_ENTRIES: usize = 100; // TODO: maybe should be configurable?
-
-    pub fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-            order: VecDeque::new(),
-            order_map: HashMap::new(),
-            current_max: 0,
-        }
-    }
-
-    pub fn value(&self, window: WindowRef) -> Option<u64> {
-        self.map.get(&window).copied()
-    }
-
-    pub fn update(&mut self, window: WindowRef) {
-        // INFO: this should pratically never happen
-        if self.current_max == u64::MAX {
-            let min_v = *self.map.values().min().unwrap_or(&0);
-            self.map.values_mut().for_each(|v| *v -= min_v);
-            self.current_max -= min_v;
-        }
-
-        if let Some(p) = self.order_map.get(&window) {
-            self.order.remove(*p);
-        }
-
-        self.current_max += 1;
-        self.order.push_back(window);
-        self.order_map.insert(window, self.order.len() - 1);
-        self.map.insert(window, self.current_max);
-
-        // INFO: prevent map from growing indefinitely
-        if self.order.len() > Self::MAX_ENTRIES {
-            let w = self.order.pop_front().unwrap();
-            self.map.remove(&w);
-            self.order_map.remove(&w);
-        }
     }
 }

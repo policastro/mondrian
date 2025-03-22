@@ -1,25 +1,24 @@
-use crate::{
-    app::structs::{area::Area, orientation::Orientation},
-    win32::window::window_ref::WindowRef,
-};
-
-use super::{
-    layout_strategy::{LayoutStrategy, LayoutStrategyEnum, TreeOperation},
-    leaf::AreaLeaf,
-    node::AreaNode,
-};
+use super::layout_strategy::LayoutStrategy;
+use super::layout_strategy::LayoutStrategyEnum;
+use super::layout_strategy::TreeOperation;
+use super::leaf::AreaLeaf;
+use super::node::AreaNode;
+use crate::app::structs::area::Area;
+use crate::app::structs::orientation::Orientation;
+use crate::win32::window::window_ref::WindowRef;
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 pub type WinTree = AreaTree<WindowRef>;
 
-pub struct AreaTree<T: Copy + Eq + Hash> {
+#[derive(Clone)]
+pub struct AreaTree<T: Copy + Clone + Eq + Hash> {
     root: AreaNode<T>,
     area: Area,
     strategy: LayoutStrategyEnum,
     ids_map: std::collections::HashMap<T, AreaLeaf<T>>,
 }
 
-impl<T: Copy + Eq + Hash + Debug> AreaTree<T> {
+impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
     pub fn new(area: Area, strategy: LayoutStrategyEnum) -> AreaTree<T> {
         AreaTree {
             root: AreaNode::new(None, Orientation::Horizontal, 50),

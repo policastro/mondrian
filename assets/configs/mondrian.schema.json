@@ -10,7 +10,30 @@
           "$ref": "#/definitions/tilingStrategyEnum"
         },
         "paddings": {
-          "$ref": "#/definitions/layoutPaddings"
+          "allOf": [
+            {
+              "$ref": "#/definitions/layoutPaddings"
+            },
+            {
+              "description": "Padding settings for the windows in the layout."
+            }
+          ]
+        },
+        "half_focalized_paddings": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/layoutPaddings"
+            },
+            {
+              "description": "Padding settings for windows in the half-focalized layout."
+            }
+          ]
+        },
+        "focalized_padding": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120,
+          "description": "Padding between monitor borders and focalized windows (in pixels)."
         },
         "strategy": {
           "type": "object",
@@ -316,7 +339,7 @@
             "thickness": {
               "type": "integer",
               "description": "Thickness of the overlays borders (in pixels).",
-              "minimum": 0,
+              "minimum": 1,
               "maximum": 100
             },
             "padding": {
@@ -358,6 +381,16 @@
                 },
                 {
                   "description": "Focalized overlay settings."
+                }
+              ]
+            },
+            "half-focalized": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/specificOverlaySettings"
+                },
+                {
+                  "description": "Half-focalized overlay settings."
                 }
               ]
             },
@@ -445,7 +478,30 @@
                   "$ref": "#/definitions/tilingStrategyEnum"
                 },
                 "paddings": {
-                  "$ref": "#/definitions/layoutPaddings"
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/layoutPaddings"
+                    },
+                    {
+                      "description": "Padding settings for the windows in the layout."
+                    }
+                  ]
+                },
+                "half_focalized_paddings": {
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/layoutPaddings"
+                    },
+                    {
+                      "description": "Padding settings for windows in the half-focalized layout."
+                    }
+                  ]
+                },
+                "focalized_padding": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 120,
+                  "description": "Padding between monitor borders and focalized windows (in pixels)."
                 }
               },
               "additionalProperties": false
@@ -488,6 +544,7 @@
             "invert",
             "release",
             "focalize",
+            "half-focalize",
             "cycle-focalized",
             "cycle-focalized next",
             "cycle-focalized prev",
@@ -525,7 +582,6 @@
     },
     "layoutPaddings": {
       "type": "object",
-      "description": "Padding settings for the windows in the layout.",
       "properties": {
         "tiles": {
           "type": "integer",
@@ -538,12 +594,6 @@
           "minimum": 0,
           "maximum": 100,
           "description": "Padding between monitor borders and windows (in pixels)."
-        },
-        "focalized": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 120,
-          "description": "Padding between monitor borders and focalized windows (in pixels)."
         }
       },
       "additionalProperties": false

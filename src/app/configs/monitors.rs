@@ -14,6 +14,9 @@ pub struct MonitorLayout {
     #[serde(deserialize_with = "deserializers::to_opt_tiling_strategy")]
     pub tiling_strategy: Option<String>,
     pub paddings: MonitorPaddingsConfigs,
+    pub half_focalized_paddings: MonitorPaddingsConfigs,
+    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<120,_>")]
+    pub focalized_padding: Option<u8>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
@@ -23,6 +26,4 @@ pub struct MonitorPaddingsConfigs {
     pub tiles: Option<u8>,
     #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
     pub borders: Option<u8>,
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<120,_>")]
-    pub focalized: Option<u8>,
 }

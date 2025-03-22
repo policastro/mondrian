@@ -63,13 +63,25 @@ impl AppConfigs {
                     .unwrap_or(self.get_layout_strategy()),
                 tiles_padding: c.layout.paddings.tiles.unwrap_or(self.layout.paddings.tiles),
                 borders_padding: c.layout.paddings.borders.unwrap_or(self.layout.paddings.borders),
-                focalized_padding: c.layout.paddings.focalized.unwrap_or(self.layout.paddings.focalized),
+                focalized_padding: c.layout.focalized_padding.unwrap_or(self.layout.focalized_padding),
+                half_focalized_borders_pad: c
+                    .layout
+                    .half_focalized_paddings
+                    .borders
+                    .unwrap_or(self.layout.half_focalized_paddings.borders),
+                half_focalized_tiles_pad: c
+                    .layout
+                    .half_focalized_paddings
+                    .tiles
+                    .unwrap_or(self.layout.half_focalized_paddings.tiles),
             })
             .unwrap_or(MonitorConfigs {
                 layout_strategy: self.get_layout_strategy(),
                 tiles_padding: self.layout.paddings.tiles,
                 borders_padding: self.layout.paddings.borders,
-                focalized_padding: self.layout.paddings.focalized,
+                focalized_padding: self.layout.focalized_padding,
+                half_focalized_borders_pad: self.layout.half_focalized_paddings.borders,
+                half_focalized_tiles_pad: self.layout.half_focalized_paddings.tiles,
             })
     }
 
@@ -90,4 +102,6 @@ pub struct MonitorConfigs {
     pub tiles_padding: u8,
     pub borders_padding: u8,
     pub focalized_padding: u8,
+    pub half_focalized_borders_pad: u8,
+    pub half_focalized_tiles_pad: u8,
 }

@@ -88,7 +88,9 @@ If the configuration file does not exist, it will be created automatically when 
 | `layout.tiling_strategy`                  | Tiling strategy                                                                                                                | `"golden_ratio"`, `"horizontal"`, `"vertical"`, `"twostep"`, `"squared"`                                                 | `"golden_ratio"`                   |
 | `layout.paddings.tiles`                   | Padding between tiles (in px)                                                                                                  | 0 - 100                                                                                                                  | 12                                 |
 | `layout.paddings.borders`                 | Padding between border and tiles (in px)                                                                                       | 0 - 100                                                                                                                  | 18                                 |
-| `layout.paddings.focalized`               | Padding between border and focalized window (in px)                                                                            | 0 - 120                                                                                                                  | 8                                  |
+| `layout.half_focalized_paddings.tiles`    | Padding between tiles for half-focalized windows (in px)                                                                       | 0 - 100                                                                                                                  | 12                                 |
+| `layout.half_focalized_paddings.borders`  | Padding between border and tiles for half-focalized windows (in px)                                                            | 0 - 100                                                                                                                  | 18                                 |
+| `layout.focalized_paddings`               | Padding between border and focalized window (in px)                                                                            | 0 - 120                                                                                                                  | 8                                  |
 | `layout.strategy.golden_ratio.ratio`      | The ratio of the first split                                                                                                   | 10 - 90                                                                                                                  | 50                                 |
 | `layout.strategy.golden_ratio.clockwise`  | Places the windows clockwise or counterclockwise                                                                               | `true`, `false`                                                                                                          | `true`                             |
 | `layout.strategy.golden_ratio.vertical`   | If true, the layout will be vertical                                                                                           | `true`, `false`                                                                                                          | `false`                            |
@@ -123,6 +125,8 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.active.color`           | Color of the overlay                                                                                                           | `[r, g, b]`/`[r, g, b, a]` or as hex string (`"#rrggbb"`/`"#rrggbbaa"`)                                                  | `[155, 209, 229]` (or `"#9BD1E5"`) |
 | `modules.overlays.inactive.enabled`       | Enables/disables the overlays for the windows not in focus                                                                     | `true`, `false`                                                                                                          | `true`                             |
 | `modules.overlays.inactive.color`         | Color of the overlay                                                                                                           | `[r, g, b]`/`[r, g, b, a]` or as hex string (`"#rrggbb"`/`"#rrggbbaa"`)                                                  | `[156, 156, 156]` (or `"#9C9C9C`)  |
+| `modules.overlays.half_focalized.enabled` | Enables/disables the overlay for the half-focalized windows in focused                                                         | `true`,`false`                                                                                                           | `true`                             |
+| `modules.overlays.half_focalized.color`   | Color of the overlay                                                                                                           | `[r, g, b]`/`[r, g, b, a]` or as hex string (`"#rrggbb"`/`"#rrggbbaa"`)                                                  | `[220, 242, 215]` (or `"#DCF2D7"`) |
 | `modules.overlays.focalized.enabled`      | Enables/disables the overlay for the focalized windows in focused                                                              | `true`,`false`                                                                                                           | `true`                             |
 | `modules.overlays.focalized.color`        | Color of the overlay                                                                                                           | `[r, g, b]`/`[r, g, b, a]` or as hex string (`"#rrggbb"`/`"#rrggbbaa"`)                                                  | `[234, 153, 153]` (or `"#EA9999"`) |
 | `modules.overlays.floating.enabled`       | Enables/disables the overlay for the floating windows in focused                                                               | `true`,`false`                                                                                                           | `true`                             |
@@ -171,7 +175,8 @@ The **available actions** are:
 - `invert`: inverts the orientation of the focused window and the neighboring windows;
 - `release`: removes the focused window from the tiling manager, or adds it back;
 - `focalize`: focalizes the focused window (i.e. hides the neighboring windows) or unfocalizes it (i.e. restores the neighboring windows);
-- `cycle-focalized [next|prev]`: swaps the currently focalized window with the next/previous window in the same monitor. If no parameter is specified, `next` is used;
+- `half-focalize`: hides all the windows except the focused and largest one on the same monitor. Running the action again restores the previous layout;
+- `cycle-focalized [next|prev]`: swaps the currently focalized/half-focalized window with the next/previous window in the same monitor. If no parameter is specified, `next` is used;
 - `amplify`: swaps the focused window with the biggest one in the same monitor;
 - `dumpstateinfo`: dumps the current application state info to the `./logs/app_state.txt` file;
 - `pause [keybindings|overlays]`: if no parameter is specified, pauses/unpauses the application. Otherwise, pauses/unpauses the specified module;
@@ -259,12 +264,14 @@ You can override some configuration for each monitor with the `monitors` option:
 
 The following options are available:
 
-| **Option**                             | **Reference**               |
-| -------------------------------------- | --------------------------- |
-| `monitors.*.layout.tiling_strategy`    | `layout.tiling_strategy`    |
-| `monitors.*.layout.paddings.tiles`     | `layout.paddings.tiles`     |
-| `monitors.*.layout.paddings.borders`   | `layout.paddings.borders`   |
-| `monitors.*.layout.paddings.focalized` | `layout.paddings.focalized` |
+| **Option**                                          | **Reference**                            |
+| --------------------------------------------------- | ---------------------------------------- |
+| `monitors.*.layout.tiling_strategy`                 | `layout.tiling_strategy`                 |
+| `monitors.*.layout.paddings.tiles`                  | `layout.paddings.tiles`                  |
+| `monitors.*.layout.paddings.borders`                | `layout.paddings.borders`                |
+| `monitors.*.layout.half_focalized_paddings.tiles`   | `layout.half_focalized_paddings.tiles`   |
+| `monitors.*.layout.half_focalized_paddings.borders` | `layout.half_focalized_paddings.borders` |
+| `monitors.*.layout.focalized_padding`               | `layout.focalized_padding`               |
 
 To find the name of the monitors, you can start the application with the `--dumpstateinfo` flag (or you can trigger the `dumpstateinfo` [action](#keybindings-guide)), then open the `./logs/app_state.txt` file and look for the `Monitors` subsection under the `Tiles Manager` section. The section looks like this:
 

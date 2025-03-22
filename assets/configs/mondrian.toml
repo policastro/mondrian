@@ -20,10 +20,12 @@ floating_wins.size_ratio = [
 floating_wins.size_fixed = [700, 400] # fixed size of the floating window
 
 [layout]
-tiling_strategy = "golden_ratio" # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
-paddings.tiles = 12              # padding between tiles, it must be between 0 and 100 
-paddings.borders = 18            # padding between border and tiles, it must be between 0 and 100
-paddings.focalized = 8           # padding for the focalized window, it must be between 0 and 120
+tiling_strategy = "golden_ratio"     # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
+paddings.tiles = 12                  # padding between tiles, it must be between 0 and 100 
+paddings.borders = 18                # padding between border and tiles, it must be between 0 and 100
+half_focalized_paddings.tiles = 12   # padding between tiles for the half-focalized windows, it must be between 0 and 100 
+half_focalized_paddings.borders = 18 # padding between border and tiles for the half-focalized windows, it must be between 0 and 100
+focalized_padding = 8                # padding for the focalized window, it must be between 0 and 120
 
 [layout.strategy.golden_ratio] # if tiling_strategy = "golden_ratio"
 clockwise = true # true = clockwise, false = counterclockwise
@@ -70,20 +72,22 @@ bindings = [
 ]
 
 [modules.overlays]
-enabled = true                # enables or disables the overlays module
-update_while_dragging = true  # the overlays will be updated while dragging the window
-update_while_animating = true # the overlays will be updated while the animation is running 
-padding = 0                   # padding between the overlay and the window
-thickness = 2                 # thickness of the border
-border_radius = 10            # border radius
-active.enabled = true         # shows the active overlay
-active.color = "#9BD1E5"      # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-inactive.enabled = true       # shows the inactive overlays
-inactive.color = "#696969"    # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-focalized.enabled = true      # shows the focalized overlay
-focalized.color = "#EA9999"   # color of the border, as [r, g, b] or as hex string ("#rrggbb")
-floating.enabled = true       # shows the floating overlay
-floating.color = "#DCC6E0"    # color of the border, as [r, g, b] or as hex string ("#rrggbb")
+enabled = true                   # enables or disables the overlays module
+update_while_dragging = true     # the overlays will be updated while dragging the window
+update_while_animating = true    # the overlays will be updated while the animation is running 
+padding = 0                      # padding between the overlay and the window
+thickness = 2                    # thickness of the border
+border_radius = 10               # border radius
+active.enabled = true            # shows the active overlay
+active.color = "#9BD1E5"         # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+inactive.enabled = true          # shows the inactive overlays
+inactive.color = "#696969"       # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+focalized.enabled = true         # shows the focalized overlay
+focalized.color = "#EA9999"      # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+half_focalized.enabled = true    # shows the half-focalized overlay
+half_focalized.color = "#DCF2D7" # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+floating.enabled = true          # shows the floating overlay
+floating.color = "#DCC6E0"       # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
 
 [core]
 ignore_rules = [

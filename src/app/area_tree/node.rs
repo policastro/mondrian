@@ -9,7 +9,8 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub(super) struct AreaNode<T: Copy> {
+#[derive(Clone)]
+pub(super) struct AreaNode<T: Copy + Clone> {
     pub orientation: Orientation,
     pub ratio: u8,
     pub left: Option<Box<AreaNode<T>>>,

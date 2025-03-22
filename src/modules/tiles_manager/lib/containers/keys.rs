@@ -34,27 +34,19 @@ impl ContainerKey {
     }
 
     pub fn normal(vd: u128, monitor: String) -> Self {
-        ContainerKey {
-            vd,
-            monitor,
-            layer: ContainerLayer::Normal,
-        }
+        ContainerKey::new(vd, monitor, ContainerLayer::Normal)
     }
 
     pub fn focalized(vd: u128, monitor: String) -> Self {
-        ContainerKey {
-            vd,
-            monitor,
-            layer: ContainerLayer::Focalized,
-        }
+        ContainerKey::new(vd, monitor, ContainerLayer::Focalized)
+    }
+
+    pub fn half_focalized(vd: u128, monitor: String) -> ContainerKey {
+        ContainerKey::new(vd, monitor, ContainerLayer::HalfFocalized)
     }
 
     pub fn to_normal(&self) -> Self {
-        ContainerKey {
-            vd: self.vd,
-            monitor: self.monitor.clone(),
-            layer: ContainerLayer::Normal,
-        }
+        ContainerKey::new(self.vd, self.monitor.clone(), ContainerLayer::Normal)
     }
 }
 

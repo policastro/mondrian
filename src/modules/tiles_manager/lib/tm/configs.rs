@@ -12,6 +12,8 @@ pub struct TilesManagerConfig {
     tiles_padding: i16,
     borders_padding: i16,
     focalized_padding: i16,
+    half_focalized_borders_pad: i16,
+    half_focalized_tiles_pad: i16,
     layout_strategy: LayoutStrategyEnum,
     monitors_configs: HashMap<String, MonitorConfigs>,
     pub filter: WinMatcher,
@@ -65,6 +67,27 @@ impl TilesManagerConfig {
             .unwrap_or(self.tiles_padding)
     }
 
+    pub fn get_half_focalized_borders_pad(&self, monitor_name: &str) -> i16 {
+        let border = self
+            .monitors_configs
+            .get(monitor_name)
+            .map(|c| c.half_focalized_borders_pad as i16)
+            .unwrap_or(self.half_focalized_borders_pad);
+        border - self.get_tiles_padding(monitor_name)
+    }
+
+    pub fn get_half_focalized_tiles_pad(&self, monitor_name: &str) -> i16 {
+        self.monitors_configs
+            .get(monitor_name)
+            .map(|c| c.half_focalized_tiles_pad as i16)
+            .unwrap_or(self.half_focalized_tiles_pad)
+    }
+
+    pub fn get_half_focalized_tiles_pad_xy(&self, monitor_name: &str) -> (i16, i16) {
+        let pad = self.get_half_focalized_tiles_pad(monitor_name);
+        (pad, pad)
+    }
+
     pub fn get_tiles_padding_xy(&self, monitor_name: &str) -> (i16, i16) {
         let tiles_padding = self.get_tiles_padding(monitor_name);
         (tiles_padding, tiles_padding)
@@ -82,6 +105,8 @@ impl From<&CoreModuleConfigs> for TilesManagerConfig {
             tiles_padding: configs.tiles_padding as i16,
             borders_padding: configs.border_padding as i16,
             focalized_padding: configs.focalized_padding as i16,
+            half_focalized_borders_pad: configs.half_focalized_borders_pad as i16,
+            half_focalized_tiles_pad: configs.half_focalized_tiles_pad as i16,
             filter: configs.filter.clone(),
             layout_strategy: configs.layout_strategy.clone(),
             animations_duration: configs.animations_duration,

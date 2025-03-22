@@ -1,6 +1,7 @@
 use super::error::TilesManagerError;
 use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
+use super::success::TilesManagerSuccess;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
@@ -14,22 +15,25 @@ use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 
+type Success = TilesManagerSuccess;
 type Error = TilesManagerError;
 type TileState = WindowTileState;
+type TMResult = Result<TilesManagerSuccess, Error>;
 
 pub trait TilesManagerInternalOperations: TilesManagerBase {
-    /// Adds a window to the tile manager. Returns true if the layout has changed.
+    /// Adds a window to the tile manager.
     /// When `prefer_position` is Some, the window will be added to the monitor that contains the
     /// given position. Otherwise, the window will be added to the monitor that contains the center of the window.
     /// If the target monitor has a focalized window or a maximized window, it will be restored.
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<bool, Error>;
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> TMResult;
 
-    /// Removes a window from the tile manager. Returns true if the layout has changed.
-    fn remove(&mut self, win: WindowRef) -> Result<bool, Error>;
+    /// Removes a window from the tile manager.
+    fn remove(&mut self, win: WindowRef) -> TMResult;
 
-    fn release(&mut self, window: WindowRef, release: Option<bool>) -> Result<(), Error>;
-    fn maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
-    fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> Result<(), Error>;
+    fn release(&mut self, window: WindowRef, release: Option<bool>) -> TMResult;
+    fn maximize(&mut self, window: WindowRef, maximize: bool) -> TMResult;
+    fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> TMResult;
+    fn half_focalize(&mut self, window: WindowRef, half_focalize: Option<bool>) -> TMResult;
     fn find_neighbour(
         &self,
         window: WindowRef,
@@ -39,36 +43,36 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
 
     /// Swaps the position of two windows. The new positions are propagated to the inactive
     /// containers if necessary.
-    fn swap_windows(&mut self, win1: WindowRef, win2: WindowRef) -> Result<(), Error>;
-    fn resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error>;
+    fn swap_windows(&mut self, win1: WindowRef, win2: WindowRef) -> TMResult;
+    fn resize(&mut self, window: WindowRef, delta: (i32, i32, i32, i32)) -> TMResult;
 
     /// Moves a window to the monitor that contains the given position.
     /// If `free_move` is true, the window will be moved to the given position without following
     /// the layout strategy of the tile manager.
     /// If the target monitor is the same as the current monitor, the window will not be moved.
-    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error>;
+    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult;
 }
 
 const C_ERR: Error = Error::ContainerNotFound { refresh: false };
 
 impl TilesManagerInternalOperations for TilesManager {
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> Result<bool, Error> {
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> TMResult {
         let tile_state = self.get_window_state(win);
         if tile_state
             .as_ref()
             .is_ok_and(|s| matches!(s, TileState::Floating | TileState::Maximized | TileState::Focalized))
         {
-            return Ok(false);
+            return Ok(Success::NoChange);
         }
 
         let center = prefer_position.or_else(|| win.get_area().map(|a| a.get_center()));
         let center = center.ok_or(Error::NoWindow)?;
 
         let k = self.active_trees.find_at_or_near(center)?.key;
-        if matches!(k.layer, ContainerLayer::Focalized) && tile_state.is_err() {
+        if k.layer.is_focalized() && tile_state.is_err() {
             self.restore_monitor(&k)?;
             if self.active_trees.find(win).is_ok() {
-                return Ok(true);
+                return Ok(Success::LayoutChanged);
             }
         }
 
@@ -83,19 +87,19 @@ impl TilesManagerInternalOperations for TilesManager {
             self.maximize(*maximized_win, false)?;
         }
 
-        Ok(true)
+        Ok(Success::LayoutChanged)
     }
 
-    fn remove(&mut self, win: WindowRef) -> Result<bool, Error> {
+    fn remove(&mut self, win: WindowRef) -> TMResult {
         let tile_state = self.get_window_state(win)?;
 
         if matches!(tile_state, WindowTileState::Floating) {
             self.floating_wins.remove(&win);
-            return Ok(false);
+            return Ok(Success::NoChange);
         }
 
         let k = self.active_trees.find(win)?.key;
-        if matches!(tile_state, WindowTileState::Focalized) {
+        if matches!(tile_state, WindowTileState::Focalized | WindowTileState::HalfFocalized) {
             self.restore_monitor(&k)?;
         }
 
@@ -105,14 +109,14 @@ impl TilesManagerInternalOperations for TilesManager {
             self.maximized_wins.remove(&win);
         }
 
-        Ok(true)
+        Ok(Success::LayoutChanged)
     }
 
-    fn release(&mut self, window: WindowRef, release: Option<bool>) -> Result<(), Error> {
+    fn release(&mut self, window: WindowRef, release: Option<bool>) -> TMResult {
         let tile_state = self.get_window_state(window)?;
 
         if matches!(tile_state, WindowTileState::Maximized) {
-            return Ok(());
+            return Ok(Success::NoChange);
         }
 
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
@@ -129,14 +133,14 @@ impl TilesManagerInternalOperations for TilesManager {
             let _ = window.set_topmost(false);
         }
 
-        Ok(())
+        Ok(Success::LayoutChanged)
     }
 
-    fn maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {
+    fn maximize(&mut self, window: WindowRef, maximize: bool) -> TMResult {
         let tile_state = self.get_window_state(window)?;
 
         if matches!(tile_state, WindowTileState::Floating) {
-            return Ok(());
+            return Ok(Success::NoChange);
         }
 
         if maximize {
@@ -155,29 +159,68 @@ impl TilesManagerInternalOperations for TilesManager {
             self.maximized_wins.remove(&window);
         }
 
-        Ok(())
+        Ok(Success::LayoutChanged)
     }
 
-    fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> Result<(), Error> {
+    fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> TMResult {
         let e = self.active_trees.find(window)?;
         let k = e.key;
 
-        if focalize.is_some_and(|f| f) || (focalize.is_none() && matches!(k.layer, ContainerLayer::Normal)) {
+        if focalize.is_some_and(|f| f)
+            || (focalize.is_none() && matches!(k.layer, ContainerLayer::Normal | ContainerLayer::HalfFocalized))
+        {
             let wins = e.value.get_ids().to_vec();
             self.activate_monitor_layer(k.monitor.clone(), ContainerLayer::Focalized)?;
             self.active_trees.get_mut(&k).ok_or(C_ERR)?.insert(window);
             wins.iter().filter(|w| **w != window).for_each(|w| {
                 w.minimize();
             });
-            return Ok(());
+            return Ok(Success::LayoutChanged);
         }
 
         if focalize.is_some_and(|f| !f) || (focalize.is_none() && matches!(k.layer, ContainerLayer::Focalized)) {
             self.active_trees.get_mut(&k).ok_or(C_ERR)?.clear();
-            return self.activate_monitor_layer(k.monitor, ContainerLayer::Normal);
+            self.activate_monitor_layer(k.monitor, ContainerLayer::Normal)?;
+            return Ok(Success::LayoutChanged);
         }
 
-        Ok(())
+        Ok(Success::NoChange)
+    }
+
+    fn half_focalize(&mut self, window: WindowRef, half_focalize: Option<bool>) -> TMResult {
+        let e = self.active_trees.find_mut(window)?;
+        let k = e.key;
+
+        if half_focalize.is_some_and(|f| f) || (half_focalize.is_none() && matches!(k.layer, ContainerLayer::Normal)) {
+            let mut new_tree = (*e.value).clone();
+            let mut leaves = e.value.leaves(0, None);
+            if leaves.len() < 2 {
+                return Ok(Success::NoChange);
+            }
+
+            leaves.sort_by(|a, b| a.viewbox.get_area().cmp(&b.viewbox.get_area()));
+            let biggest_leaf = match leaves.pop().ok_or(Error::Generic)? {
+                l if l.id == window => leaves.pop().ok_or(Error::Generic)?,
+                l => l,
+            };
+
+            for l in leaves.iter().filter(|l| l.id != window && l.id != biggest_leaf.id) {
+                new_tree.remove(l.id);
+                l.id.minimize();
+            }
+
+            self.activate_monitor_layer(k.monitor.clone(), ContainerLayer::HalfFocalized)?;
+            self.active_trees.insert(k.clone(), new_tree);
+            return Ok(Success::LayoutChanged);
+        } else if half_focalize.is_some_and(|f| !f)
+            || (half_focalize.is_none() && matches!(k.layer, ContainerLayer::HalfFocalized))
+        {
+            self.active_trees.get_mut(&k).ok_or(Error::Generic)?.clear();
+            self.activate_monitor_layer(k.monitor, ContainerLayer::Normal).ok();
+            return Ok(Success::LayoutChanged);
+        }
+
+        Ok(Success::NoChange)
     }
 
     fn find_neighbour(
@@ -206,37 +249,40 @@ impl TilesManagerInternalOperations for TilesManager {
         None
     }
 
-    fn swap_windows(&mut self, w1: WindowRef, w2: WindowRef) -> Result<(), Error> {
+    fn swap_windows(&mut self, w1: WindowRef, w2: WindowRef) -> TMResult {
         let src_k = self.active_trees.find(w1)?.key;
         let trg_k = self.active_trees.find(w2)?.key;
 
         if src_k == trg_k {
             let t = self.active_trees.get_mut(&src_k).ok_or(C_ERR)?;
             t.swap_ids(w1, w2);
+            if src_k.layer.is_focalized() {
+                self.inactive_trees.get_normal_mut(&src_k.into())?.swap_ids(w1, w2);
+            }
         } else {
             let t = self.active_trees.get_mut(&src_k).ok_or(C_ERR)?;
             t.replace_id(w1, w2);
-            if src_k.layer == ContainerLayer::Focalized {
+            if src_k.layer.is_focalized() {
                 self.inactive_trees.get_normal_mut(&src_k.into())?.replace_id(w1, w2);
             }
 
             let t = self.active_trees.get_mut(&trg_k).ok_or(C_ERR)?;
             t.replace_id(w2, w1);
-            if trg_k.layer == ContainerLayer::Focalized {
+            if trg_k.layer.is_focalized() {
                 self.inactive_trees.get_normal_mut(&trg_k.into())?.replace_id(w2, w1);
             }
         };
 
-        Ok(())
+        Ok(Success::LayoutChanged)
     }
 
-    fn resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
+    fn resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> TMResult {
         let tile_state = self.get_window_state(win)?;
         if matches!(
             tile_state,
             WindowTileState::Floating | WindowTileState::Maximized | WindowTileState::Focalized
         ) {
-            return Ok(());
+            return Ok(Success::NoChange);
         }
 
         let (resize_w, resize_h) = (delta.2 != 0, delta.3 != 0);
@@ -282,19 +328,19 @@ impl TilesManagerInternalOperations for TilesManager {
             t.resize_ancestor(center, (center.0, y), growth, CLAMP_VALUES);
         }
 
-        Ok(())
+        Ok(Success::LayoutChanged)
     }
 
-    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> Result<(), Error> {
+    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult {
         let tile_state = self.get_window_state(win)?;
         if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
-            return Ok(());
+            return Ok(Success::NoChange);
         }
 
         let src_k = self.active_trees.find(win)?.key;
         let trg_k = self.active_trees.find_at(point)?.key;
         if src_k == trg_k {
-            return Ok(());
+            return Ok(Success::NoChange);
         }
 
         self.restore_monitor(&src_k)?;
@@ -307,7 +353,7 @@ impl TilesManagerInternalOperations for TilesManager {
             false => trg.insert(win),
         }
 
-        Ok(())
+        Ok(Success::LayoutChanged)
     }
 }
 

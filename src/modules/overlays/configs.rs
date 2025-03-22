@@ -45,6 +45,12 @@ pub struct OverlaysModuleConfigs {
         deserialize_with = "deserialize_floating"
     )]
     floating: ExtOverlayParams,
+
+    #[serde(
+        default = "ExtOverlayParams::default_half_focalized",
+        deserialize_with = "deserialize_half_focalized"
+    )]
+    half_focalized: ExtOverlayParams,
 }
 
 impl Default for OverlaysModuleConfigs {
@@ -60,6 +66,7 @@ impl Default for OverlaysModuleConfigs {
             inactive: ExtOverlayParams::default_inactive(),
             focalized: ExtOverlayParams::default_focalized(),
             floating: ExtOverlayParams::default_floating(),
+            half_focalized: ExtOverlayParams::default_half_focalized(),
         }
     }
 }
@@ -93,7 +100,8 @@ impl OverlaysModuleConfigs {
         match tile_state {
             WindowTileState::Focalized => self.get_focalized(),
             WindowTileState::Floating => self.get_floating(),
-            _ => None,
+            WindowTileState::HalfFocalized => self.get_half_focalized(),
+            WindowTileState::Normal | WindowTileState::Maximized => None,
         }
     }
 
@@ -108,6 +116,14 @@ impl OverlaysModuleConfigs {
     pub(crate) fn get_focalized(&self) -> Option<OverlayParams> {
         let overlay_params = self.create_overlay_params(&self.focalized);
         match &self.focalized.enabled {
+            true => Some(overlay_params),
+            false => None,
+        }
+    }
+
+    pub(crate) fn get_half_focalized(&self) -> Option<OverlayParams> {
+        let overlay_params = self.create_overlay_params(&self.half_focalized);
+        match &self.half_focalized.enabled {
             true => Some(overlay_params),
             false => None,
         }
@@ -132,7 +148,11 @@ impl OverlaysModuleConfigs {
     }
 
     pub(crate) fn is_enabled(&self) -> bool {
-        self.active.enabled || self.inactive.enabled || self.focalized.enabled
+        self.active.enabled
+            || self.inactive.enabled
+            || self.focalized.enabled
+            || self.floating.enabled
+            || self.half_focalized.enabled
     }
 }
 
@@ -169,6 +189,10 @@ impl ExtOverlayParams {
     pub(crate) fn default_floating() -> ExtOverlayParams {
         ExtOverlayParams::new(true, Color::solid(220, 198, 224))
     }
+
+    fn default_half_focalized() -> ExtOverlayParams {
+        ExtOverlayParams::new(true, Color::solid(220, 242, 215))
+    }
 }
 
 fn deserialize_active<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
@@ -197,6 +221,13 @@ where
     D: serde::Deserializer<'de>,
 {
     deserialize_overlay_params(de, ExtOverlayParams::default_floating())
+}
+
+fn deserialize_half_focalized<'de, D>(de: D) -> Result<ExtOverlayParams, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    deserialize_overlay_params(de, ExtOverlayParams::default_half_focalized())
 }
 
 fn deserialize_overlay_params<'de, D>(de: D, base: ExtOverlayParams) -> Result<ExtOverlayParams, D::Error>

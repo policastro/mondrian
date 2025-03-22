@@ -1,7 +1,6 @@
 use super::configs::TilesManagerConfig;
 use super::error::TilesManagerError;
 use super::operations::TilesManagerInternalOperations;
-use super::public::FocusHistory;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
@@ -11,6 +10,7 @@ use crate::modules::tiles_manager::lib::containers::keys::ContainerKey;
 use crate::modules::tiles_manager::lib::containers::keys::CrossLayerContainerKey;
 use crate::modules::tiles_manager::lib::containers::layer::ContainerLayer;
 use crate::modules::tiles_manager::lib::containers::Containers;
+use crate::modules::tiles_manager::lib::focus_history::FocusHistory;
 use crate::modules::tiles_manager::lib::utils::get_current_time_ms;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
 use crate::win32::api::monitor::enum_display_monitors;
@@ -164,6 +164,10 @@ impl TilesManagerBase for TilesManager {
         self.active_trees.iter_mut().for_each(|(k, c)| {
             let (border_pad, tile_pad) = match k.layer {
                 ContainerLayer::Focalized => (self.config.get_focalized_padding(&k.monitor), (0, 0)),
+                ContainerLayer::HalfFocalized => (
+                    self.config.get_half_focalized_borders_pad(&k.monitor),
+                    self.config.get_half_focalized_tiles_pad_xy(&k.monitor),
+                ),
                 ContainerLayer::Normal => (
                     self.config.get_borders_padding(&k.monitor),
                     self.config.get_tiles_padding_xy(&k.monitor),
@@ -203,6 +207,7 @@ impl TilesManager {
         let key = self.active_trees.find(window).map(|e| e.key)?;
         match key.layer {
             ContainerLayer::Focalized => Ok(WindowTileState::Focalized),
+            ContainerLayer::HalfFocalized => Ok(WindowTileState::HalfFocalized),
             ContainerLayer::Normal => Ok(WindowTileState::Normal),
         }
     }
@@ -219,10 +224,12 @@ impl TilesManager {
             .flat_map(|m| {
                 let layout = self.config.get_layout_strategy(m.id.as_str());
                 let t1 = WinTree::new((*m).clone().into(), layout.clone());
-                let t2 = WinTree::new((*m).clone().into(), layout);
+                let t2 = WinTree::new((*m).clone().into(), layout.clone());
+                let t3 = WinTree::new((*m).clone().into(), layout);
                 [
                     (ContainerKey::normal(vd_id, m.id.clone()), t1, curr_time),
                     (ContainerKey::focalized(vd_id, m.id.clone()), t2, 0),
+                    (ContainerKey::half_focalized(vd_id, m.id.clone()), t3, 0),
                 ]
             })
             .for_each(|(k, v, ts)| {
@@ -293,7 +300,7 @@ impl TilesManager {
     }
 
     pub fn restore_monitor(&mut self, key: &CrossLayerContainerKey) -> Result<(), Error> {
-        if matches!(key.layer, ContainerLayer::Focalized) {
+        if key.layer.is_focalized() {
             self.active_trees
                 .get_mut(key)
                 .ok_or(Error::ContainerNotFound { refresh: false })?

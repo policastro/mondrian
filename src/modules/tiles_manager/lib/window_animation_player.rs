@@ -149,7 +149,7 @@ impl WindowAnimationPlayer {
                 let complete_frac = (passed as f32 / duration as f32).clamp(0.0, 1.0);
                 let res = Self::animate_frame(&wins_info, &animation, complete_frac, frame_duration, &set_pos_flags);
                 if let Err(win) = res {
-                    log::error!("Failed to animate window {:?}", win);
+                    log::warn!("Failed to animate window {:?}", win);
                     (on_error)();
                     return;
                 }
