@@ -1,3 +1,4 @@
+use crate::app::app_lock::AppLock;
 use crate::app::assets::Asset;
 use crate::app::cli_args::CliArgs;
 use crate::app::configs::AppConfigs;
@@ -34,6 +35,14 @@ pub fn main() {
         args.is_file_error_enabled(),
         args.get_log_level(),
     );
+
+    let _app_lock = match AppLock::init() {
+        Ok(v) => v,
+        Err(_) => {
+            log::error!("Mondrian is already running!");
+            std::process::exit(1);
+        }
+    };
 
     let cfg_file = dirs::home_dir()
         .expect("Failed to get home dir")

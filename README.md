@@ -90,7 +90,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `layout.paddings.borders`                 | Padding between border and tiles (in px)                                                                                       | 0 - 100                                                                                                                  | 18                                 |
 | `layout.half_focalized_paddings.tiles`    | Padding between tiles for half-focalized windows (in px)                                                                       | 0 - 100                                                                                                                  | 12                                 |
 | `layout.half_focalized_paddings.borders`  | Padding between border and tiles for half-focalized windows (in px)                                                            | 0 - 100                                                                                                                  | 18                                 |
-| `layout.focalized_paddings`               | Padding between border and focalized window (in px)                                                                            | 0 - 120                                                                                                                  | 8                                  |
+| `layout.focalized_padding`                | Padding between border and focalized window (in px)                                                                            | 0 - 120                                                                                                                  | 8                                  |
 | `layout.strategy.golden_ratio.ratio`      | The ratio of the first split                                                                                                   | 10 - 90                                                                                                                  | 50                                 |
 | `layout.strategy.golden_ratio.clockwise`  | Places the windows clockwise or counterclockwise                                                                               | `true`, `false`                                                                                                          | `true`                             |
 | `layout.strategy.golden_ratio.vertical`   | If true, the layout will be vertical                                                                                           | `true`, `false`                                                                                                          | `false`                            |
@@ -251,10 +251,10 @@ You can override some configuration for each monitor with the `monitors` option:
 ```toml
 # with this syntax
 [monitors."Monitor 1 name"]
-...
+# ...
 
 [monitors."Monitor 2 name"]
-...
+# ...
 
 # or with this one
 [monitors]

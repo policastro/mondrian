@@ -1,3 +1,4 @@
+pub mod app_lock;
 pub mod assets;
 pub mod cli_args;
 pub mod configs;

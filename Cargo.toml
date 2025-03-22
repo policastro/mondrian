@@ -60,6 +60,8 @@ features = [
     "Win32_Graphics_Dwm",
     "Win32_UI_HiDpi",
     "Win32_System_RemoteDesktop",
+    "Win32_Storage_FileSystem",
+    "Win32_Security",
 ]
 
 
