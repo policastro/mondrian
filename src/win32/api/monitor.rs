@@ -10,6 +10,7 @@ use windows::Win32::Graphics::Gdi::MONITORINFOEXW;
 pub struct Monitor {
     pub handle: isize,
     pub id: String,
+    pub hw_id: String,
     pub primary: bool,
     pub resolution: (i32, i32),
     pub workspace: (i32, i32),
@@ -36,6 +37,12 @@ pub fn enum_display_monitors() -> Vec<Monitor> {
             LPARAM(&mut monitors as *mut Vec<Monitor> as isize),
         );
     }
+
+    monitors.sort_by(|a, b| a.hw_id.cmp(&b.hw_id));
+    monitors
+        .iter_mut()
+        .enumerate()
+        .for_each(|(i, m)| m.id = format!("MONITOR{}", i + 1));
 
     monitors
 }

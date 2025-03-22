@@ -234,10 +234,10 @@ To understand how to exclude specific windows, you can trigger the `dumpstateinf
 
 🗔 Currently managed windows
    ▸ Window { hwnd: 12345, exe: "app1.exe", class: "ClassName1", style: "00000000", ... }
-      ▸ Monitor: DISPLAY1
+      ▸ Monitor: MONITOR1
       ▸ State: Normal
    ▸ Window { hwnd: 54321, exe: "app2.exe", class: "ClassName2", style: "00000000", ... }
-      ▸ Monitor: DISPLAY2
+      ▸ Monitor: MONITOR2
       ▸ State: Floating
    ...
 
@@ -282,8 +282,8 @@ To find the name of the monitors, you can start the application with the `--dump
 ...
 
 🖥️ Monitors
-   ▸ Monitor { handle: 1234567, id: "DISPLAY1", primary: true, ... }
-   ▸ Monitor { handle: 7654321, id: "DISPLAY2", primary: false, ... }
+   ▸ Monitor { handle: 1234567, id: "MONITOR1", primary: true, ... }
+   ▸ Monitor { handle: 7654321, id: "MONITOR2", primary: false, ... }
 
 ...
 ```
@@ -291,10 +291,10 @@ To find the name of the monitors, you can start the application with the `--dump
 The `id` field is the name of the monitor, which you can use in the `monitors` option:
 
 ```toml
-[monitors."DISPLAY1"]
+[monitors."MONITOR1"]
 layout.tiling_strategy = "horizontal"
 
-[monitors."DISPLAY2"]
+[monitors."MONITOR2"]
 layout.paddings.borders = 12
 ```
 

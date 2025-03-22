@@ -1,12 +1,15 @@
 use crate::win32::api::monitor::{get_monitor_info, Monitor};
 use widestring::U16CString;
-use windows::Win32::{
-    Foundation::{LPARAM, RECT},
-    Graphics::Gdi::{HDC, HMONITOR, MONITORINFOEXW},
-    UI::WindowsAndMessaging::MONITORINFOF_PRIMARY,
+use windows::{
+    core::PCWSTR,
+    Win32::{
+        Foundation::{LPARAM, RECT},
+        Graphics::Gdi::{EnumDisplayDevicesW, DISPLAY_DEVICEW, HDC, HMONITOR, MONITORINFOEXW},
+        UI::WindowsAndMessaging::{EDD_GET_DEVICE_INTERFACE_NAME, MONITORINFOF_PRIMARY},
+    },
 };
 
-pub unsafe extern "system" fn enum_monitors_callback(
+pub(crate) unsafe extern "system" fn enum_monitors_callback(
     monitor: HMONITOR,
     _hdc: HDC,
     lprc_monitor: *mut RECT,
@@ -14,11 +17,11 @@ pub unsafe extern "system" fn enum_monitors_callback(
 ) -> windows::Win32::Foundation::BOOL {
     let monitors = unsafe { &mut *(data.0 as *mut Vec<Monitor>) };
     let info: MONITORINFOEXW = get_monitor_info(monitor);
-    let device_name = unsafe { U16CString::from_ptr_str(info.szDevice.as_ptr()).to_string_lossy() };
 
     monitors.push(Monitor {
         handle: monitor.0 as isize,
-        id: device_name.strip_prefix(r"\\.\").unwrap_or_default().to_string(),
+        id: String::default(), // NOTE: will be assigned later based on `hw_id`
+        hw_id: get_monitor_hw_id(info.szDevice.as_ptr()).unwrap_or_default(),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
         resolution: (
             info.monitorInfo.rcMonitor.right - info.monitorInfo.rcMonitor.left,
@@ -34,4 +37,25 @@ pub unsafe extern "system" fn enum_monitors_callback(
         },
     });
     true.into()
+}
+
+fn get_monitor_hw_id(device_name_ptr: *const u16) -> Option<String> {
+    let mut disp_device_id = DISPLAY_DEVICEW {
+        cb: std::mem::size_of::<DISPLAY_DEVICEW>() as u32,
+        ..unsafe { std::mem::zeroed() }
+    };
+
+    let res = unsafe {
+        EnumDisplayDevicesW(
+            PCWSTR(device_name_ptr),
+            0,
+            &mut disp_device_id as _,
+            EDD_GET_DEVICE_INTERFACE_NAME,
+        )
+    };
+
+    match res.as_bool() {
+        true => Some(unsafe { U16CString::from_ptr_str(disp_device_id.DeviceID.as_ptr()) }.to_string_lossy()),
+        false => None,
+    }
 }
