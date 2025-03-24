@@ -384,7 +384,7 @@
                 }
               ]
             },
-            "half-focalized": {
+            "half_focalized": {
               "allOf": [
                 {
                   "$ref": "#/definitions/specificOverlaySettings"
