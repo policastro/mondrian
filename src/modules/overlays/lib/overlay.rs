@@ -65,11 +65,14 @@ impl Overlay {
     }
 
     pub fn destroy(&mut self) {
-        if let Some(handle) = self.get_overlay_handle() {
-            post_empty_message(handle, WM_QUIT);
-        }
-
         if let Some(th) = self.main_thread.take() {
+            // INFO: it takes some time to create the overlay
+            while self.get_overlay_handle().is_none() {
+                thread::sleep(std::time::Duration::from_millis(100));
+            }
+            if let Some(handle) = self.get_overlay_handle() {
+                post_empty_message(handle, WM_QUIT);
+            }
             th.join().unwrap();
         }
     }

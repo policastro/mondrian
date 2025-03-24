@@ -64,7 +64,6 @@ pub mod overlay {
     use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
     use windows::Win32::UI::WindowsAndMessaging::DefWindowProcW;
     use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
-    use windows::Win32::UI::WindowsAndMessaging::PostQuitMessage;
     use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::SetWindowPos;
     use windows::Win32::UI::WindowsAndMessaging::UpdateLayeredWindow;
@@ -76,9 +75,9 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::SWP_NOZORDER;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNOACTIVATE;
     use windows::Win32::UI::WindowsAndMessaging::ULW_ALPHA;
+    use windows::Win32::UI::WindowsAndMessaging::WM_CLOSE;
     use windows::Win32::UI::WindowsAndMessaging::WM_CREATE;
     use windows::Win32::UI::WindowsAndMessaging::WM_DESTROY;
-    use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
     use windows::Win32::UI::WindowsAndMessaging::WM_SIZE;
     use windows::Win32::UI::WindowsAndMessaging::WM_USER;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_LAYERED;
@@ -182,12 +181,11 @@ pub mod overlay {
                 SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(proc_state) as isize);
                 LRESULT(0)
             }
-            WM_DESTROY | WM_QUIT => {
+            WM_DESTROY | WM_CLOSE => {
                 let proc_params_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut OverlayProcState;
                 if !proc_params_ptr.is_null() {
                     drop(Box::from_raw(proc_params_ptr));
                 }
-                PostQuitMessage(0);
                 LRESULT(0)
             }
             _ => DefWindowProcW(hwnd, msg, wparam, lparam),
