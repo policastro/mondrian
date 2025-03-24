@@ -89,15 +89,13 @@ impl WindowAnimationPlayer {
             t.join().unwrap();
         }
 
-        if let Some(hwnd) = self.previous_foreground.take() {
-            hwnd.focus();
-        }
+        self.previous_foreground.take().inspect(|w| w.focus());
     }
 
-    pub fn play(&mut self, animation: Option<WindowAnimation>) {
+    pub fn play(&mut self, animation: Option<WindowAnimation>, win_in_focus: Option<WindowRef>) {
         self.cancel();
-        self.previous_foreground = get_foreground_window()
-            .map(|fw| fw.into())
+        self.previous_foreground = win_in_focus
+            .or_else(|| get_foreground_window().map(|fw| fw.into()))
             .filter(|fw| self.windows.iter().any(|(w, _)| w == fw));
 
         let wins = self.windows.clone();
@@ -131,6 +129,7 @@ impl WindowAnimationPlayer {
         let on_start = self.on_start.clone();
         let on_error = self.on_error.clone();
         let on_complete = self.on_complete.clone();
+        let prev_focus = self.previous_foreground;
 
         self.running.store(true, Ordering::Release);
 
@@ -156,6 +155,7 @@ impl WindowAnimationPlayer {
             }
 
             Self::move_windows(&wins);
+            prev_focus.inspect(|w| w.focus());
             running.store(false, Ordering::Release);
             (on_complete)();
         }));

@@ -84,7 +84,7 @@ impl TilesManagerModule {
         let mut tm = TilesManager::new(Some(tm_configs), on_update_start, on_update_error, on_update_complete);
         let _ = tm.init();
         let _ = tm.add_open_windows();
-        let _ = tm.update_layout(true);
+        let _ = tm.update_layout(true, None);
 
         let configs = self.configs.clone();
         let tx = self.bus_tx.clone();
@@ -270,13 +270,13 @@ fn handle_tm(
             .unwrap();
             Ok(())
         }
-        TMCommand::Update(animate) => tm.update_layout(animate),
+        TMCommand::Update(animate) => tm.update_layout(animate, None),
         TMCommand::Quit => return false,
     };
 
     match res {
         Err(error) if error.require_refresh() => {
-            tm.update_layout(true).ok();
+            tm.update_layout(true, None).ok();
             log::warn!("TilesManager refreshed due to error: {:?}", error)
         }
         Err(error) => log::log!(error.get_log_level(), "{}", error.get_info()),

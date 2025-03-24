@@ -82,35 +82,35 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
 impl TilesManagerOperations for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok())? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
         }
     }
 
     fn on_close(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::remove(self, win)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::add(self, win, None)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
         }
     }
 
     fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error> {
         match TilesManagerInternalOperations::remove(self, win)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
 
     fn on_resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
         match self.resize(win, delta)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
@@ -133,7 +133,7 @@ impl TilesManagerOperations for TilesManager {
         let src_k = self.active_trees.find(src_win)?.key;
         let trg_k = match self.active_trees.find_at(target) {
             Ok(e) => e.key,
-            Err(_) => return self.update_layout(true), // INFO: update if no container at target
+            Err(_) => return self.update_layout(true, None), // INFO: update if no container at target
         };
         if src_k == trg_k {
             // If it is in the same monitor
@@ -165,12 +165,12 @@ impl TilesManagerOperations for TilesManager {
             tree.value.switch_subtree_orientations(target);
         }
 
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {
         match self.maximize(window, maximize)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
@@ -188,7 +188,7 @@ impl TilesManagerOperations for TilesManager {
         }
 
         self.create_inactive_vd_containers(desktop)?;
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn on_vd_destroyed(&mut self, destroyed: Desktop, fallback: Desktop) -> Result<(), Error> {
@@ -199,7 +199,7 @@ impl TilesManagerOperations for TilesManager {
             return self.on_vd_changed(destroyed, fallback);
         }
 
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn on_vd_changed(&mut self, _previous: Desktop, current: Desktop) -> Result<(), Error> {
@@ -215,7 +215,7 @@ impl TilesManagerOperations for TilesManager {
 
         self.activate_vd_containers(current, None)?;
         self.add_open_windows().ok();
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn on_workarea_changed(&mut self) -> Result<(), Error> {
@@ -232,7 +232,7 @@ impl TilesManagerOperations for TilesManager {
                 .for_each(|(_, c)| c.0.set_area(Area::from(m.clone())));
         });
         self.managed_monitors = monitors;
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn swap_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
@@ -247,12 +247,12 @@ impl TilesManagerOperations for TilesManager {
             set_cursor_pos(x, y);
         }
 
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error> {
         match self.release(get_foreground().ok_or(Error::NoWindow)?, release)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
@@ -274,7 +274,7 @@ impl TilesManagerOperations for TilesManager {
             set_cursor_pos(x, y);
         }
 
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn resize_focused(&mut self, direction: Direction, size: u8) -> Result<(), Error> {
@@ -304,7 +304,7 @@ impl TilesManagerOperations for TilesManager {
 
         let area = orig_area.pad(padding.0, padding.1);
         match self.resize(curr, orig_area.get_shift(&area))? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
@@ -317,7 +317,7 @@ impl TilesManagerOperations for TilesManager {
     fn focalize_focused(&mut self) -> Result<(), Error> {
         let curr_win = get_foreground().ok_or(Error::NoWindow)?;
         match self.focalize(curr_win, None)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, Some(curr_win)),
             _ => Ok(()),
         }
     }
@@ -325,7 +325,7 @@ impl TilesManagerOperations for TilesManager {
     fn half_focalize_focused(&mut self) -> Result<(), Error> {
         let curr_win = get_foreground().ok_or(Error::NoWindow)?;
         match self.half_focalize(curr_win, None)? {
-            Success::LayoutChanged => self.update_layout(true),
+            Success::LayoutChanged => self.update_layout(true, Some(curr_win)),
             _ => Ok(()),
         }
     }
@@ -381,7 +381,7 @@ impl TilesManagerOperations for TilesManager {
         next_win.restore(true);
         main_win.minimize();
 
-        self.update_layout(false)
+        self.update_layout(false, Some(*next_win))
     }
 
     fn invert_orientation(&mut self) -> Result<(), Error> {
@@ -390,7 +390,7 @@ impl TilesManagerOperations for TilesManager {
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
         t.switch_subtree_orientations(center);
 
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn change_focus(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
@@ -433,7 +433,7 @@ impl TilesManagerOperations for TilesManager {
             set_cursor_pos(x, y);
         }
 
-        self.update_layout(true)
+        self.update_layout(true, Some(curr))
     }
 
     fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error> {
@@ -473,7 +473,7 @@ impl TilesManagerOperations for TilesManager {
             self.inactive_trees.set_layers_area(&k, new_area);
         }
 
-        self.update_layout(true)
+        self.update_layout(true, None)
     }
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error> {

@@ -56,8 +56,9 @@ pub trait TilesManagerBase {
     /// Initialize the tiles manager. It must be called before any other operation.
     fn init(&mut self) -> Result<(), Error>;
 
-    /// Updates the tiles layout of all active containers
-    fn update_layout(&mut self, animate: bool) -> Result<(), Error>;
+    /// Updates the tiles layout of all active containers.
+    /// If `win_in_focus` is `Some`, focus will be moved to that window.
+    fn update_layout(&mut self, animate: bool, win_in_focus: Option<WindowRef>) -> Result<(), Error>;
 
     /// Get the state of a managed window
     /// Returns `None` if the window is not managed (i.e. not in any active container)
@@ -155,7 +156,7 @@ impl TilesManagerBase for TilesManager {
         self.activate_vd_containers(current_vd, Some(ContainerLayer::Normal))
     }
 
-    fn update_layout(&mut self, animate: bool) -> Result<(), Error> {
+    fn update_layout(&mut self, animate: bool, win_in_focus: Option<WindowRef>) -> Result<(), Error> {
         if self.pause_updates {
             return Ok(());
         }
@@ -182,7 +183,7 @@ impl TilesManagerBase for TilesManager {
             let _ = c.update(border_pad, tile_pad, anim_player, &self.maximized_wins);
         });
         let animation = self.config.get_animations().filter(|_| animate);
-        anim_player.play(animation);
+        anim_player.play(animation, win_in_focus);
         Ok(())
     }
 
