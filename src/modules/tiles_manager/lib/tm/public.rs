@@ -131,7 +131,10 @@ impl TilesManagerOperations for TilesManager {
         let trg_win = self.active_trees.find_leaf_at(target).map(|l| l.id);
 
         let src_k = self.active_trees.find(src_win)?.key;
-        let trg_k = self.active_trees.find_at(target)?.key;
+        let trg_k = match self.active_trees.find_at(target) {
+            Ok(e) => e.key,
+            Err(_) => return self.update_layout(true), // INFO: update if no container at target
+        };
         if src_k == trg_k {
             // If it is in the same monitor
             let t = self.active_trees.find_mut(src_win)?.value;
