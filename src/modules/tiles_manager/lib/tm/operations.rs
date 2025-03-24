@@ -120,9 +120,9 @@ impl TilesManagerInternalOperations for TilesManager {
         }
 
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
+            let monitor_area = self.active_trees.find(window)?.value.get_area();
             self.remove(window)?;
             self.floating_wins.insert(window);
-            let monitor_area = self.active_trees.find(window)?.value.get_area();
             let area = get_floating_win_area(&monitor_area, &window, &self.config.floating_wins)?;
             let is_topmost = self.config.floating_wins.topmost;
             self.animation_player.queue(window, area, is_topmost);

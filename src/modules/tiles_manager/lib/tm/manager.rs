@@ -42,19 +42,16 @@ pub struct TilesManager {
 
 pub trait TilesManagerBase {
     /// Creates a new [`TilesManager`].
-    fn new<S, E, C>(
+    fn create<S, E, C>(
         config: Option<TilesManagerConfig>,
         on_update_start: S,
         on_update_error: E,
         on_update_complete: C,
-    ) -> Self
+    ) -> Result<TilesManager, Error>
     where
         S: Fn(HashSet<WindowRef>) + Sync + Send + 'static,
         E: Fn() + Sync + Send + 'static,
         C: Fn() + Sync + Send + 'static;
-
-    /// Initialize the tiles manager. It must be called before any other operation.
-    fn init(&mut self) -> Result<(), Error>;
 
     /// Updates the tiles layout of all active containers.
     /// If `win_in_focus` is `Some`, focus will be moved to that window.
@@ -75,12 +72,12 @@ pub trait TilesManagerBase {
 }
 
 impl TilesManagerBase for TilesManager {
-    fn new<S, E, C>(
+    fn create<S, E, C>(
         config: Option<TilesManagerConfig>,
         on_update_start: S,
         on_update_error: E,
         on_update_complete: C,
-    ) -> Self
+    ) -> Result<TilesManager, Error>
     where
         S: Fn(HashSet<WindowRef>) + Sync + Send + 'static,
         E: Fn() + Sync + Send + 'static,
@@ -96,7 +93,7 @@ impl TilesManagerBase for TilesManager {
             on_update_complete,
         );
 
-        TilesManager {
+        let mut tm = TilesManager {
             pause_updates: false,
             floating_wins: HashSet::new(),
             maximized_wins: HashSet::new(),
@@ -108,7 +105,15 @@ impl TilesManagerBase for TilesManager {
             managed_monitors: Vec::new(),
             config,
             animation_player,
-        }
+        };
+
+        let current_vd = get_current_desktop().map_err(Error::VDError)?;
+        tm.inactive_trees.clear();
+        tm.managed_monitors = enum_display_monitors();
+        tm.create_inactive_vd_containers(current_vd)?;
+        tm.activate_vd_containers(current_vd, Some(ContainerLayer::Normal))?;
+
+        Ok(tm)
     }
 
     fn add_open_windows(&mut self) -> Result<(), Error> {
@@ -146,14 +151,6 @@ impl TilesManagerBase for TilesManager {
 
     fn cancel_animation(&mut self) {
         self.animation_player.cancel();
-    }
-
-    fn init(&mut self) -> Result<(), Error> {
-        let current_vd = get_current_desktop().map_err(Error::VDError)?;
-        self.inactive_trees.clear();
-        self.managed_monitors = enum_display_monitors();
-        self.create_inactive_vd_containers(current_vd)?;
-        self.activate_vd_containers(current_vd, Some(ContainerLayer::Normal))
     }
 
     fn update_layout(&mut self, animate: bool, win_in_focus: Option<WindowRef>) -> Result<(), Error> {

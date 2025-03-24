@@ -81,10 +81,16 @@ impl TilesManagerModule {
             app_tx.send(MondrianMessage::CoreUpdateComplete).unwrap();
         };
 
-        let mut tm = TilesManager::new(Some(tm_configs), on_update_start, on_update_error, on_update_complete);
-        let _ = tm.init();
-        let _ = tm.add_open_windows();
-        let _ = tm.update_layout(true, None);
+        let mut tm = match TilesManager::create(Some(tm_configs), on_update_start, on_update_error, on_update_complete)
+        {
+            Ok(tm) => tm,
+            Err(error) => {
+                log::error!("TilesManager creation error: {:?}", error);
+                return;
+            }
+        };
+        tm.add_open_windows().ok();
+        tm.update_layout(true, None).ok();
 
         let configs = self.configs.clone();
         let tx = self.bus_tx.clone();
