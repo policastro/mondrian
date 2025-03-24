@@ -213,7 +213,7 @@ impl WindowAnimationPlayer {
             .filter(|(w, i)| w.get_area().is_some_and(|a| a != i.target_area))
             .for_each(|(window, info)| {
                 let (pos, size) = (info.target_area.get_origin(), info.target_area.get_size());
-                let _ = window.resize_and_move(pos, size, true, flags);
+                let _ = window.resize_and_move(pos, size, false, flags);
                 let _ = window.set_topmost(info.topmost);
                 let _ = window.redraw();
             });
