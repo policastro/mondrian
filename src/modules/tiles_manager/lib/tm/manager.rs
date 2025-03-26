@@ -1,4 +1,6 @@
 use super::configs::TilesManagerConfig;
+use super::floating::FloatingProperties;
+use super::floating::FloatingWindows;
 use super::operations::TilesManagerInternalOperations;
 use super::result::TilesManagerError;
 use crate::app::area_tree::tree::WinTree;
@@ -30,7 +32,7 @@ pub struct TilesManager {
     pub active_trees: HashMap<CrossLayerContainerKey, WinTree>,
     pub inactive_trees: HashMap<ContainerKey, (WinTree, u128)>,
     pub peeked_containers: HashMap<CrossLayerContainerKey, Area>,
-    pub floating_wins: HashSet<WindowRef>,
+    pub floating_wins: HashMap<WindowRef, FloatingProperties>,
     pub maximized_wins: HashSet<WindowRef>,
     pub pause_updates: bool,
     pub config: TilesManagerConfig,
@@ -59,7 +61,7 @@ pub trait TilesManagerBase {
 
     /// Get the state of a managed window
     /// Returns `None` if the window is not managed (i.e. not in any active container)
-    fn get_managed_windows(&self) -> HashMap<WindowRef, WindowTileState>;
+    fn get_visible_managed_windows(&self) -> HashMap<WindowRef, WindowTileState>;
 
     /// Add all open windows to the tiles manager
     fn add_open_windows(&mut self) -> Result<(), Error>;
@@ -95,7 +97,7 @@ impl TilesManagerBase for TilesManager {
 
         let mut tm = TilesManager {
             pause_updates: false,
-            floating_wins: HashSet::new(),
+            floating_wins: HashMap::new(),
             maximized_wins: HashSet::new(),
             inactive_trees: HashMap::new(),
             active_trees: HashMap::new(),
@@ -136,7 +138,7 @@ impl TilesManagerBase for TilesManager {
         Ok(())
     }
 
-    fn get_managed_windows(&self) -> HashMap<WindowRef, WindowTileState> {
+    fn get_visible_managed_windows(&self) -> HashMap<WindowRef, WindowTileState> {
         let mut tiled: HashMap<WindowRef, WindowTileState> = self
             .active_trees
             .values()
@@ -144,7 +146,12 @@ impl TilesManagerBase for TilesManager {
             .filter_map(|win| self.get_window_state(win).map(|state| (win, state)).ok())
             .collect();
 
-        tiled.extend(self.floating_wins.iter().map(|w| (*w, WindowTileState::Floating)));
+        let floating = self
+            .floating_wins
+            .enabled_keys()
+            .map(|w| (w, WindowTileState::Floating));
+
+        tiled.extend(floating);
 
         tiled
     }
@@ -193,8 +200,10 @@ impl TilesManagerBase for TilesManager {
 }
 
 impl TilesManager {
+    /// Returns the state of a managed window, only if it's in one of the active containers.
+    /// If a floating window is present (even if minimized), returns [`WindowTileState::Floating`].
     pub fn get_window_state(&self, window: WindowRef) -> Result<WindowTileState, Error> {
-        if self.floating_wins.contains(&window) {
+        if self.floating_wins.contains_key(&window) {
             return Ok(WindowTileState::Floating);
         }
 

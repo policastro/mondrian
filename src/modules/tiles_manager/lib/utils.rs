@@ -1,3 +1,5 @@
+use winvd::is_window_on_current_desktop;
+
 use super::tm::result::TilesManagerError;
 use crate::app::configs::general::FloatingWinsConfigs;
 use crate::app::configs::general::FloatingWinsSizeStrategy;
@@ -6,6 +8,10 @@ use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use std::time::SystemTime;
+
+pub(crate) fn is_on_current_vd(window: &WindowRef) -> Result<bool, TilesManagerError> {
+    is_window_on_current_desktop((*window).into()).map_err(TilesManagerError::VDError)
+}
 
 pub(crate) fn get_foreground() -> Option<WindowRef> {
     get_foreground_window().map(WindowRef::new)

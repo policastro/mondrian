@@ -1,3 +1,4 @@
+use super::floating::FloatingWindows;
 use super::floating::TilesManagerFloating;
 use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
@@ -15,12 +16,14 @@ use crate::modules::tiles_manager::lib::containers::layer::ContainerLayer;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
+use crate::modules::tiles_manager::lib::utils::is_on_current_vd;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
+use std::collections::HashSet;
 use winvd::get_current_desktop;
 use winvd::Desktop;
 
@@ -84,6 +87,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
 
 impl TilesManagerOperations for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
+        self.floating_wins.set_properties(&win, false, false);
         match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok())? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
@@ -91,6 +95,14 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn on_close(&mut self, win: WindowRef) -> Result<(), Error> {
+        self.floating_wins.set_minimized(&win, false);
+
+        // INFO: When floating windows are pinned to all VD, they remain locked (because no
+        // open/restore event is fired). In this case, we need to unlock them manually.
+        if self.floating_wins.locked(&win).unwrap_or(false) && is_on_current_vd(&win).unwrap_or(true) {
+            self.floating_wins.set_locked(&win, false);
+        }
+
         match TilesManagerInternalOperations::remove(self, win)? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
@@ -98,6 +110,7 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
+        self.floating_wins.set_properties(&win, false, false);
         match TilesManagerInternalOperations::add(self, win, None)? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
@@ -105,6 +118,7 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error> {
+        self.floating_wins.set_properties(&win, true, false);
         match TilesManagerInternalOperations::remove(self, win)? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
@@ -217,7 +231,17 @@ impl TilesManagerOperations for TilesManager {
         }
 
         self.activate_vd_containers(current, None)?;
+        self.floating_wins.set_all_locked(true);
         self.add_open_windows().ok();
+
+        // INFO: floating windows could be tiled in other VD
+        let floating_wins: HashSet<WindowRef> = self.floating_wins.keys().copied().collect();
+        floating_wins.iter().for_each(|w| {
+            let p = self.floating_wins.remove(w).unwrap();
+            self.remove(*w).ok();
+            self.floating_wins.insert(*w, p);
+        });
+
         self.update_layout(true, None)
     }
 
@@ -451,7 +475,7 @@ impl TilesManagerOperations for TilesManager {
         let tile_state = self.get_window_state(curr)?;
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
         if matches!(tile_state, WindowTileState::Floating) {
-            let wins = self.get_managed_windows();
+            let wins = self.get_visible_managed_windows();
             wins.iter()
                 .filter(|e| *e.0 != curr)
                 .filter_map(|e| e.0.get_area().map(|a| (e.0, a.get_center())))
@@ -461,7 +485,7 @@ impl TilesManagerOperations for TilesManager {
                 .focus();
         } else if !matches!(tile_state, WindowTileState::Maximized) {
             self.floating_wins
-                .iter()
+                .enabled_keys()
                 .filter_map(|w| w.get_area().map(|a| (w, a.get_center())))
                 .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
                 .ok_or(Error::NoWindow)?

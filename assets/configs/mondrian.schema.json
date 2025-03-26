@@ -550,13 +550,13 @@
           ]
         },
         {
-          "pattern": "^move (left|right|up|down) (4[0-9]|[5-9][0-9]|[1-9][0-9]{2}|1000)?$"
+          "pattern": "^move (left|right|up|down)( (4[0-9]|[5-9][0-9]|[1-9][0-9]{2}|1000))?$"
         },
         {
-          "pattern": "^moveinsert (left|right|up|down) (4[0-9]|[5-9][0-9]|[1-9][0-9]{2}|1000)?$"
+          "pattern": "^moveinsert (left|right|up|down)( (4[0-9]|[5-9][0-9]|[1-9][0-9]{2}|1000))?$"
         },
         {
-          "pattern": "^resize (left|right|up|down) (4[0-9]|[5-9][0-9]|[1-4][0-9]{2}|500) (4[0-9]|[5-9][0-9]|[1-4][0-9]{2}|500)?$"
+          "pattern": "^resize (left|right|up|down) (4[0-9]|[5-9][0-9]|[1-4][0-9]{2}|500)( (4[0-9]|[5-9][0-9]|[1-4][0-9]{2}|500))?$"
         },
         {
           "pattern": "^peek (left|right|up|down) (1[0-9]|[2-8][0-9]|90)$"

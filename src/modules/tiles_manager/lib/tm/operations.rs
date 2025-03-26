@@ -1,3 +1,5 @@
+use super::floating::FloatingProperties;
+use super::floating::FloatingWindows;
 use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
 use super::result::TilesManagerError;
@@ -94,7 +96,9 @@ impl TilesManagerInternalOperations for TilesManager {
         let tile_state = self.get_window_state(win)?;
 
         if matches!(tile_state, WindowTileState::Floating) {
-            self.floating_wins.remove(&win);
+            if self.floating_wins.can_be_closed(&win) {
+                self.floating_wins.remove(&win);
+            }
             return Ok(Success::NoChange);
         }
 
@@ -122,7 +126,7 @@ impl TilesManagerInternalOperations for TilesManager {
         if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
             let monitor_area = self.active_trees.find(window)?.value.get_area();
             self.remove(window)?;
-            self.floating_wins.insert(window);
+            self.floating_wins.insert(window, FloatingProperties::new());
             let area = get_floating_win_area(&monitor_area, &window, &self.config.floating_wins)?;
             let is_topmost = self.config.floating_wins.topmost;
             self.animation_player.queue(window, area, Some(is_topmost));

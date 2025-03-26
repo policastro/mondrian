@@ -210,7 +210,7 @@ fn handle_tm(
     configs: &CoreModuleConfigs,
     event: TMCommand,
 ) -> bool {
-    let prev_wins = tm.get_managed_windows();
+    let prev_wins = tm.get_visible_managed_windows();
     tm.check_for_vd_changes()
         .inspect_err(|m| log::trace!("VD changes check error: {m:?}"))
         .ok();
@@ -266,7 +266,7 @@ fn handle_tm(
         TMCommand::Amplify => tm.amplify_focused(configs.move_cursor_on_focus),
         TMCommand::CycleFocalized(next) => tm.cycle_focalized_wins(next, None),
         TMCommand::ListManagedWindows => {
-            let windows = tm.get_managed_windows();
+            let windows = tm.get_visible_managed_windows();
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
             Ok(())
         }
@@ -293,7 +293,7 @@ fn handle_tm(
     }
 
     if event.can_change_layout() {
-        let windows = tm.get_managed_windows();
+        let windows = tm.get_visible_managed_windows();
         if windows != prev_wins {
             tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
         }
@@ -305,7 +305,7 @@ fn handle_tm(
 fn get_info_entries(tm: &TilesManager) -> Vec<InfoEntry> {
     let monitors = enum_display_monitors();
     let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), m.workspace_area)).collect();
-    let windows = tm.get_managed_windows();
+    let windows = tm.get_visible_managed_windows();
     let windows_str = windows.iter().map(|w| (w.0.snapshot(), w.1)).map(|w| {
         let c = w.0.get_area().map(|a| a.get_center());
         let monitor = monitors_areas
