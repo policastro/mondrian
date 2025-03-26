@@ -1,7 +1,7 @@
-use super::error::TilesManagerError;
 use super::manager::TilesManager;
 use super::manager::TilesManagerBase;
-use super::success::TilesManagerSuccess;
+use super::result::TilesManagerError;
+use super::result::TilesManagerSuccess;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
@@ -50,7 +50,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
     /// If `free_move` is true, the window will be moved to the given position without following
     /// the layout strategy of the tile manager.
     /// If the target monitor is the same as the current monitor, the window will not be moved.
-    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult;
+    fn insert_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult;
 }
 
 const C_ERR: Error = Error::ContainerNotFound { refresh: false };
@@ -125,7 +125,7 @@ impl TilesManagerInternalOperations for TilesManager {
             self.floating_wins.insert(window);
             let area = get_floating_win_area(&monitor_area, &window, &self.config.floating_wins)?;
             let is_topmost = self.config.floating_wins.topmost;
-            self.animation_player.queue(window, area, is_topmost);
+            self.animation_player.queue(window, area, Some(is_topmost));
         } else {
             self.floating_wins.remove(&window);
             self.animation_player.dequeue(window);
@@ -331,7 +331,7 @@ impl TilesManagerInternalOperations for TilesManager {
         Ok(Success::LayoutChanged)
     }
 
-    fn move_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult {
+    fn insert_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult {
         let tile_state = self.get_window_state(win)?;
         if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
             return Ok(Success::NoChange);

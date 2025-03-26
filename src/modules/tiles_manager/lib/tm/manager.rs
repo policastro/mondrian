@@ -1,6 +1,6 @@
 use super::configs::TilesManagerConfig;
-use super::error::TilesManagerError;
 use super::operations::TilesManagerInternalOperations;
+use super::result::TilesManagerError;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
@@ -221,9 +221,9 @@ impl TilesManager {
             .iter()
             .flat_map(|m| {
                 let layout = self.config.get_layout_strategy(m.id.as_str());
-                let t1 = WinTree::new((*m).clone().into(), layout.clone());
-                let t2 = WinTree::new((*m).clone().into(), layout.clone());
-                let t3 = WinTree::new((*m).clone().into(), layout);
+                let t1 = WinTree::new(m.workspace_area, layout.clone());
+                let t2 = WinTree::new(m.workspace_area, layout.clone());
+                let t3 = WinTree::new(m.workspace_area, layout);
                 [
                     (ContainerKey::normal(vd_id, m.id.clone()), t1, curr_time),
                     (ContainerKey::focalized(vd_id, m.id.clone()), t2, 0),

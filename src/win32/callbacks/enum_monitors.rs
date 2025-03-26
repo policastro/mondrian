@@ -1,4 +1,7 @@
-use crate::win32::api::monitor::{get_monitor_info, Monitor};
+use crate::{
+    app::structs::area::Area,
+    win32::api::monitor::{get_monitor_info, Monitor},
+};
 use widestring::U16CString;
 use windows::{
     core::PCWSTR,
@@ -18,6 +21,23 @@ pub(crate) unsafe extern "system" fn enum_monitors_callback(
     let monitors = unsafe { &mut *(data.0 as *mut Vec<Monitor>) };
     let info: MONITORINFOEXW = get_monitor_info(monitor);
 
+    let offset = match lprc_monitor.as_ref() {
+        None => (0, 0),
+        Some(lprc_monitor) => (lprc_monitor.left, lprc_monitor.top),
+    };
+
+    let workspace = (
+        info.monitorInfo.rcWork.right - info.monitorInfo.rcWork.left,
+        info.monitorInfo.rcWork.bottom - info.monitorInfo.rcWork.top,
+    );
+
+    let workspace_area = Area::new(
+        offset.0,
+        offset.1,
+        u16::try_from(workspace.0).expect("Failed to convert i32 to u16"),
+        u16::try_from(workspace.1).expect("Failed to convert i32 to u16"),
+    );
+
     monitors.push(Monitor {
         handle: monitor.0 as isize,
         id: String::default(), // NOTE: will be assigned later based on `hw_id`
@@ -27,14 +47,9 @@ pub(crate) unsafe extern "system" fn enum_monitors_callback(
             info.monitorInfo.rcMonitor.right - info.monitorInfo.rcMonitor.left,
             info.monitorInfo.rcMonitor.bottom - info.monitorInfo.rcMonitor.top,
         ),
-        workspace: (
-            info.monitorInfo.rcWork.right - info.monitorInfo.rcWork.left,
-            info.monitorInfo.rcWork.bottom - info.monitorInfo.rcWork.top,
-        ),
-        offset: match lprc_monitor.as_ref() {
-            None => (0, 0),
-            Some(lprc_monitor) => (lprc_monitor.left, lprc_monitor.top),
-        },
+        workspace,
+        workspace_area,
+        offset,
     });
     true.into()
 }

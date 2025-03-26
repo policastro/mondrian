@@ -1,4 +1,4 @@
-use super::tm::error::TilesManagerError;
+use super::tm::result::TilesManagerError;
 use crate::app::configs::general::FloatingWinsConfigs;
 use crate::app::configs::general::FloatingWinsSizeStrategy;
 use crate::app::structs::area::Area;

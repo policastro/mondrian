@@ -1,6 +1,6 @@
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
-use crate::modules::tiles_manager::lib::tm::error::TilesManagerError;
+use crate::modules::tiles_manager::lib::tm::result::TilesManagerError;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -45,7 +45,7 @@ impl Container for WinTree {
                 borders.3.clamp(u16::MIN as i32, u16::MAX as i32) as i16,
             );
             let area = area.shift((-borders.0, -borders.1, borders.2 + borders.0, borders.3 + borders.1));
-            animation_player.queue(leaf.id, area, false);
+            animation_player.queue(leaf.id, area, Some(false));
         }
         Ok(())
     }

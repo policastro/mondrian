@@ -1,10 +1,10 @@
 use super::configs::CoreModuleConfigs;
 use super::lib::tm::command::TMCommand;
 use super::lib::tm::configs::TilesManagerConfig;
-use super::lib::tm::error::TilesManagerError;
 use super::lib::tm::manager::TilesManager;
 use super::lib::tm::manager::TilesManagerBase;
 use super::lib::tm::public::TilesManagerOperations;
+use super::lib::tm::result::TilesManagerError;
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::MoveSizeResult;
@@ -246,15 +246,18 @@ fn handle_tm(
             _ => Ok(()),
         },
         TMCommand::Focus(direction) => tm.change_focus(direction, configs.move_cursor_on_focus),
+        TMCommand::SwitchFocus => tm.switch_focus(),
         TMCommand::Minimize => tm.minimize_focused(),
-        TMCommand::Insert(direction) => tm.move_focused(direction, configs.move_cursor_on_focus),
-        TMCommand::Move(direction, insert_if_empty) => match tm.swap_focused(direction, configs.move_cursor_on_focus) {
-            Err(TilesManagerError::NoWindow) if insert_if_empty => {
-                tm.move_focused(direction, configs.move_cursor_on_focus)
+        TMCommand::Insert(direction) => tm.insert_focused(direction, configs.move_cursor_on_focus),
+        TMCommand::Move(direction, insert_if_empty, floating_inc) => {
+            match tm.move_focused(direction, configs.move_cursor_on_focus, floating_inc) {
+                Err(TilesManagerError::NoWindow) if insert_if_empty => {
+                    tm.insert_focused(direction, configs.move_cursor_on_focus)
+                }
+                res => res,
             }
-            res => res,
-        },
-        TMCommand::Resize(direction, size) => tm.resize_focused(direction, size),
+        }
+        TMCommand::Resize(direction, inc, floating_inc) => tm.resize_focused(direction, inc, floating_inc),
         TMCommand::Invert => tm.invert_orientation(),
         TMCommand::Release(b) => tm.release_focused(b),
         TMCommand::Peek(direction, ratio) => tm.peek_current(direction, ratio),
@@ -301,7 +304,7 @@ fn handle_tm(
 
 fn get_info_entries(tm: &TilesManager) -> Vec<InfoEntry> {
     let monitors = enum_display_monitors();
-    let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), (*m).clone().into())).collect();
+    let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), m.workspace_area)).collect();
     let windows = tm.get_managed_windows();
     let windows_str = windows.iter().map(|w| (w.0.snapshot(), w.1)).map(|w| {
         let c = w.0.get_area().map(|a| a.get_center());

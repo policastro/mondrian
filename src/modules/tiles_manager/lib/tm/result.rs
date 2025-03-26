@@ -1,4 +1,4 @@
-use crate::win32::window::window_ref::WindowRef;
+use crate::{app::structs::area::Area, win32::window::window_ref::WindowRef};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TilesManagerError {
@@ -12,6 +12,23 @@ pub enum TilesManagerError {
     NoContainerAtPoint((i32, i32)),
     VDContainersAlreadyCreated,
     VDContainersAlreadyActivated,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TilesManagerSuccess {
+    LayoutChanged,
+    Queue {
+        window: WindowRef,
+        area: Area,
+        topmost: Option<bool>,
+    },
+    NoChange,
+}
+
+impl TilesManagerSuccess {
+    pub fn queue(window: WindowRef, area: Area, topmost: Option<bool>) -> Self {
+        Self::Queue { window, area, topmost }
+    }
 }
 
 impl<T> From<TilesManagerError> for Result<T, TilesManagerError> {

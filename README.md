@@ -167,10 +167,12 @@ The **available actions** are:
 - `retile`: re-tiles the windows;
 - `minimize`: minimizes the focused window;
 - `focus <left|right|up|down>`: focuses the window in the specified direction;
-- `move <left|right|up|down>`: swaps the focused window with the window in the specified direction;
+- `switch-focus`: switches focus between tiled and floating windows;
+- `move <left|right|up|down> [40-1000]`: if applied to a tiled window, swaps the focused window with the window in the specified direction. If applied to a floating window, moves the window in the specified direction by the amount in pixels defined in the third parameter (which defaults to 200 if not specified);
 - `insert <left|right|up|down>`: adds the focused window in the monitor in the specified direction;
-- `moveinsert <left|right|up|down>`: first tries the `move` and then the `insert` action if no window is found in the specified direction;
-- `resize <left|right|up|down> <40-250>`: resizes the focused window in the specified direction by the specified amount (in pixels);
+- `moveinsert <left|right|up|down> [40-1000]`: first tries the `move` and then the `insert` action if no window is found in the specified direction;
+- `resize <left|right|up|down> <40-500> [40-500]`: if applied to a tiled window, resizes the focused window in the specified direction by the amount defined in the third parameter (in pixels).
+  If applied to a floating window, increases (`right`/`down`) or decreases (`left`/`up`) the size of the window by the amount defined in fourth parameter (which defaults to the previous one if not specified);
 - `peek <left|right|up|down> <10-90>`: restricts tiling, keeping a percentage of the screen free in the specified direction;
 - `invert`: inverts the orientation of the focused window and the neighboring windows;
 - `release`: removes the focused window from the tiling manager, or adds it back;

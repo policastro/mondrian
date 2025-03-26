@@ -165,12 +165,13 @@ pub enum MondrianMessage {
     Retile,
     Configure,
     Focus(Direction),
-    Move(Direction),
-    MoveInsert(Direction),
+    SwitchFocus,
+    Move(Direction, u16),
+    MoveInsert(Direction, u16),
     Insert(Direction),
     Release(Option<bool>),
     Peek(Direction, f32),
-    Resize(Direction, u8),
+    Resize(Direction, u16, u16),
     Invert,
     Pause(Option<bool>),
     PauseModule(String, Option<bool>),
@@ -206,11 +207,12 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "open-config",
             "retile",
             "minimize",
+            "switch-focus",
             "focus <left|right|up|down>",
             "insert <left|right|up|down>",
-            "move <left|right|up|down>",
-            "moveinsert <left|right|up|down>",
-            "resize <left|right|up|down> <40-250>",
+            "move <left|right|up|down> [40-1000]",
+            "moveinsert <left|right|up|down> [40-1000]",
+            "resize <left|right|up|down> <40-500> [40-500]",
             "peek <left|right|up|down> <10-90>",
             "invert",
             "release",
@@ -232,11 +234,12 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "open-config" => parts.len() == 1,
             "retile" => parts.len() == 1,
             "minimize" => parts.len() == 1,
+            "switch-focus" => parts.len() == 1,
             "focus" => parts.len() == 2,
-            "move" => parts.len() == 2,
+            "move" => parts.len() == 2 || parts.len() == 3,
             "insert" => parts.len() == 2,
-            "moveinsert" => parts.len() == 2,
-            "resize" => parts.len() == 3,
+            "moveinsert" => parts.len() == 2 || parts.len() == 3,
+            "resize" => parts.len() == 3 || parts.len() == 4,
             "invert" => parts.len() == 1,
             "release" => parts.len() == 1,
             "peek" => parts.len() == 3,
@@ -260,6 +263,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "open-config" => Ok(MondrianMessage::OpenConfig),
             "retile" => Ok(MondrianMessage::Retile),
             "minimize" => Ok(MondrianMessage::Minimize),
+            "switch-focus" => Ok(MondrianMessage::SwitchFocus),
             "focus" => {
                 let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
                 Ok(MondrianMessage::Focus(dir))
@@ -269,19 +273,40 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
                 Ok(MondrianMessage::Insert(dir))
             }
             "move" => {
-                let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
-                Ok(MondrianMessage::Move(dir))
+                let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err.clone()))?;
+                let floating_inc: u16 = parts
+                    .get(2)
+                    .map(|v| v.parse().map_err(|_| serde::de::Error::custom(err.clone())))
+                    .transpose()
+                    .map(|v| v.unwrap_or(200))?;
+                match (40..=1000).contains(&floating_inc) {
+                    true => Ok(MondrianMessage::Move(dir, floating_inc)),
+                    false => Err(serde::de::Error::custom(err.clone())),
+                }
             }
             "moveinsert" => {
-                let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
-                Ok(MondrianMessage::MoveInsert(dir))
+                let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err.clone()))?;
+                let floating_inc: u16 = parts
+                    .get(2)
+                    .map(|v| v.parse().map_err(|_| serde::de::Error::custom(err.clone())))
+                    .transpose()
+                    .map(|v| v.unwrap_or(200))?;
+                match (40..=1000).contains(&floating_inc) {
+                    true => Ok(MondrianMessage::MoveInsert(dir, floating_inc)),
+                    false => Err(serde::de::Error::custom(err)),
+                }
             }
             "resize" => {
                 let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err.clone()))?;
-                let size: u8 = parts[2].parse().map_err(|_| serde::de::Error::custom(err.clone()))?;
-                match (40..=250).contains(&size) {
-                    true => Ok(MondrianMessage::Resize(dir, size)),
-                    false => Err(serde::de::Error::custom(err)),
+                let inc: u16 = parts[2].parse().map_err(|_| serde::de::Error::custom(err.clone()))?;
+                let floating_inc: u16 = parts
+                    .get(3)
+                    .map(|v| v.parse().map_err(|_| serde::de::Error::custom(err.clone())))
+                    .transpose()
+                    .map(|v| v.unwrap_or(inc))?;
+                match ((40..=500).contains(&inc), (40..=500).contains(&floating_inc)) {
+                    (true, true) => Ok(MondrianMessage::Resize(dir, inc, floating_inc)),
+                    (false, _) | (_, false) => Err(serde::de::Error::custom(err)),
                 }
             }
             "peek" => {
@@ -335,9 +360,15 @@ impl Serialize for MondrianMessage {
             MondrianMessage::Minimize => serializer.serialize_str("minimize"),
             MondrianMessage::Focus(dir) => serializer.serialize_str(&format!("focus {}", dir)),
             MondrianMessage::Insert(dir) => serializer.serialize_str(&format!("insert {}", dir)),
-            MondrianMessage::Move(dir) => serializer.serialize_str(&format!("move {}", dir)),
-            MondrianMessage::MoveInsert(dir) => serializer.serialize_str(&format!("moveinsert {}", dir)),
-            MondrianMessage::Resize(dir, size) => serializer.serialize_str(&format!("resize {} {}", dir, size)),
+            MondrianMessage::Move(dir, floating_inc) => {
+                serializer.serialize_str(&format!("move {} {}", dir, floating_inc))
+            }
+            MondrianMessage::MoveInsert(dir, floating_inc) => {
+                serializer.serialize_str(&format!("moveinsert {} {}", dir, floating_inc))
+            }
+            MondrianMessage::Resize(dir, size, floating_size) => {
+                serializer.serialize_str(&format!("resize {} {} {}", dir, size, floating_size))
+            }
             MondrianMessage::Invert => serializer.serialize_str("invert"),
             MondrianMessage::Release(_) => serializer.serialize_str("release"),
             MondrianMessage::Focalize => serializer.serialize_str("focalize"),

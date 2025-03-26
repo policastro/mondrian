@@ -5,7 +5,7 @@ pub mod layer;
 
 use container::Container;
 
-use super::tm::error::TilesManagerError;
+use super::tm::result::TilesManagerError;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::structs::area::Area;

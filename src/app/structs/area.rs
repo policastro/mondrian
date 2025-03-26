@@ -81,6 +81,15 @@ impl Area {
         ]
     }
 
+    pub fn get_center_in_direction(&self, direction: Direction) -> (i32, i32) {
+        match direction {
+            Direction::Down => self.get_bottom_center(),
+            Direction::Left => self.get_left_center(),
+            Direction::Right => self.get_right_center(),
+            Direction::Up => self.get_top_center(),
+        }
+    }
+
     pub fn get_bottom_center(&self) -> (i32, i32) {
         (self.x + i32::from(self.width / 2), self.y + i32::from(self.height))
     }
@@ -95,6 +104,15 @@ impl Area {
 
     pub fn get_top_center(&self) -> (i32, i32) {
         (self.x + i32::from(self.width / 2), self.y)
+    }
+
+    pub fn get_edge(&self, direction: Direction) -> i32 {
+        match direction {
+            Direction::Down => self.get_bottom_edge(),
+            Direction::Left => self.get_left_edge(),
+            Direction::Right => self.get_right_edge(),
+            Direction::Up => self.get_top_edge(),
+        }
     }
 
     pub fn get_right_edge(&self) -> i32 {
@@ -197,6 +215,15 @@ impl Area {
     pub fn overlaps_x(&self, x1: i32, x2: i32) -> bool {
         let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
         self.x + self.width as i32 >= x1 && self.x <= x2
+    }
+
+    pub fn clamp(&self, other: &Area) -> Area {
+        Area::new(
+            self.x.max(other.x),
+            self.y.max(other.y),
+            self.width.min(other.width),
+            self.height.min(other.height),
+        )
     }
 
     fn get_percent(value: u16, percent: u8) -> u16 {

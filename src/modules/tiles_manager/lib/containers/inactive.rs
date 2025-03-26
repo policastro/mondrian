@@ -2,7 +2,7 @@ use super::keys::ContainerKey;
 use super::keys::CrossLayerContainerKey;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::structs::area::Area;
-use crate::modules::tiles_manager::lib::tm::error::TilesManagerError;
+use crate::modules::tiles_manager::lib::tm::result::TilesManagerError;
 use std::collections::HashMap;
 
 type Result<T> = std::result::Result<T, TilesManagerError>;

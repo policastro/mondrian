@@ -35,11 +35,11 @@ pub struct WindowAnimationPlayer {
 #[derive(Clone)]
 pub struct WindowAnimationQueueInfo {
     target_area: Area,
-    topmost: bool,
+    topmost: Option<bool>,
 }
 
 impl WindowAnimationQueueInfo {
-    pub fn new(new_area: Area, topmost: bool) -> Self {
+    pub fn new(new_area: Area, topmost: Option<bool>) -> Self {
         WindowAnimationQueueInfo {
             target_area: new_area,
             topmost,
@@ -69,7 +69,7 @@ impl WindowAnimationPlayer {
         }
     }
 
-    pub fn queue(&mut self, window: WindowRef, new_area: Area, topmost: bool) {
+    pub fn queue(&mut self, window: WindowRef, new_area: Area, topmost: Option<bool>) {
         if self.running.load(Ordering::Acquire) {
             self.clear();
         }
@@ -213,9 +213,11 @@ impl WindowAnimationPlayer {
             .filter(|(w, i)| w.get_area().is_some_and(|a| a != i.target_area))
             .for_each(|(window, info)| {
                 let (pos, size) = (info.target_area.get_origin(), info.target_area.get_size());
-                let _ = window.resize_and_move(pos, size, false, flags);
-                let _ = window.set_topmost(info.topmost);
-                let _ = window.redraw();
+                window.resize_and_move(pos, size, false, flags).ok();
+                if let Some(topmost) = info.topmost {
+                    window.set_topmost(topmost).ok();
+                }
+                window.redraw().ok();
             });
     }
 }

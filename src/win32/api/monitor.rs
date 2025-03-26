@@ -6,6 +6,7 @@ use windows::Win32::Graphics::Gdi::GetMonitorInfoW;
 use windows::Win32::Graphics::Gdi::HMONITOR;
 use windows::Win32::Graphics::Gdi::MONITORINFOEXW;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Monitor {
     pub handle: isize,
@@ -14,6 +15,7 @@ pub struct Monitor {
     pub primary: bool,
     pub resolution: (i32, i32),
     pub workspace: (i32, i32),
+    pub workspace_area: Area,
     pub offset: (i32, i32),
 }
 
@@ -45,15 +47,4 @@ pub fn enum_display_monitors() -> Vec<Monitor> {
         .for_each(|(i, m)| m.id = format!("MONITOR{}", i + 1));
 
     monitors
-}
-
-impl From<Monitor> for Area {
-    fn from(val: Monitor) -> Self {
-        Area::new(
-            val.offset.0,
-            val.offset.1,
-            u16::try_from(val.workspace.0).expect("Failed to convert i32 to u16"),
-            u16::try_from(val.workspace.1).expect("Failed to convert i32 to u16"),
-        )
-    }
 }
