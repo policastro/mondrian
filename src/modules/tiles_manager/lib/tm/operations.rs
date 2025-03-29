@@ -91,6 +91,7 @@ impl TilesManagerInternalOperations for TilesManager {
             return Err(Error::WindowAlreadyAdded(win));
         }
         let t = self.active_trees.get_mut(&k).ok_or(C_ERR)?;
+        win.set_topmost(false).ok();
         t.insert(win);
 
         // INFO: if the monitor has a maximized window, restore it

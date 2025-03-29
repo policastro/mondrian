@@ -589,6 +589,8 @@
             "open-config",
             "retile",
             "minimize",
+            "close",
+            "toggle-topmost",
             "focus left",
             "focus right",
             "focus up",

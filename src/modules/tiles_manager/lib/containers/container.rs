@@ -45,7 +45,7 @@ impl Container for WinTree {
                 borders.3.clamp(u16::MIN as i32, u16::MAX as i32) as i16,
             );
             let area = area.shift((-borders.0, -borders.1, borders.2 + borders.0, borders.3 + borders.1));
-            animation_player.queue(leaf.id, area, Some(false));
+            animation_player.queue(leaf.id, area, None);
         }
         Ok(())
     }

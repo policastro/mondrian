@@ -61,6 +61,8 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn insert_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error>;
     fn resize_focused(&mut self, direction: Direction, increment: u16, floating_increment: u16) -> Result<(), Error>;
     fn minimize_focused(&mut self) -> Result<(), Error>;
+    fn close_focused(&mut self) -> Result<(), Error>;
+    fn topmost_focused(&mut self, topmost: Option<bool>) -> Result<(), Error>;
     fn focalize_focused(&mut self) -> Result<(), Error>;
     fn half_focalize_focused(&mut self) -> Result<(), Error>;
 
@@ -370,6 +372,17 @@ impl TilesManagerOperations for TilesManager {
 
     fn minimize_focused(&mut self) -> Result<(), Error> {
         get_foreground().ok_or(Error::NoWindow)?.minimize();
+        Ok(())
+    }
+
+    fn close_focused(&mut self) -> Result<(), Error> {
+        get_foreground().ok_or(Error::NoWindow)?.close();
+        Ok(())
+    }
+
+    fn topmost_focused(&mut self, topmost: Option<bool>) -> Result<(), Error> {
+        let curr = get_foreground().ok_or(Error::NoWindow)?;
+        curr.set_topmost(topmost.unwrap_or(!curr.is_topmost())).ok();
         Ok(())
     }
 

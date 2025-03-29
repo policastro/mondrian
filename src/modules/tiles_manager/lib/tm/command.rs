@@ -8,6 +8,8 @@ pub enum TMCommand {
     WindowEvent(WindowEvent),
     SystemEvent(SystemEvent),
     Focus(Direction),
+    Close,
+    Topmost,
     SwitchFocus,
     Insert(Direction),
     Move(Direction, bool, u16),
@@ -30,32 +32,35 @@ impl TMCommand {
     pub fn can_change_layout(&self) -> bool {
         match self {
             TMCommand::WindowEvent(window_event) => match window_event {
-                WindowEvent::Opened(_) => true,
-                WindowEvent::Closed(_) => true,
-                WindowEvent::Minimized(_) => true,
-                WindowEvent::Restored(_) => true,
-                WindowEvent::Maximized(_) => true,
-                WindowEvent::Unmaximized(_) => true,
-                WindowEvent::Focused(_) => false,
-                WindowEvent::StartMoveSize(_) => false,
-                WindowEvent::EndMoveSize(..) => true,
+                WindowEvent::Opened(..)
+                | WindowEvent::Closed(..)
+                | WindowEvent::Minimized(..)
+                | WindowEvent::Restored(..)
+                | WindowEvent::Maximized(..)
+                | WindowEvent::Unmaximized(..)
+                | WindowEvent::EndMoveSize(..) => true,
+                WindowEvent::Focused(..) | WindowEvent::StartMoveSize(..) => false,
             },
-            TMCommand::SystemEvent(_) => true,
-            TMCommand::Focus(_) | TMCommand::SwitchFocus => false,
-            TMCommand::Insert(_) => true,
-            TMCommand::Move(_, _, _) => true,
-            TMCommand::Resize(_, _, _) => true,
-            TMCommand::Release(_) => true,
-            TMCommand::Peek(_, _) => true,
-            TMCommand::Update(_) => true,
-            TMCommand::Focalize | TMCommand::HalfFocalize => true,
-            TMCommand::Invert => true,
-            TMCommand::CycleFocalized(_) => true,
-            TMCommand::ListManagedWindows => false,
-            TMCommand::QueryInfo => false,
-            TMCommand::Minimize => true,
-            TMCommand::Quit => false,
-            TMCommand::Amplify => true,
+            TMCommand::SystemEvent(..)
+            | TMCommand::Close
+            | TMCommand::Insert(..)
+            | TMCommand::Move(..)
+            | TMCommand::Peek(..)
+            | TMCommand::Resize(..)
+            | TMCommand::Release(..)
+            | TMCommand::Focalize
+            | TMCommand::HalfFocalize
+            | TMCommand::Invert
+            | TMCommand::Amplify
+            | TMCommand::Minimize
+            | TMCommand::CycleFocalized(..)
+            | TMCommand::Update(..) => true,
+            TMCommand::ListManagedWindows
+            | TMCommand::Topmost
+            | TMCommand::Focus(..)
+            | TMCommand::SwitchFocus
+            | TMCommand::QueryInfo
+            | TMCommand::Quit => false,
         }
     }
 }
@@ -91,7 +96,22 @@ impl TryFrom<&MondrianMessage> for TMCommand {
             MondrianMessage::QueryInfo => Ok(TMCommand::QueryInfo),
             MondrianMessage::WindowEvent(event) => Ok(TMCommand::WindowEvent(*event)),
             MondrianMessage::SystemEvent(event) => Ok(TMCommand::SystemEvent(*event)),
-            _ => Err(()),
+            MondrianMessage::Close => Ok(TMCommand::Close),
+            MondrianMessage::Topmost => Ok(TMCommand::Topmost),
+            MondrianMessage::RefreshConfig
+            | MondrianMessage::OpenConfig
+            | MondrianMessage::Retile
+            | MondrianMessage::Configure
+            | MondrianMessage::Pause(_)
+            | MondrianMessage::PauseModule(_, _)
+            | MondrianMessage::UpdatedWindows(..)
+            | MondrianMessage::CoreUpdateStart(..)
+            | MondrianMessage::CoreUpdateError
+            | MondrianMessage::CoreUpdateComplete
+            | MondrianMessage::QueryInfoResponse { .. }
+            | MondrianMessage::OpenLogFolder
+            | MondrianMessage::About
+            | MondrianMessage::Quit => Err(()),
         }
     }
 }

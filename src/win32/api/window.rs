@@ -23,8 +23,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongW,
     GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
     RealGetWindowClassW, RegisterClassExW, SendMessageW, SetForegroundWindow, ShowWindow, CS_HREDRAW, CS_VREDRAW,
-    GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT, WINDOW_EX_STYLE,
-    WINDOW_STYLE, WM_GETMINMAXINFO, WNDCLASSEXW, WNDPROC, WS_CHILD, WS_CHILDWINDOW, WS_POPUP,
+    GWL_EXSTYLE, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WNDCLASSEXW, WNDPROC, WS_CHILD, WS_CHILDWINDOW, WS_EX_TOPMOST,
+    WS_POPUP,
 };
 
 lazy_static!(
@@ -74,6 +75,10 @@ pub fn get_class_name(hwnd: HWND) -> String {
 
 pub fn get_window_style(hwnd: HWND) -> u32 {
     unsafe { GetWindowLongW(hwnd, GWL_STYLE) as u32 }
+}
+
+pub fn get_window_exstyle(hwnd: HWND) -> u32 {
+    unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) as u32 }
 }
 
 fn get_window_thread_process_id(hwnd: HWND) -> Option<u32> {
@@ -216,6 +221,11 @@ pub fn is_window_cloaked(hwnd: HWND) -> bool {
         Ok(_) => cloaked.0 != 0,
         Err(_) => false,
     }
+}
+
+pub fn is_window_topmost(hwnd: HWND) -> bool {
+    let exstyle = get_window_exstyle(hwnd);
+    (exstyle & WS_EX_TOPMOST.0) != 0
 }
 
 pub fn focus(hwnd: HWND) {

@@ -19,6 +19,7 @@ pub struct WindowSnapshot {
     pub(crate) visible_area: Option<Area>,
     pub(crate) borders: Option<(i32, i32, i32, i32)>,
     pub(crate) cloaked: bool,
+    pub(crate) topmost: bool,
 }
 
 impl WindowObjInfo for WindowSnapshot {
@@ -60,6 +61,10 @@ impl WindowObjInfo for WindowSnapshot {
 
     fn get_window_style(&self) -> u32 {
         self.style
+    }
+
+    fn is_topmost(&self) -> bool {
+        self.topmost
     }
 }
 

@@ -12,6 +12,7 @@ pub trait WindowObjInfo {
     fn is_visible(&self) -> bool;
     fn is_iconic(&self) -> bool;
     fn is_cloaked(&self) -> bool;
+    fn is_topmost(&self) -> bool;
     fn get_window_style(&self) -> u32;
 }
 
@@ -27,5 +28,6 @@ pub trait WindowObjHandler {
     fn redraw(&self) -> Result<(), ()>;
     fn minimize(&self) -> bool;
     fn restore(&self, activate: bool) -> bool;
+    fn close(&self);
     fn set_topmost(&self, topmost: bool) -> Result<(), ()>;
 }

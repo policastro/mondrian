@@ -8,7 +8,7 @@ use windows::Win32::{
     Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
         IsIconic, IsWindowVisible, SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SET_WINDOW_POS_FLAGS, SWP_NOMOVE,
-        SWP_NOSIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL,
+        SWP_NOSIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL, WM_CLOSE,
     },
 };
 
@@ -16,7 +16,10 @@ use super::{
     window_obj::{WindowObjHandler, WindowObjInfo},
     window_snapshot::WindowSnapshot,
 };
-use crate::win32::api::window::{get_dpi_for_window, get_dwmwa_extended_frame_bounds};
+use crate::win32::api::{
+    misc::post_empty_message,
+    window::{get_dpi_for_window, get_dwmwa_extended_frame_bounds, is_window_topmost},
+};
 use crate::{
     app::structs::area::Area,
     win32::api::window::{
@@ -100,6 +103,7 @@ impl WindowRef {
             visible: self.is_visible(),
             iconic: self.is_iconic(),
             cloaked: self.is_cloaked(),
+            topmost: self.is_topmost(),
         }
     }
 }
@@ -111,6 +115,10 @@ impl WindowObjInfo for WindowRef {
 
     fn get_exe_name(&self) -> Option<String> {
         get_executable_name(self.hwnd)
+    }
+
+    fn get_class_name(&self) -> Option<String> {
+        Some(get_class_name(self.hwnd))
     }
 
     fn get_area(&self) -> Option<Area> {
@@ -148,14 +156,6 @@ impl WindowObjInfo for WindowRef {
         ))
     }
 
-    fn get_class_name(&self) -> Option<String> {
-        Some(get_class_name(self.hwnd))
-    }
-
-    fn get_window_style(&self) -> u32 {
-        get_window_style(self.hwnd)
-    }
-
     fn is_visible(&self) -> bool {
         unsafe { IsWindowVisible(self.hwnd) }.as_bool()
     }
@@ -166,6 +166,14 @@ impl WindowObjInfo for WindowRef {
 
     fn is_cloaked(&self) -> bool {
         is_window_cloaked(self.hwnd)
+    }
+
+    fn is_topmost(&self) -> bool {
+        is_window_topmost(self.hwnd)
+    }
+
+    fn get_window_style(&self) -> u32 {
+        get_window_style(self.hwnd)
     }
 }
 
@@ -213,6 +221,10 @@ impl WindowObjHandler for WindowRef {
 
     fn restore(&self, activate: bool) -> bool {
         show_window(self.hwnd, if activate { SW_RESTORE } else { SW_SHOWNOACTIVATE })
+    }
+
+    fn close(&self) {
+        post_empty_message(self.hwnd, WM_CLOSE);
     }
 
     fn set_topmost(&self, topmost: bool) -> Result<(), ()> {

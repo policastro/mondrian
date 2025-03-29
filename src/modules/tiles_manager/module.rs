@@ -248,6 +248,8 @@ fn handle_tm(
         TMCommand::Focus(direction) => tm.change_focus(direction, configs.move_cursor_on_focus),
         TMCommand::SwitchFocus => tm.switch_focus(),
         TMCommand::Minimize => tm.minimize_focused(),
+        TMCommand::Close => tm.close_focused(),
+        TMCommand::Topmost => tm.topmost_focused(None),
         TMCommand::Insert(direction) => tm.insert_focused(direction, configs.move_cursor_on_focus),
         TMCommand::Move(direction, insert_if_empty, floating_inc) => {
             match tm.move_focused(direction, configs.move_cursor_on_focus, floating_inc) {
