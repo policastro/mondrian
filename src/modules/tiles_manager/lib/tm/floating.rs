@@ -211,6 +211,8 @@ impl FloatingWindows for HashMap<WindowRef, FloatingProperties> {
 }
 
 mod utils {
+    use std::collections::HashMap;
+
     use crate::win32::api::monitor::Monitor;
 
     pub fn get_corrective_pad(min_dim: i16, dim: i16) -> (i16, i16) {
@@ -222,7 +224,7 @@ mod utils {
         (-new_dim, new_dim - offset)
     }
 
-    pub fn find_containing_monitor(monitors: &[Monitor], point: (i32, i32)) -> Option<&Monitor> {
-        monitors.iter().find(|m| m.workspace_area.contains(point))
+    pub fn find_containing_monitor(monitors: &HashMap<String, Monitor>, point: (i32, i32)) -> Option<&Monitor> {
+        monitors.values().find(|m| m.workspace_area.contains(point))
     }
 }

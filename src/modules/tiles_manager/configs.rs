@@ -1,10 +1,11 @@
-use std::collections::HashMap;
-
 use super::lib::window_animation_player::WindowAnimation;
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::app::configs::core::WindowRule;
 use crate::app::configs::general::FloatingWinsConfigs;
-use crate::app::configs::{AppConfigs, MonitorConfigs};
+use crate::app::configs::AppConfigs;
+use crate::app::configs::MonitorConfigs;
 use crate::app::structs::win_matcher::WinMatcher;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CoreModuleConfigs {
@@ -19,7 +20,8 @@ pub struct CoreModuleConfigs {
     pub animations_framerate: u8,
     pub animation_type: Option<WindowAnimation>,
     pub move_cursor_on_focus: bool,
-    pub filter: WinMatcher,
+    pub ignore_filter: WinMatcher,
+    pub rules: Vec<WindowRule>,
     pub history_based_navigation: bool,
     pub floating_wins: FloatingWinsConfigs,
     pub monitors_configs: HashMap<String, MonitorConfigs>,
@@ -39,7 +41,8 @@ impl Default for CoreModuleConfigs {
             animations_framerate: 60,
             animation_type: None,
             move_cursor_on_focus: false,
-            filter: WinMatcher::default(),
+            ignore_filter: WinMatcher::default(),
+            rules: Vec::new(),
             history_based_navigation: false,
             floating_wins: FloatingWinsConfigs::default(),
             monitors_configs: HashMap::new(),
@@ -64,7 +67,8 @@ impl From<&AppConfigs> for CoreModuleConfigs {
                 false => None,
             },
             move_cursor_on_focus: app_configs.general.move_cursor_on_focus,
-            filter: app_configs.get_filters().unwrap_or_default(),
+            ignore_filter: app_configs.get_ignore_filter(),
+            rules: app_configs.get_rules(),
             history_based_navigation: app_configs.general.history_based_navigation,
             floating_wins: app_configs.general.floating_wins.clone(),
             monitors_configs: app_configs.get_monitors_configs(),

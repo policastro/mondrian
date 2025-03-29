@@ -131,6 +131,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `modules.overlays.focalized.color`        | Color of the overlay                                                                                                           | `[r, g, b]`/`[r, g, b, a]` or as hex string (`"#rrggbb"`/`"#rrggbbaa"`)                                                  | `[234, 153, 153]` (or `"#EA9999"`) |
 | `modules.overlays.floating.enabled`       | Enables/disables the overlay for the floating windows in focused                                                               | `true`,`false`                                                                                                           | `true`                             |
 | `modules.overlays.floating.color`         | Color of the overlay                                                                                                           | `[r, g, b]`/`[r, g, b, a]` or as hex string (`"#rrggbb"`/`"#rrggbbaa"`)                                                  | `[220, 198, 224]` (or `"#DCC6E0"`) |
+| `core.rules`                              | Custom rules to control the behavior of specific windows                                                                       | check the relative [section](#core-rules-guide) for more info.                                                           | -                                  |
 | `core.ignore_rules`                       | Custom rules to exclude windows from being managed                                                                             | check the relative [section](#core-ignore-rules-guide) for more info.                                                    | -                                  |
 | `monitors.*`                              | Per-monitor configurations                                                                                                     | check the relative [section](#per-monitor-configurations-guide) for more info.                                           | -                                  |
 
@@ -201,32 +202,63 @@ bindings = [
 ]
 ```
 
-#### Ignore windows with `core.ignore_rules` <a name="core-ignore-rules-guide"></a>
+#### Custom rules with `core.rules` <a name="core-rules-guide"></a>
 
-You can ignore windows with the `core.ignore_rules` option.
-Each rule has the following format:
+You can create custom rules with the `core.rules` option to control the behavior of specific windows.
+Each rule has the following format (or any equivalent format allowed by the [TOML specification](https://toml.io/en/v1.0.0)):
 
 ```toml
 [core]
-ignore_rules = [
-    { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }
+rules = [
+    # Single behavior with no parameters
+    { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behavior = "behavior1" },
+
+    # Single behavior with parameters
+    { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behavior.behavior2 = {param = "value" } },
+
+    # Multiple behaviors
+    { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behaviors = ["behavior1", { behavior2 = { param = "value" } }] }
+
+    # Invalid rules
+    # { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" } } # missing behavior/behaviors
+    # { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behavior = "behavior1", behaviors = ["behavior2", "behavior3"] } # only one of behavior/behaviors must be specified
 ]
 ```
 
-You can specify at least one or more parameters, and the rule will be matched if all the parameters match the corresponding window property.
+Eache rule has a:
+
+- `filter` field that specifies the window(s) to apply the rule to;
+- `behavior` or `behaviors` field that specifies the action to apply to the window(s);
+
+You can specify at least one or more parameters in the `filter` field and the rule will be matched if all the parameters match the corresponding window property.
 Each parameter can be either a string or a regex (enclosed in slashes).
+
+The following table shows the available `behavior`/`behaviors` values:
+
+| Behavior | Parameters                   | Description                                                      |
+| -------- | ---------------------------- | ---------------------------------------------------------------- |
+| `float`  | -                            | Make the corresponding window floating.                          |
+| `ignore` | -                            | Ignore the corresponding window.                                 |
+| `insert` | `monitor` (string, required) | Always insert the corresponding window on the specified monitor. |
+
 Some example:
 
 ```toml
 [core]
-ignore_rules = [
-    { title = "Title", exename = "app.exe", classname = "ApplicationWindow", style = "00000000" },    # match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow" and style="00000000"
-    { title = "Title" },                                                          # match any window with a title="Title"
-    { title = "/Title[0-9]/" }                                                    # match any window with a title that matches the regex "Title[0-9]"
+rules = [
+   # Match any window with a title="Title" and exename="app.exe" and classname="ApplicationWindow" and style="00000000"
+   { filter = { title = "Title", exename = "app.exe", classname = "ApplicationWindow", style = "00000000" }, behavior = "ignore" },
+
+   # Match any window with a title="Title"
+   { filter = { title = "Title" }, behavior.insert = { monitor = "MONITOR1" } },
+
+   # Match any window with a title that matches the regex "Title[0-9]"
+   { filter = { title = "/Title[0-9]/" }, behaviors = ["float", { insert = { monitor = "MONITOR2" } }] }
 ]
+
 ```
 
-To understand how to exclude specific windows, you can trigger the `dumpstateinfo` [action](#keybindings-guide), then open the `./logs/app_state.txt` file and look for the `Currently managed windows` subsection, which will look like this:
+To understand how to match specific windows, you can trigger the `dumpstateinfo` [action](#keybindings-guide), then open the `./logs/app_state.txt` file and look for the `Currently managed windows` subsection, which will look like this:
 
 ```
 --------------------------------------------------------------------------------
@@ -244,6 +276,34 @@ To understand how to exclude specific windows, you can trigger the `dumpstateinf
    ...
 
 ...
+```
+
+#### Ignore windows with `core.ignore_rules` <a name="core-ignore-rules-guide"></a>
+
+You can ignore windows with the `core.ignore_rules` option.
+Each rule has the following format:
+
+```toml
+[core]
+ignore_rules = [
+    { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }
+]
+```
+
+These rules are equivalent to the `core.rules` option with the `ignore` behavior:
+
+```toml
+[core]
+ignore_rules = [
+    { title = "TITLE"}
+]
+
+# is equivalent to
+
+[core]
+rules = [
+    { filter = { title = "TITLE" }, behavior = "ignore" }
+]
 ```
 
 #### Per-monitor configurations <a name="per-monitor-configurations-guide"></a>
@@ -330,7 +390,7 @@ There are different configurations options that can improve the performances. He
 
 ### 4. How can I ignore a window?
 
-If you want to ignore it temporarily, you can bind the `release` action to a key. Otherwise, you can create a rule in the configuration file (see the `core.ignore_rules` [section](#core-ignore-rules-guide)).
+If you want to ignore it temporarily, you can bind the `release` action to a key. Otherwise, you can create a rule in the configuration file (see the `core.ignore_rules` [section](#core-ignore-rules-guide) or the `core.rules` [section](#core-rules-guide) for more info).
 
 ### 5. How do the `move`/`focus` actions determine the target window?
 

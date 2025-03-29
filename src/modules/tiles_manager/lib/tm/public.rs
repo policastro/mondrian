@@ -88,7 +88,7 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
 impl TilesManagerOperations for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok())? {
+        match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok(), true)? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
         }
@@ -111,7 +111,7 @@ impl TilesManagerOperations for TilesManager {
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        match TilesManagerInternalOperations::add(self, win, None)? {
+        match TilesManagerInternalOperations::add(self, win, None, false)? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
         }
@@ -258,7 +258,7 @@ impl TilesManagerOperations for TilesManager {
                 .filter(|(k, _)| k.monitor == m.id)
                 .for_each(|(_, c)| c.0.set_area(m.workspace_area));
         });
-        self.managed_monitors = monitors;
+        self.managed_monitors = monitors.iter().map(|m| (m.id.clone(), m.clone())).collect();
         self.update_layout(true, None)
     }
 

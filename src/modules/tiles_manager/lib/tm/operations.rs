@@ -1,3 +1,4 @@
+use super::configs::Rules;
 use super::floating::FloatingProperties;
 use super::floating::FloatingWindows;
 use super::manager::TilesManager;
@@ -27,7 +28,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
     /// When `prefer_position` is Some, the window will be added to the monitor that contains the
     /// given position. Otherwise, the window will be added to the monitor that contains the center of the window.
     /// If the target monitor has a focalized window or a maximized window, it will be restored.
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> TMResult;
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>, check_rules: bool) -> TMResult;
 
     /// Removes a window from the tile manager.
     fn remove(&mut self, win: WindowRef) -> TMResult;
@@ -58,7 +59,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
 const C_ERR: Error = Error::ContainerNotFound { refresh: false };
 
 impl TilesManagerInternalOperations for TilesManager {
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>) -> TMResult {
+    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>, check_rules: bool) -> TMResult {
         let tile_state = self.get_window_state(win);
         if tile_state
             .as_ref()
@@ -69,6 +70,14 @@ impl TilesManagerInternalOperations for TilesManager {
 
         let center = prefer_position.or_else(|| win.get_area().map(|a| a.get_center()));
         let center = center.ok_or(Error::NoWindow)?;
+        let center = match self.config.rules.preferred_monitor(win).filter(|_| check_rules) {
+            Some(name) => self
+                .managed_monitors
+                .get(&name)
+                .map(|m| m.workspace_area.get_center())
+                .unwrap_or(center),
+            None => center,
+        };
 
         let k = self.active_trees.find_at_or_near(center)?.key;
         if k.layer.is_focalized() && tile_state.is_err() {
@@ -87,6 +96,10 @@ impl TilesManagerInternalOperations for TilesManager {
         // INFO: if the monitor has a maximized window, restore it
         if let Some(maximized_win) = self.maximized_wins.iter().find(|w| t.has(**w)) {
             self.maximize(*maximized_win, false)?;
+        }
+
+        if check_rules && self.config.rules.is_floating(win) {
+            self.release(win, Some(true))?;
         }
 
         Ok(Success::LayoutChanged)
@@ -133,7 +146,7 @@ impl TilesManagerInternalOperations for TilesManager {
         } else {
             self.floating_wins.remove(&window);
             self.animation_player.dequeue(window);
-            self.add(window, None)?;
+            self.add(window, None, false)?;
             let _ = window.set_topmost(false);
         }
 
@@ -155,7 +168,7 @@ impl TilesManagerInternalOperations for TilesManager {
             // NOTE: if the window is maximized to another monitor, remove it and add it again
             if src_e.key != trg_e.key {
                 self.remove(window)?;
-                self.add(window, None)?;
+                self.add(window, None, true)?;
             }
 
             self.maximized_wins.insert(window);

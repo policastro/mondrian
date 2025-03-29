@@ -417,47 +417,42 @@
         "ignore_rules": {
           "type": "array",
           "items": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/filter"
+              },
+              {
+                "description": "Custom rules to exclude windows from being managed.\n\nEach rule has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\", style = \"STYLE\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-coreignore_rules-) for more info.",
+                "x-taplo": {
+                  "links": {
+                    "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-coreignore_rules-"
+                  }
+                }
+              }
+            ]
+          },
+          "additionalProperties": false
+        },
+        "rules": {
+          "type": "array",
+          "items": {
             "type": "object",
-            "description": "Custom rules to exclude windows from being managed.\nEach rule has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\", style = \"STYLE\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-coreignore_rules-) for more info.",
+            "description": "Rules to control the behavior of specific windows. A rule is composed by a: \n - `filter`, which is used to match windows;\n - `behavior` (or `behaviors`), which is used to control the behavior of the matched windows. \n\nEach `filter` has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\", style = \"STYLE\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#custom-rules-with-corerules-) for more info.",
             "properties": {
-              "exename": {
-                "type": "string",
-                "description": "Executable name of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
-              },
-              "classname": {
-                "type": "string",
-                "description": "Class name of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
-              },
-              "title": {
-                "type": "string",
-                "description": "Title of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
-              },
-              "style": {
-                "type": "string",
-                "description": "Style of the window to ignore. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+              "filter": { "$ref": "#/definitions/filter" },
+              "behavior": { "$ref": "#/definitions/windowBehavior" },
+              "behaviors": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/windowBehavior" }
               }
             },
-            "anyOf": [
-              {
-                "required": ["exename"]
-              },
-              {
-                "required": ["classname"]
-              },
-              {
-                "required": ["title"]
-              },
-              {
-                "required": ["style"]
-              }
+            "oneOf": [
+              { "required": ["filter", "behavior"] },
+              { "required": ["filter", "behaviors"] }
             ],
-            "x-taplo": {
-              "links": {
-                "key": "https://github.com/policastro/mondrian?tab=readme-ov-file#ignore-windows-with-coreignore_rules-"
-              }
-            },
             "additionalProperties": false
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -515,6 +510,75 @@
     }
   },
   "definitions": {
+    "filter": {
+      "type": "object",
+      "properties": {
+        "exename": {
+          "type": "string",
+          "description": "Executable name of the window to match. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+        },
+        "classname": {
+          "type": "string",
+          "description": "Class name of the window to to match. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the window to match. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+        },
+        "style": {
+          "type": "string",
+          "description": "Style of the window to match. If enclosed in slashes (e.g. \"/Value[0-9]/\"), it will be treated as a regex."
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["exename"]
+        },
+        {
+          "required": ["classname"]
+        },
+        {
+          "required": ["title"]
+        },
+        {
+          "required": ["style"]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "windowBehavior": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["float", "ignore"],
+          "x-taplo": {
+            "docs": {
+              "enumValues": [
+                "Make the window floating",
+                "Don't manage the window"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "insert": {
+              "type": "object",
+              "description": "Insert the window in the given monitor.",
+              "properties": {
+                "monitor": {
+                  "type": "string",
+                  "description": "Monitor to insert the window in."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "actionsEnum": {
       "type": "string",
       "description": "Action to be performed.",

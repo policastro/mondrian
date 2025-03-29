@@ -38,7 +38,7 @@ pub struct TilesManager {
     pub config: TilesManagerConfig,
     pub animation_player: WindowAnimationPlayer,
     pub focus_history: FocusHistory,
-    pub managed_monitors: Vec<Monitor>,
+    pub managed_monitors: HashMap<String, Monitor>,
     pub(crate) current_vd: Option<Desktop>,
 }
 
@@ -104,14 +104,17 @@ impl TilesManagerBase for TilesManager {
             peeked_containers: HashMap::new(),
             current_vd: None,
             focus_history: FocusHistory::new(),
-            managed_monitors: Vec::new(),
+            managed_monitors: HashMap::new(),
             config,
             animation_player,
         };
 
         let current_vd = get_current_desktop().map_err(Error::VDError)?;
         tm.inactive_trees.clear();
-        tm.managed_monitors = enum_display_monitors();
+        tm.managed_monitors = enum_display_monitors()
+            .iter()
+            .map(|m| (m.id.clone(), m.clone()))
+            .collect();
         tm.create_inactive_vd_containers(current_vd)?;
         tm.activate_vd_containers(current_vd, Some(ContainerLayer::Normal))?;
 
@@ -119,7 +122,7 @@ impl TilesManagerBase for TilesManager {
     }
 
     fn add_open_windows(&mut self) -> Result<(), Error> {
-        let filter = self.config.filter.clone();
+        let filter = self.config.ignore_filter.clone();
         let mut wins: Vec<WindowRef> = enum_user_manageable_windows()
             .into_iter()
             .filter(|w| !filter.matches(*w))
@@ -133,7 +136,7 @@ impl TilesManagerBase for TilesManager {
         });
 
         for w in wins.iter() {
-            self.add(*w, None).ok();
+            self.add(*w, None, true).ok();
         }
         Ok(())
     }
@@ -227,7 +230,7 @@ impl TilesManager {
 
         let curr_time = get_current_time_ms()?;
         self.managed_monitors
-            .iter()
+            .values()
             .flat_map(|m| {
                 let layout = self.config.get_layout_strategy(m.id.as_str());
                 let t1 = WinTree::new(m.workspace_area, layout.clone());

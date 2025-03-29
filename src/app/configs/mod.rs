@@ -5,8 +5,11 @@ pub(crate) mod layout;
 pub(crate) mod modules;
 pub(crate) mod monitors;
 
+use super::area_tree::layout_strategy::LayoutStrategyEnum;
+use super::structs::win_matcher::WinMatcher;
 use core::Core;
-use core::RuleConfig;
+use core::WindowBehavior;
+use core::WindowRule;
 use general::General;
 use layout::Layout;
 use modules::Modules;
@@ -14,9 +17,6 @@ use monitors::ExtMonitorConfigs;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-
-use super::area_tree::layout_strategy::LayoutStrategyEnum;
-use super::structs::win_matcher::WinMatcher;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 #[serde(default, deny_unknown_fields)]
@@ -29,15 +29,30 @@ pub struct AppConfigs {
 }
 
 impl AppConfigs {
-    pub fn get_filters(&self) -> Option<WinMatcher> {
-        let mut base_filters = vec![RuleConfig {
-            exename: Some("mondrian.exe".to_owned()),
-            classname: None,
-            title: None,
-            style: None,
-        }];
-        base_filters.extend(self.core.ignore_rules.clone());
-        Some(WinMatcher::from(&base_filters))
+    pub fn get_ignore_filter(&self) -> WinMatcher {
+        let mut filter = vec![WinMatcher::Exename("mondrian.exe".to_owned())];
+        let mut rules: Vec<WinMatcher> = self
+            .core
+            .rules
+            .iter()
+            .filter(|r| matches!(r.behavior, WindowBehavior::Ignore))
+            .map(|r| r.filter.clone())
+            .collect();
+
+        filter.append(&mut rules);
+        match filter.len() == 1 {
+            true => filter[0].clone(),
+            false => WinMatcher::any(filter.into_iter()),
+        }
+    }
+
+    pub fn get_rules(&self) -> Vec<WindowRule> {
+        self.core
+            .rules
+            .iter()
+            .filter(|r| !matches!(r.behavior, WindowBehavior::Ignore))
+            .cloned()
+            .collect()
     }
 
     pub fn get_layout_strategy(&self) -> LayoutStrategyEnum {

@@ -24,7 +24,7 @@ impl From<&AppConfigs> for EventMonitorModuleConfigs {
             default_insert_in_monitor: app_configs.general.insert_in_monitor,
             default_free_move_in_monitor: app_configs.general.free_move_in_monitor,
             detect_maximized_windows: app_configs.general.detect_maximized_windows,
-            filter: app_configs.get_filters(),
+            filter: Some(app_configs.get_ignore_filter()),
         }
     }
 }

@@ -1,8 +1,10 @@
+use crate::win32::window::window_obj::WindowObjInfo;
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashSet;
 
-use crate::win32::window::window_obj::WindowObjInfo;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "WinMatcherExt")]
 pub enum WinMatcher {
     Exename(String),
     Title(String),
@@ -33,6 +35,18 @@ impl WinMatcher {
         self.matches_internal(&mut window.into())
     }
 
+    pub fn is_empty(&self) -> bool {
+        match self {
+            WinMatcher::Any(filters) => filters.is_empty(),
+            WinMatcher::All(filters) => filters.is_empty(),
+            _ => false,
+        }
+    }
+
+    pub fn any(filters: impl Iterator<Item = WinMatcher>) -> WinMatcher {
+        WinMatcher::Any(filters.collect())
+    }
+
     fn matches_internal<T: WindowObjInfo>(&self, window: &mut WinMatcherTarget<T>) -> bool {
         match self {
             WinMatcher::Exename(query) => self.match_value(query, window.exe_name()),
@@ -40,7 +54,7 @@ impl WinMatcher {
             WinMatcher::Classname(query) => self.match_value(query, window.class_name()),
             WinMatcher::Style(query) => self.match_value(query, &Some(window.style())),
             WinMatcher::Any(filters) => filters.iter().any(|f| f.matches_internal(window)),
-            WinMatcher::All(filters) => filters.iter().all(|f| f.matches_internal(window)),
+            WinMatcher::All(filters) => !filters.is_empty() && filters.iter().all(|f| f.matches_internal(window)),
         }
     }
 }
@@ -88,5 +102,47 @@ impl<T: WindowObjInfo> WinMatcherTarget<T> {
 impl std::hash::Hash for WinMatcher {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+struct WinMatcherExt {
+    pub classname: Option<String>,
+    pub exename: Option<String>,
+    pub title: Option<String>,
+    pub style: Option<String>,
+}
+
+impl From<&WinMatcherExt> for WinMatcher {
+    fn from(v: &WinMatcherExt) -> Self {
+        let mut matchers: Vec<WinMatcher> = Vec::new();
+
+        if let Some(exename) = &v.exename {
+            matchers.push(WinMatcher::Exename(exename.clone()));
+        }
+
+        if let Some(classname) = &v.classname {
+            matchers.push(WinMatcher::Classname(classname.clone()));
+        }
+
+        if let Some(title) = &v.title {
+            matchers.push(WinMatcher::Title(title.clone()));
+        }
+
+        if let Some(style) = &v.style {
+            matchers.push(WinMatcher::Style(style.clone()));
+        }
+
+        match matchers.len() == 1 {
+            true => matchers[0].clone(),
+            false => WinMatcher::All(matchers.into_iter().collect()),
+        }
+    }
+}
+
+impl From<WinMatcherExt> for WinMatcher {
+    fn from(v: WinMatcherExt) -> Self {
+        WinMatcher::from(&v)
     }
 }

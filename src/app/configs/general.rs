@@ -58,8 +58,23 @@ impl Default for AnimationsConfigs {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
+#[serde(deny_unknown_fields, rename_all = "snake_case", tag = "type")]
 pub enum FloatingWinsSizeStrategy {
+    Preserve,
+    Fixed { w: u16, h: u16 },
+    Relative { w: f32, h: f32 },
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(default, deny_unknown_fields, from = "FloatingWinsExtConfigs")]
+pub struct FloatingWinsConfigs {
+    pub topmost: bool,
+    pub strategy: FloatingWinsSizeStrategy,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum FloatingWinsSizeStrategyLabel {
     Preserve,
     Fixed,
     Relative,
@@ -67,22 +82,50 @@ pub enum FloatingWinsSizeStrategy {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(default, deny_unknown_fields)]
-pub struct FloatingWinsConfigs {
+pub struct FloatingWinsExtConfigs {
     pub topmost: bool,
-    pub size: FloatingWinsSizeStrategy,
+    pub size: FloatingWinsSizeStrategyLabel,
     #[serde(deserialize_with = "deserialize_size_ratio")]
     pub size_ratio: (f32, f32),
     #[serde(deserialize_with = "deserialize_size_fixed")]
     pub size_fixed: (u16, u16),
 }
 
+impl From<FloatingWinsExtConfigs> for FloatingWinsConfigs {
+    fn from(value: FloatingWinsExtConfigs) -> Self {
+        FloatingWinsConfigs {
+            topmost: value.topmost,
+            strategy: match value.size {
+                FloatingWinsSizeStrategyLabel::Preserve => FloatingWinsSizeStrategy::Preserve,
+                FloatingWinsSizeStrategyLabel::Fixed => FloatingWinsSizeStrategy::Fixed {
+                    w: value.size_fixed.0,
+                    h: value.size_fixed.1,
+                },
+                FloatingWinsSizeStrategyLabel::Relative => FloatingWinsSizeStrategy::Relative {
+                    w: value.size_ratio.0,
+                    h: value.size_ratio.1,
+                },
+            },
+        }
+    }
+}
+
+impl Default for FloatingWinsExtConfigs {
+    fn default() -> Self {
+        FloatingWinsExtConfigs {
+            topmost: true,
+            size: FloatingWinsSizeStrategyLabel::Relative,
+            size_ratio: (0.5, 0.5),
+            size_fixed: (700, 400),
+        }
+    }
+}
+
 impl Default for FloatingWinsConfigs {
     fn default() -> Self {
         FloatingWinsConfigs {
             topmost: true,
-            size: FloatingWinsSizeStrategy::Relative,
-            size_ratio: (0.5, 0.5),
-            size_fixed: (700, 400),
+            strategy: FloatingWinsSizeStrategy::Relative { w: 0.5, h: 0.5 },
         }
     }
 }
