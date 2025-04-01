@@ -21,19 +21,34 @@ pub(crate) unsafe extern "system" fn enum_monitors_callback(
     let monitors = unsafe { &mut *(data.0 as *mut Vec<Monitor>) };
     let info: MONITORINFOEXW = get_monitor_info(monitor);
 
-    let offset = match lprc_monitor.as_ref() {
+    let origin = match lprc_monitor.as_ref() {
         None => (0, 0),
         Some(lprc_monitor) => (lprc_monitor.left, lprc_monitor.top),
     };
+
+    let offset_x = info.monitorInfo.rcWork.left - info.monitorInfo.rcMonitor.left;
+    let offset_y = info.monitorInfo.rcWork.top - info.monitorInfo.rcMonitor.top;
+
+    let resolution = (
+        info.monitorInfo.rcMonitor.right - info.monitorInfo.rcMonitor.left,
+        info.monitorInfo.rcMonitor.bottom - info.monitorInfo.rcMonitor.top,
+    );
 
     let workspace = (
         info.monitorInfo.rcWork.right - info.monitorInfo.rcWork.left,
         info.monitorInfo.rcWork.bottom - info.monitorInfo.rcWork.top,
     );
 
+    let monitor_area = Area::new(
+        origin.0,
+        origin.1,
+        u16::try_from(resolution.0).expect("Failed to convert i32 to u16"),
+        u16::try_from(resolution.1).expect("Failed to convert i32 to u16"),
+    );
+
     let workspace_area = Area::new(
-        offset.0,
-        offset.1,
+        origin.0 + offset_x,
+        origin.1 + offset_y,
         u16::try_from(workspace.0).expect("Failed to convert i32 to u16"),
         u16::try_from(workspace.1).expect("Failed to convert i32 to u16"),
     );
@@ -47,9 +62,10 @@ pub(crate) unsafe extern "system" fn enum_monitors_callback(
             info.monitorInfo.rcMonitor.right - info.monitorInfo.rcMonitor.left,
             info.monitorInfo.rcMonitor.bottom - info.monitorInfo.rcMonitor.top,
         ),
+        monitor_area,
         workspace,
         workspace_area,
-        offset,
+        offset: origin,
     });
     true.into()
 }

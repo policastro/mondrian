@@ -8,13 +8,14 @@ use windows::Win32::Graphics::Gdi::MONITORINFOEXW;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Monitor {
+pub(crate) struct Monitor {
     pub handle: isize,
     pub id: String,
     pub hw_id: String,
     pub primary: bool,
     pub resolution: (i32, i32),
     pub workspace: (i32, i32),
+    pub monitor_area: Area,
     pub workspace_area: Area,
     pub offset: (i32, i32),
 }
@@ -45,6 +46,8 @@ pub fn enum_display_monitors() -> Vec<Monitor> {
         .iter_mut()
         .enumerate()
         .for_each(|(i, m)| m.id = format!("MONITOR{}", i + 1));
-
+    for m in monitors.iter() {
+        println!("{:?}", m);
+    }
     monitors
 }
