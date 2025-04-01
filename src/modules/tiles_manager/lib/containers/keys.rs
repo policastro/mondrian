@@ -9,7 +9,7 @@ pub struct ContainerKey {
     pub layer: ContainerLayer, // TODO: support for multiple layers
 }
 
-#[derive(Eq, Clone)]
+#[derive(Eq, Clone, Debug)]
 pub struct CrossLayerContainerKey {
     pub vd: u128,
     pub monitor: String,

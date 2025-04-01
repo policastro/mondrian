@@ -55,12 +55,10 @@ impl TilesManagerConfig {
     }
 
     pub fn get_borders_padding(&self, monitor_name: &str) -> i16 {
-        let border = self
-            .monitors_configs
+        self.monitors_configs
             .get(monitor_name)
             .map(|c| c.borders_padding as i16)
-            .unwrap_or(self.borders_padding);
-        border - self.get_tiles_padding(monitor_name)
+            .unwrap_or(self.borders_padding)
     }
 
     pub fn get_tiles_padding(&self, monitor_name: &str) -> i16 {
@@ -71,12 +69,10 @@ impl TilesManagerConfig {
     }
 
     pub fn get_half_focalized_borders_pad(&self, monitor_name: &str) -> i16 {
-        let border = self
-            .monitors_configs
+        self.monitors_configs
             .get(monitor_name)
             .map(|c| c.half_focalized_borders_pad as i16)
-            .unwrap_or(self.half_focalized_borders_pad);
-        border - self.get_tiles_padding(monitor_name)
+            .unwrap_or(self.half_focalized_borders_pad)
     }
 
     pub fn get_half_focalized_tiles_pad(&self, monitor_name: &str) -> i16 {

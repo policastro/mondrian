@@ -20,6 +20,12 @@ pub(crate) struct Monitor {
     pub offset: (i32, i32),
 }
 
+impl Monitor {
+    pub fn get_area(&self) -> Area {
+        self.workspace_area
+    }
+}
+
 pub fn get_monitor_info(monitor: HMONITOR) -> MONITORINFOEXW {
     let mut info: MONITORINFOEXW = unsafe { std::mem::zeroed() };
     info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
@@ -46,8 +52,6 @@ pub fn enum_display_monitors() -> Vec<Monitor> {
         .iter_mut()
         .enumerate()
         .for_each(|(i, m)| m.id = format!("MONITOR{}", i + 1));
-    for m in monitors.iter() {
-        println!("{:?}", m);
-    }
+
     monitors
 }

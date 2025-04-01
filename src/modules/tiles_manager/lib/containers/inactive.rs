@@ -10,7 +10,7 @@ type Result<T> = std::result::Result<T, TilesManagerError>;
 pub trait InactiveContainers {
     fn get_normal(&mut self, base_key: &ContainerKey) -> Result<&WinTree>;
     fn get_normal_mut(&mut self, base_key: &ContainerKey) -> Result<&mut WinTree>;
-    fn set_layers_area(&mut self, key: &CrossLayerContainerKey, new_area: Area);
+    fn set_layers_base_area(&mut self, key: &CrossLayerContainerKey, new_base_area: Area);
     fn has_vd(&self, vd: u128) -> bool;
 }
 
@@ -27,10 +27,10 @@ impl InactiveContainers for HashMap<ContainerKey, (WinTree, u128)> {
             .map(|(t, _)| t)
     }
 
-    fn set_layers_area(&mut self, key: &CrossLayerContainerKey, new_area: Area) {
+    fn set_layers_base_area(&mut self, key: &CrossLayerContainerKey, new_base_area: Area) {
         self.iter_mut()
             .filter(|(k, _)| k.is_vd(key.vd) && k.is_monitor(&key.monitor))
-            .for_each(|(_, (t, _))| t.set_area(new_area));
+            .for_each(|(_, (t, _))| t.set_base_area(new_base_area));
     }
 
     fn has_vd(&self, vd: u128) -> bool {

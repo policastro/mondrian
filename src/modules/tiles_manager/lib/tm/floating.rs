@@ -38,7 +38,7 @@ impl TilesManagerFloating for TilesManager {
 
         let src_monitor = find_containing_monitor(&self.managed_monitors, area.get_center());
         let trg_monitor = find_containing_monitor(&self.managed_monitors, point_to_check);
-        let monitor_area = match (src_monitor, trg_monitor) {
+        let monitor = match (src_monitor, trg_monitor) {
             (Some(src), None) => src,
             (None, Some(trg)) => trg,
             (Some(src), Some(trg)) => match src.id == trg.id {
@@ -46,8 +46,8 @@ impl TilesManagerFloating for TilesManager {
                 false => trg,
             },
             _ => return Ok(Success::NoChange),
-        }
-        .workspace_area;
+        };
+        let monitor_area = monitor.get_area();
 
         let step = step.clamp(0, i16::MAX as u16) as i16;
         let mut area = match direction {
@@ -84,8 +84,10 @@ impl TilesManagerFloating for TilesManager {
         {
             return Ok(Success::NoChange);
         }
-        let monitor = find_containing_monitor(&self.managed_monitors, area.get_center()).ok_or(Error::Generic)?;
-        let monitor_area = monitor.workspace_area;
+
+        let monitor = find_containing_monitor(&self.managed_monitors, area.get_center());
+        let monitor = monitor.ok_or(Error::Generic)?;
+        let monitor_area = monitor.get_area();
 
         let area = match axis {
             Orientation::Horizontal => area.pad_xy((-increment, 0)),
@@ -225,6 +227,6 @@ mod utils {
     }
 
     pub fn find_containing_monitor(monitors: &HashMap<String, Monitor>, point: (i32, i32)) -> Option<&Monitor> {
-        monitors.values().find(|m| m.workspace_area.contains(point))
+        monitors.values().find(|m| m.get_area().contains(point))
     }
 }

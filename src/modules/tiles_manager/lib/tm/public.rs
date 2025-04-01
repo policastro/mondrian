@@ -150,7 +150,7 @@ impl TilesManagerOperations for TilesManager {
         let trg_win = self.active_trees.find_leaf_at(target).map(|l| l.id);
 
         let src_k = self.active_trees.find(src_win)?.key;
-        let trg_k = match self.active_trees.find_at(target) {
+        let trg_k = match self.active_trees.find_near(target) {
             Ok(e) => e.key,
             Err(_) => return self.update_layout(true, None), // INFO: update if no container at target
         };
@@ -180,7 +180,7 @@ impl TilesManagerOperations for TilesManager {
         };
 
         if switch_orient {
-            let tree = self.active_trees.find_at_mut(target)?;
+            let tree = self.active_trees.find_near_mut(target)?;
             tree.value.switch_subtree_orientations(target);
         }
 
@@ -253,12 +253,12 @@ impl TilesManagerOperations for TilesManager {
             self.active_trees
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
-                .for_each(|(_, c)| c.set_area(m.workspace_area));
+                .for_each(|(_, c)| c.set_base_area(m.get_area()));
 
             self.inactive_trees
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
-                .for_each(|(_, c)| c.0.set_area(m.workspace_area));
+                .for_each(|(_, c)| c.0.set_base_area(m.get_area()));
         });
         self.managed_monitors = monitors.iter().map(|m| (m.id.clone(), m.clone())).collect();
         self.update_layout(true, None)
@@ -520,10 +520,10 @@ impl TilesManagerOperations for TilesManager {
             return Ok(());
         }
 
-        let leaves = self.active_trees.find_mut(curr)?.value.leaves(0, None);
+        let leaves = self.active_trees.find_mut(curr)?.value.leaves(None);
         let max_leaf = leaves
             .iter()
-            .max_by(|a, b| a.viewbox.get_area().cmp(&b.viewbox.get_area()));
+            .max_by(|a, b| a.viewbox.calc_area().cmp(&b.viewbox.calc_area()));
 
         if max_leaf.is_none_or(|l| l.id == curr) {
             return Ok(());
@@ -548,7 +548,7 @@ impl TilesManagerOperations for TilesManager {
             Ok(e) => (e.key, e.value),
             Err(_) => {
                 let cursor_pos = get_cursor_pos().map_err(|_| Error::Generic)?;
-                match self.active_trees.find_at_mut(cursor_pos) {
+                match self.active_trees.find_near_mut(cursor_pos) {
                     Ok(e) => (e.key, e.value),
                     Err(_) => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {
                         Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::NoWindow)?),
@@ -559,10 +559,10 @@ impl TilesManagerOperations for TilesManager {
         };
 
         if let Some(orig_area) = self.peeked_containers.remove(&k) {
-            t.set_area(orig_area);
-            self.inactive_trees.set_layers_area(&k, orig_area);
+            t.set_base_area(orig_area);
+            self.inactive_trees.set_layers_base_area(&k, orig_area);
         } else {
-            let prev_area = t.get_area();
+            let prev_area = t.get_base_area();
             self.peeked_containers.insert(k.clone(), prev_area);
             let (w, h) = (prev_area.width as f32, prev_area.height as f32);
             let padding = match direction {
@@ -572,8 +572,8 @@ impl TilesManagerOperations for TilesManager {
                 Direction::Down => ((0, 0), (0, (h * ratio).round() as i16)),
             };
             let new_area = prev_area.pad(padding.0, padding.1);
-            t.set_area(new_area);
-            self.inactive_trees.set_layers_area(&k, new_area);
+            t.set_base_area(new_area);
+            self.inactive_trees.set_layers_base_area(&k, new_area);
         }
 
         self.update_layout(true, None)

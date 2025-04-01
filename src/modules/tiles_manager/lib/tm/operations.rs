@@ -74,12 +74,12 @@ impl TilesManagerInternalOperations for TilesManager {
             Some(name) => self
                 .managed_monitors
                 .get(&name)
-                .map(|m| m.workspace_area.get_center())
+                .map(|m| m.get_area().get_center())
                 .unwrap_or(center),
             None => center,
         };
 
-        let k = self.active_trees.find_at_or_near(center)?.key;
+        let k = self.active_trees.find_near(center)?.key;
         if k.layer.is_focalized() && tile_state.is_err() {
             self.restore_monitor(&k)?;
             if self.active_trees.find(win).is_ok() {
@@ -164,7 +164,7 @@ impl TilesManagerInternalOperations for TilesManager {
         if maximize {
             let src_e = self.active_trees.find(window)?;
             let win_center = window.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
-            let trg_e = self.active_trees.find_at(win_center)?;
+            let trg_e = self.active_trees.find_near(win_center)?;
 
             // NOTE: if the window is maximized to another monitor, remove it and add it again
             if src_e.key != trg_e.key {
@@ -211,12 +211,12 @@ impl TilesManagerInternalOperations for TilesManager {
 
         if half_focalize.is_some_and(|f| f) || (half_focalize.is_none() && matches!(k.layer, ContainerLayer::Normal)) {
             let mut new_tree = (*e.value).clone();
-            let mut leaves = e.value.leaves(0, None);
+            let mut leaves = e.value.leaves(None);
             if leaves.len() < 2 {
                 return Ok(Success::NoChange);
             }
 
-            leaves.sort_by(|a, b| a.viewbox.get_area().cmp(&b.viewbox.get_area()));
+            leaves.sort_by(|a, b| a.viewbox.calc_area().cmp(&b.viewbox.calc_area()));
             let biggest_leaf = match leaves.pop().ok_or(Error::Generic)? {
                 l if l.id == window => leaves.pop().ok_or(Error::Generic)?,
                 l => l,
@@ -228,7 +228,10 @@ impl TilesManagerInternalOperations for TilesManager {
             }
 
             self.activate_monitor_layer(k.monitor.clone(), ContainerLayer::HalfFocalized)?;
-            self.active_trees.insert(k.clone(), new_tree);
+            self.active_trees
+                .get_mut(&k)
+                .ok_or(Error::Generic)?
+                .replace_root(new_tree);
             return Ok(Success::LayoutChanged);
         } else if half_focalize.is_some_and(|f| !f)
             || (half_focalize.is_none() && matches!(k.layer, ContainerLayer::HalfFocalized))
@@ -356,8 +359,18 @@ impl TilesManagerInternalOperations for TilesManager {
         }
 
         let src_k = self.active_trees.find(win)?.key;
-        let trg_k = self.active_trees.find_at(point)?.key;
+        let trg_k = self.active_trees.find_near(point)?.key;
         if src_k == trg_k {
+            return Ok(Success::NoChange);
+        }
+
+        if !self
+            .active_trees
+            .get_mut(&trg_k)
+            .ok_or(Error::NoWindow)?
+            .contains(point, false)
+            && free_move
+        {
             return Ok(Success::NoChange);
         }
 
@@ -391,7 +404,7 @@ impl TilesManager {
             Orientation::Vertical => (corners[0].0, corners[1].0),
             Orientation::Horizontal => (corners[0].1, corners[1].1),
         };
-        self.find_best_matching_leaf(window, direction, &t.leaves(0, None), &corners, &axis_values)
+        self.find_best_matching_leaf(window, direction, &t.leaves(None), &corners, &axis_values)
     }
 
     fn find_neighbour_closest_monitor(&self, window: WindowRef, direction: Direction) -> Option<AreaLeaf<WindowRef>> {
@@ -407,7 +420,7 @@ impl TilesManager {
             Orientation::Vertical => (corners[0].0, corners[1].0),
             Orientation::Horizontal => (corners[0].1, corners[1].1),
         };
-        self.find_best_matching_leaf(window, direction, &e.value.leaves(0, None), &corners, &axis_values)
+        self.find_best_matching_leaf(window, direction, &e.value.leaves(None), &corners, &axis_values)
     }
 
     fn find_best_matching_leaf(

@@ -1,4 +1,4 @@
-use super::{direction::Direction, orientation::Orientation};
+use super::{direction::Direction, orientation::Orientation, point::Point};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Area {
@@ -21,6 +21,10 @@ impl Area {
 
     pub fn get_center(&self) -> (i32, i32) {
         (self.x + i32::from(self.width / 2), self.y + i32::from(self.height / 2))
+    }
+
+    pub fn distance(&self, point: (i32, i32)) -> u32 {
+        self.get_center().distance(point)
     }
 
     pub fn contains(&self, point: (i32, i32)) -> bool {
@@ -52,7 +56,7 @@ impl Area {
         )
     }
 
-    pub fn get_area(&self) -> u32 {
+    pub fn calc_area(&self) -> u32 {
         u32::from(self.width) * u32::from(self.height)
     }
 

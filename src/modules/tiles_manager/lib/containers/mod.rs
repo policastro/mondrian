@@ -3,8 +3,6 @@ pub mod inactive;
 pub mod keys;
 pub mod layer;
 
-use container::Container;
-
 use super::tm::result::TilesManagerError;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
@@ -13,6 +11,7 @@ use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::hash::Hash;
 
 type Result<T> = std::result::Result<T, TilesManagerError>;
@@ -32,7 +31,7 @@ impl<K, V> ContainerEntry<K, V> {
 pub(super) trait Containers<K, U: Clone + Eq + Hash> {
     fn find(&self, win: WindowRef) -> Result<ContainerEntry<K, &WinTree>>;
     fn find_at(&self, point: (i32, i32)) -> Result<ContainerEntry<K, &WinTree>>;
-    fn find_at_or_near(&mut self, point: (i32, i32)) -> Result<ContainerEntry<K, &WinTree>>;
+    fn find_near(&self, point: (i32, i32)) -> Result<ContainerEntry<K, &WinTree>>;
     fn find_closest_at(&self, point: (i32, i32), direction: Direction) -> Result<ContainerEntry<K, &WinTree>>;
     fn find_leaf(&self, win: WindowRef) -> Result<AreaLeaf<WindowRef>>;
     fn find_leaf_at(&self, point: (i32, i32)) -> Result<AreaLeaf<WindowRef>>;
@@ -40,10 +39,10 @@ pub(super) trait Containers<K, U: Clone + Eq + Hash> {
 
 pub(super) trait ContainersMut<K, U: Clone + Eq + Hash> {
     fn find_mut(&mut self, win: WindowRef) -> Result<ContainerEntry<K, &mut WinTree>>;
-    fn find_at_mut(&mut self, point: (i32, i32)) -> Result<ContainerEntry<K, &mut WinTree>>;
+    fn find_near_mut(&mut self, point: (i32, i32)) -> Result<ContainerEntry<K, &mut WinTree>>;
 }
 
-impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
+impl<K: Clone + Eq + Hash + Debug> Containers<K, String> for HashMap<K, WinTree> {
     fn find(&self, win: WindowRef) -> Result<ContainerEntry<K, &WinTree>> {
         self.iter()
             .find(|c| c.1.has(win))
@@ -53,12 +52,12 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
 
     fn find_at(&self, point: (i32, i32)) -> Result<ContainerEntry<K, &WinTree>> {
         self.iter()
-            .find(|c| c.1.contains(point))
+            .find(|c| c.1.contains(point, false))
             .map(|(k, v)| ContainerEntry::new(k.clone(), v))
             .ok_or(TilesManagerError::NoContainerAtPoint(point))
     }
 
-    fn find_at_or_near(&mut self, point: (i32, i32)) -> Result<ContainerEntry<K, &WinTree>> {
+    fn find_near(&self, point: (i32, i32)) -> Result<ContainerEntry<K, &WinTree>> {
         self.iter()
             .min_by(|a, b| {
                 let dist1 = calc_distance(point, a.1.get_area());
@@ -75,16 +74,9 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
         ref_point: (i32, i32),
         limit_direction: Direction,
     ) -> Result<ContainerEntry<K, &WinTree>> {
-        let ref_id = (*self
-            .iter()
-            .find(|c| c.1.contains(ref_point))
-            .ok_or(TilesManagerError::NoContainerAtPoint(ref_point))?
-            .0)
-            .clone();
-        let ref_area = self
-            .get(&ref_id)
-            .ok_or(TilesManagerError::NoContainerAtPoint(ref_point))?
-            .get_area();
+        let ref_entry = self.find_near(ref_point)?;
+        let ref_key = ref_entry.key;
+        let ref_area = ref_entry.value.get_area();
         let point = match limit_direction {
             Direction::Right => ref_area.get_ne_corner(),
             Direction::Down => ref_area.get_se_corner(),
@@ -96,7 +88,7 @@ impl<K: Clone + Eq + Hash> Containers<K, String> for HashMap<K, WinTree> {
             .iter()
             .filter(|(k, c)| {
                 // Filter out the same monitor
-                if **k == ref_id {
+                if **k == ref_key {
                     return false;
                 };
 
@@ -143,10 +135,14 @@ impl<K: Clone + Eq + Hash> ContainersMut<K, String> for HashMap<K, WinTree> {
             .ok_or(TilesManagerError::WinNotManaged(win))
     }
 
-    fn find_at_mut(&mut self, point: (i32, i32)) -> Result<ContainerEntry<K, &mut WinTree>> {
+    fn find_near_mut(&mut self, point: (i32, i32)) -> Result<ContainerEntry<K, &mut WinTree>> {
         self.iter_mut()
-            .find(|c| c.1.contains(point))
-            .map(|v| ContainerEntry::new(v.0.clone(), v.1))
+            .min_by(|a, b| {
+                let dist1 = calc_distance(point, a.1.get_area());
+                let dist2 = calc_distance(point, b.1.get_area());
+                dist1.cmp(&dist2)
+            })
+            .map(|(k, v)| ContainerEntry::new(k.clone(), v))
             .ok_or(TilesManagerError::NoContainerAtPoint(point))
     }
 }

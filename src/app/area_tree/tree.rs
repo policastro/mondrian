@@ -3,6 +3,7 @@ use super::layout_strategy::LayoutStrategyEnum;
 use super::layout_strategy::TreeOperation;
 use super::leaf::AreaLeaf;
 use super::node::AreaNode;
+use crate::app::area_tree::node::AreaNodeMarker;
 use crate::app::structs::area::Area;
 use crate::app::structs::orientation::Orientation;
 use crate::win32::window::window_ref::WindowRef;
@@ -13,16 +14,20 @@ pub type WinTree = AreaTree<WindowRef>;
 #[derive(Clone)]
 pub struct AreaTree<T: Copy + Clone + Eq + Hash> {
     root: AreaNode<T>,
+    base_area: Area,
     area: Area,
+    paddings: i16,
     strategy: LayoutStrategyEnum,
     ids_map: std::collections::HashMap<T, AreaLeaf<T>>,
 }
 
 impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
-    pub fn new(area: Area, strategy: LayoutStrategyEnum) -> AreaTree<T> {
+    pub fn new(base_area: Area, strategy: LayoutStrategyEnum, paddings: i16) -> AreaTree<T> {
         AreaTree {
-            root: AreaNode::new(None, Orientation::Horizontal, 50),
-            area,
+            root: AreaNode::root(),
+            base_area,
+            area: base_area.pad_full(paddings),
+            paddings,
             strategy,
             ids_map: std::collections::HashMap::new(),
         }
@@ -46,11 +51,23 @@ impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
     }
 
     pub fn move_to(&mut self, id: T, point: (i32, i32)) {
-        if let Some(leaf) = self.ids_map.remove(&id) {
-            self.root.insert_at(id, point, self.area, 20);
-            // WARNING: not sure if this is correct
-            self.remove_at(leaf.viewbox.get_center());
-            self.update_map();
+        if let Some(leaf) = self.ids_map.get(&id) {
+            let leaf_center = leaf.viewbox.get_center();
+            self.root.mark_leaf_at(leaf_center, self.area, AreaNodeMarker::Deleted);
+
+            if self.root.insert_at(id, point, self.area, 20) {
+                // INFO: at this point, there are two leaves with the same id. We need to remove the old one.
+                let leaves = self.leaves(None);
+                let old_leaf = leaves
+                    .iter()
+                    .find(|l| l.id == id && matches!(l.marker, AreaNodeMarker::Deleted));
+                if let Some(l) = old_leaf {
+                    self.remove_at(l.viewbox.get_center());
+                }
+                self.update_map();
+            } else {
+                self.root.mark_leaf_at(leaf_center, self.area, AreaNodeMarker::None);
+            }
         }
     }
 
@@ -61,8 +78,12 @@ impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
         }
     }
 
-    pub fn leaves(&self, padding: i16, ignored_wins: Option<&HashSet<T>>) -> Vec<AreaLeaf<T>> {
-        self.root.leaves(self.area.pad_full(padding), ignored_wins)
+    pub fn leaves(&self, ignored_wins: Option<&HashSet<T>>) -> Vec<AreaLeaf<T>> {
+        self.padded_leaves((0, 0), ignored_wins)
+    }
+
+    pub fn padded_leaves(&self, padding: (i16, i16), ignored_wins: Option<&HashSet<T>>) -> Vec<AreaLeaf<T>> {
+        self.root.leaves(self.area.pad_xy(padding), ignored_wins)
     }
 
     pub fn find_leaf(&self, id: T, padding: i16) -> Option<AreaLeaf<T>> {
@@ -163,9 +184,19 @@ impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
         self.ids_map.keys().cloned().collect()
     }
 
-    pub fn set_area(&mut self, area: Area) {
-        self.area = area;
+    pub fn set_base_area(&mut self, base_area: Area) {
+        self.base_area = base_area;
+        self.area = base_area.pad_full(self.paddings);
         self.update_map();
+    }
+
+    pub fn replace_root(&mut self, other: AreaTree<T>) {
+        self.root = other.root;
+        self.update_map();
+    }
+
+    pub fn get_base_area(&self) -> Area {
+        self.base_area
     }
 
     pub fn get_area(&self) -> Area {
@@ -181,7 +212,14 @@ impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
 
     pub fn clear(&mut self) {
         self.ids_map.clear();
-        self.root = AreaNode::new(None, Orientation::Horizontal, 50);
+        self.root = AreaNode::root();
+    }
+
+    pub fn contains(&self, point: (i32, i32), base_area: bool) -> bool {
+        match base_area {
+            true => self.base_area.contains(point),
+            false => self.area.contains(point),
+        }
     }
 }
 

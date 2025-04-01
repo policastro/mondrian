@@ -130,8 +130,8 @@ impl TilesManagerBase for TilesManager {
 
         // INFO: bigger windows first
         wins.sort_by(|a, b| {
-            let area_1 = a.get_area().unwrap_or_default().get_area();
-            let area_2 = b.get_area().unwrap_or_default().get_area();
+            let area_1 = a.get_area().unwrap_or_default().calc_area();
+            let area_2 = b.get_area().unwrap_or_default().calc_area();
             area_2.cmp(&area_1)
         });
 
@@ -170,25 +170,14 @@ impl TilesManagerBase for TilesManager {
 
         let anim_player = &mut self.animation_player;
         self.active_trees.iter_mut().for_each(|(k, c)| {
-            let (border_pad, tile_pad) = match k.layer {
-                ContainerLayer::Focalized => (self.config.get_focalized_padding(&k.monitor), (0, 0)),
-                ContainerLayer::HalfFocalized => (
-                    self.config.get_half_focalized_borders_pad(&k.monitor),
-                    self.config.get_half_focalized_tiles_pad_xy(&k.monitor),
-                ),
-                ContainerLayer::Normal => (
-                    self.config.get_borders_padding(&k.monitor),
-                    self.config.get_tiles_padding_xy(&k.monitor),
-                ),
+            let tile_pad = match k.layer {
+                ContainerLayer::Focalized => (0, 0),
+                ContainerLayer::HalfFocalized => self.config.get_half_focalized_tiles_pad_xy(&k.monitor),
+                ContainerLayer::Normal => self.config.get_tiles_padding_xy(&k.monitor),
             };
-
-            // INFO: prevent updates when the monitor has a maximized window
-            if self.maximized_wins.iter().any(|w| c.has(*w)) {
-                return;
-            }
-
-            let _ = c.update(border_pad, tile_pad, anim_player, &self.maximized_wins);
+            let _ = c.update((-tile_pad.0, -tile_pad.1), tile_pad, anim_player, &self.maximized_wins);
         });
+
         let animation = self.config.get_animations().filter(|_| animate);
         anim_player.play(animation, win_in_focus);
         Ok(())
@@ -233,9 +222,14 @@ impl TilesManager {
             .values()
             .flat_map(|m| {
                 let layout = self.config.get_layout_strategy(m.id.as_str());
-                let t1 = WinTree::new(m.workspace_area, layout.clone());
-                let t2 = WinTree::new(m.workspace_area, layout.clone());
-                let t3 = WinTree::new(m.workspace_area, layout);
+                let bpad1 = self.config.get_borders_padding(m.id.as_str());
+                let bpad2 = self.config.get_focalized_padding(m.id.as_str());
+                let bpad3 = self.config.get_half_focalized_borders_pad(m.id.as_str());
+
+                let area = m.get_area();
+                let t1 = WinTree::new(area, layout.clone(), bpad1);
+                let t2 = WinTree::new(area, layout.clone(), bpad2);
+                let t3 = WinTree::new(area, layout, bpad3);
                 [
                     (ContainerKey::normal(vd_id, m.id.clone()), t1, curr_time),
                     (ContainerKey::focalized(vd_id, m.id.clone()), t2, 0),

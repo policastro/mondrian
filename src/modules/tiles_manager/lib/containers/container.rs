@@ -12,23 +12,22 @@ type Result<T> = std::result::Result<T, TilesManagerError>;
 pub trait Container {
     fn update(
         &mut self,
-        border_pad: i16,
+        border_pad: (i16, i16),
         tile_pad: (i16, i16),
         animator: &mut WindowAnimationPlayer,
         ignored_wins: &HashSet<WindowRef>,
     ) -> Result<()>;
-    fn contains(&self, point: (i32, i32)) -> bool;
 }
 
 impl Container for WinTree {
     fn update(
         &mut self,
-        border_pad: i16,
+        border_pad: (i16, i16),
         tile_pad: (i16, i16),
         animation_player: &mut WindowAnimationPlayer,
         ignored_wins: &HashSet<WindowRef>,
     ) -> Result<()> {
-        let leaves: Vec<AreaLeaf<WindowRef>> = self.leaves(border_pad, Some(ignored_wins));
+        let leaves: Vec<AreaLeaf<WindowRef>> = self.padded_leaves(border_pad, Some(ignored_wins));
 
         for leaf in &leaves {
             if !leaf.id.is_visible() {
@@ -48,9 +47,5 @@ impl Container for WinTree {
             animation_player.queue(leaf.id, area, None);
         }
         Ok(())
-    }
-
-    fn contains(&self, point: (i32, i32)) -> bool {
-        self.get_area().contains(point)
     }
 }
