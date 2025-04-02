@@ -217,7 +217,12 @@ fn handle_tm(
 
     let res = match event {
         TMCommand::WindowEvent(window_event) => match window_event {
-            WindowEvent::Maximized(winref) => tm.on_maximize(winref, true),
+            WindowEvent::Maximized(winref) => {
+                // INFO: If Maximized event is fired after StartMoveSize
+                // and before EndMoveSize
+                tm.pause_updates(false);
+                tm.on_maximize(winref, true)
+            }
             WindowEvent::Unmaximized(winref) => tm.on_maximize(winref, false),
             WindowEvent::Opened(winref) => tm.on_open(winref),
             WindowEvent::Restored(winref) => tm.on_restore(winref),
