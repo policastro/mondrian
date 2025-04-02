@@ -1,6 +1,5 @@
 use super::configs::CoreModuleConfigs;
 use super::lib::tm::command::TMCommand;
-use super::lib::tm::configs::TilesManagerConfig;
 use super::lib::tm::manager::TilesManager;
 use super::lib::tm::manager::TilesManagerBase;
 use super::lib::tm::public::TilesManagerOperations;
@@ -57,10 +56,10 @@ impl TilesManagerModule {
     }
 
     fn start_tiles_manager(&mut self, event_receiver: Receiver<TMCommand>) {
-        let tm_configs = TilesManagerConfig::from(&self.configs);
+        let tm_configs = self.configs.tm_configs.clone();
 
         let app_tx = self.bus_tx.clone();
-        let animations_enabled = self.configs.animations_enabled;
+        let animations_enabled = tm_configs.animation_type.is_some();
         let on_update_start = move |wins| {
             app_tx
                 .send(MondrianMessage::CoreUpdateStart(wins, animations_enabled))

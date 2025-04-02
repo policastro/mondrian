@@ -2,10 +2,10 @@ use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::configs::core::WindowBehavior;
 use crate::app::configs::core::WindowRule;
 use crate::app::configs::general::FloatingWinsConfigs;
+use crate::app::configs::AppConfigs;
 use crate::app::configs::MonitorConfigs;
 use crate::app::structs::paddings::Paddings;
 use crate::app::structs::win_matcher::WinMatcher;
-use crate::modules::tiles_manager::configs::CoreModuleConfigs;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
@@ -94,28 +94,26 @@ impl TilesManagerConfig {
     }
 }
 
-impl From<&CoreModuleConfigs> for TilesManagerConfig {
-    fn from(configs: &CoreModuleConfigs) -> Self {
-        let animation_type = match &configs.animations_enabled {
-            true => configs.animation_type.clone(),
-            false => None,
-        };
-
+impl From<&AppConfigs> for TilesManagerConfig {
+    fn from(configs: &AppConfigs) -> Self {
         Self {
-            tiles_padding: configs.tiles_padding as i16,
-            borders_padding: configs.border_padding,
-            focalized_padding: configs.focalized_padding,
-            half_focalized_borders_pad: configs.half_focalized_borders_pad,
-            half_focalized_tiles_pad: configs.half_focalized_tiles_pad as i16,
-            ignore_filter: configs.ignore_filter.clone(),
-            rules: configs.rules.clone(),
-            layout_strategy: configs.layout_strategy.clone(),
-            animations_duration: configs.animations_duration,
-            animations_framerate: configs.animations_framerate,
-            animation_type,
-            history_based_navigation: configs.history_based_navigation,
-            floating_wins: configs.floating_wins.clone(),
-            monitors_configs: configs.monitors_configs.clone(),
+            layout_strategy: configs.get_layout_strategy(),
+            tiles_padding: configs.layout.paddings.tiles as i16,
+            borders_padding: configs.layout.paddings.borders,
+            half_focalized_borders_pad: configs.layout.half_focalized_paddings.borders,
+            half_focalized_tiles_pad: configs.layout.half_focalized_paddings.tiles as i16,
+            focalized_padding: configs.layout.focalized_padding,
+            animations_duration: configs.general.animations.duration,
+            animations_framerate: configs.general.animations.framerate,
+            animation_type: match configs.general.animations.enabled {
+                true => Some(configs.general.animations.animation_type.clone()),
+                false => None,
+            },
+            ignore_filter: configs.get_ignore_filter(),
+            rules: configs.get_rules(),
+            history_based_navigation: configs.general.history_based_navigation,
+            floating_wins: configs.general.floating_wins.clone(),
+            monitors_configs: configs.get_monitors_configs(),
         }
     }
 }
