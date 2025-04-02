@@ -6,6 +6,7 @@ use super::node::AreaNode;
 use crate::app::area_tree::node::AreaNodeMarker;
 use crate::app::structs::area::Area;
 use crate::app::structs::orientation::Orientation;
+use crate::app::structs::paddings::Paddings;
 use crate::win32::window::window_ref::WindowRef;
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
@@ -16,17 +17,17 @@ pub struct AreaTree<T: Copy + Clone + Eq + Hash> {
     root: AreaNode<T>,
     base_area: Area,
     area: Area,
-    paddings: i16,
+    paddings: Paddings,
     strategy: LayoutStrategyEnum,
     ids_map: std::collections::HashMap<T, AreaLeaf<T>>,
 }
 
 impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
-    pub fn new(base_area: Area, strategy: LayoutStrategyEnum, paddings: i16) -> AreaTree<T> {
+    pub fn new(base_area: Area, strategy: LayoutStrategyEnum, paddings: Paddings) -> AreaTree<T> {
         AreaTree {
             root: AreaNode::root(),
             base_area,
-            area: base_area.pad_full(paddings),
+            area: base_area.with_paddings(paddings),
             paddings,
             strategy,
             ids_map: std::collections::HashMap::new(),
@@ -186,7 +187,7 @@ impl<T: Copy + Clone + Eq + Hash + Debug> AreaTree<T> {
 
     pub fn set_base_area(&mut self, base_area: Area) {
         self.base_area = base_area;
-        self.area = base_area.pad_full(self.paddings);
+        self.area = base_area.with_paddings(self.paddings);
         self.update_map();
     }
 

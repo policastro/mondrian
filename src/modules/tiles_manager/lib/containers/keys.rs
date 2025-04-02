@@ -6,14 +6,14 @@ use std::hash::Hasher;
 pub struct ContainerKey {
     pub vd: u128,
     pub monitor: String,
-    pub layer: ContainerLayer, // TODO: support for multiple layers
+    pub layer: ContainerLayer,
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct CrossLayerContainerKey {
     pub vd: u128,
     pub monitor: String,
-    pub layer: ContainerLayer, // TODO: support for multiple layers
+    pub layer: ContainerLayer,
 }
 
 impl ContainerKey {

@@ -3,6 +3,7 @@ use crate::app::configs::core::WindowBehavior;
 use crate::app::configs::core::WindowRule;
 use crate::app::configs::general::FloatingWinsConfigs;
 use crate::app::configs::MonitorConfigs;
+use crate::app::structs::paddings::Paddings;
 use crate::app::structs::win_matcher::WinMatcher;
 use crate::modules::tiles_manager::configs::CoreModuleConfigs;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
@@ -12,9 +13,9 @@ use std::collections::HashMap;
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct TilesManagerConfig {
     tiles_padding: i16,
-    borders_padding: i16,
-    focalized_padding: i16,
-    half_focalized_borders_pad: i16,
+    borders_padding: Paddings,
+    focalized_padding: Paddings,
+    half_focalized_borders_pad: Paddings,
     half_focalized_tiles_pad: i16,
     layout_strategy: LayoutStrategyEnum,
     monitors_configs: HashMap<String, MonitorConfigs>,
@@ -47,17 +48,17 @@ impl TilesManagerConfig {
             .unwrap_or(self.layout_strategy.clone())
     }
 
-    pub fn get_focalized_padding(&self, monitor_name: &str) -> i16 {
+    pub fn get_focalized_padding(&self, monitor_name: &str) -> Paddings {
         self.monitors_configs
             .get(monitor_name)
-            .map(|c| c.focalized_padding as i16)
+            .map(|c| c.focalized_padding)
             .unwrap_or(self.focalized_padding)
     }
 
-    pub fn get_borders_padding(&self, monitor_name: &str) -> i16 {
+    pub fn get_borders_padding(&self, monitor_name: &str) -> Paddings {
         self.monitors_configs
             .get(monitor_name)
-            .map(|c| c.borders_padding as i16)
+            .map(|c| c.borders_padding)
             .unwrap_or(self.borders_padding)
     }
 
@@ -68,10 +69,10 @@ impl TilesManagerConfig {
             .unwrap_or(self.tiles_padding)
     }
 
-    pub fn get_half_focalized_borders_pad(&self, monitor_name: &str) -> i16 {
+    pub fn get_half_focalized_borders_pad(&self, monitor_name: &str) -> Paddings {
         self.monitors_configs
             .get(monitor_name)
-            .map(|c| c.half_focalized_borders_pad as i16)
+            .map(|c| c.half_focalized_borders_pad)
             .unwrap_or(self.half_focalized_borders_pad)
     }
 
@@ -102,9 +103,9 @@ impl From<&CoreModuleConfigs> for TilesManagerConfig {
 
         Self {
             tiles_padding: configs.tiles_padding as i16,
-            borders_padding: configs.border_padding as i16,
-            focalized_padding: configs.focalized_padding as i16,
-            half_focalized_borders_pad: configs.half_focalized_borders_pad as i16,
+            borders_padding: configs.border_padding,
+            focalized_padding: configs.focalized_padding,
+            half_focalized_borders_pad: configs.half_focalized_borders_pad,
             half_focalized_tiles_pad: configs.half_focalized_tiles_pad as i16,
             ignore_filter: configs.ignore_filter.clone(),
             rules: configs.rules.clone(),

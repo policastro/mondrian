@@ -2,6 +2,8 @@ use serde::de::Error;
 use serde::Deserialize;
 use serde::Deserializer;
 
+use crate::app::structs::paddings::Paddings;
+
 pub fn to_u8_max<'de, const MAX: u8, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: Deserializer<'de>,
@@ -65,6 +67,53 @@ where
 {
     let s: String = String::deserialize(deserializer)?;
     get_tiling_strategy(&s).map_err(D::Error::custom)
+}
+
+pub fn to_opt_paddings_max<'de, const MAX: u8, D>(deserializer: D) -> Result<Option<Paddings>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: toml::Value = toml::Value::deserialize(deserializer)?;
+    get_paddings(&value, MAX).map(Some).map_err(D::Error::custom)
+}
+
+pub fn to_paddings_max<'de, const MAX: u8, D>(deserializer: D) -> Result<Paddings, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: toml::Value = toml::Value::deserialize(deserializer)?;
+    get_paddings(&value, MAX).map_err(D::Error::custom)
+}
+
+fn get_paddings(value: &toml::Value, max: u8) -> Result<Paddings, String> {
+    match value {
+        toml::Value::Integer(n) => {
+            if *n < 0 || *n > max as i64 {
+                return Err(format!("value must be between 0 and {max} (inclusive)"));
+            }
+            Ok(Paddings::full(*n as u8))
+        }
+
+        toml::Value::Array(arr) => {
+            let values: Vec<u8> = arr.iter().filter_map(|x| x.as_integer().map(|x| x as u8)).collect();
+            for v in arr.iter() {
+                let v = v.as_integer().ok_or("Invalid value".to_string())?;
+                let v = u8::try_from(v).map_err(|e| e.to_string())?;
+                if v > max {
+                    return Err(format!("values must be between 0 and {max} (inclusive)"));
+                }
+            }
+
+            match values.len() {
+                2 => Ok(Paddings::new(values[0], values[1], values[0], values[1])),
+                4 => Ok(Paddings::new(values[0], values[1], values[2], values[3])),
+                _ => Err(
+                    "The array must have  2 (vertical/horizontal) or 4 (top/right/bottom/left) elements".to_string(),
+                ),
+            }
+        }
+        _ => Err("Invalid value".to_string()),
+    }
 }
 
 pub fn to_opt_tiling_strategy<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>

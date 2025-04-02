@@ -4,6 +4,7 @@ use crate::app::configs::core::WindowRule;
 use crate::app::configs::general::FloatingWinsConfigs;
 use crate::app::configs::AppConfigs;
 use crate::app::configs::MonitorConfigs;
+use crate::app::structs::paddings::Paddings;
 use crate::app::structs::win_matcher::WinMatcher;
 use std::collections::HashMap;
 
@@ -11,10 +12,10 @@ use std::collections::HashMap;
 pub struct CoreModuleConfigs {
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
-    pub border_padding: u8,
-    pub half_focalized_borders_pad: u8,
+    pub border_padding: Paddings,
+    pub half_focalized_borders_pad: Paddings,
     pub half_focalized_tiles_pad: u8,
-    pub focalized_padding: u8,
+    pub focalized_padding: Paddings,
     pub animations_enabled: bool,
     pub animations_duration: u32,
     pub animations_framerate: u8,
@@ -32,10 +33,10 @@ impl Default for CoreModuleConfigs {
         CoreModuleConfigs {
             layout_strategy: LayoutStrategyEnum::default(),
             tiles_padding: 0,
-            border_padding: 0,
-            half_focalized_borders_pad: 0,
+            border_padding: Paddings::default(),
+            half_focalized_borders_pad: Paddings::default(),
             half_focalized_tiles_pad: 0,
-            focalized_padding: 0,
+            focalized_padding: Paddings::default(),
             animations_enabled: false,
             animations_duration: 500,
             animations_framerate: 60,

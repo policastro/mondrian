@@ -30,10 +30,14 @@
           ]
         },
         "focalized_padding": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 120,
-          "description": "Padding between monitor borders and focalized windows (in pixels)."
+          "allOf": [
+            {
+              "$ref": "#/definitions/bordersPadding"
+            },
+            {
+              "description": "Padding between monitor borders and the focalized window (in pixels). Can be:\n\n- A number, which will be applied to all sides;\n- A 2-tuple ([vertical, horizontal]);\n- A 4-tuple ([top, right, bottom, left]).\n\nAll values must be between 0 and 140."
+            }
+          ]
         },
         "strategy": {
           "type": "object",
@@ -439,16 +443,26 @@
             "type": "object",
             "description": "Rules to control the behavior of specific windows. A rule is composed by a: \n - `filter`, which is used to match windows;\n - `behavior` (or `behaviors`), which is used to control the behavior of the matched windows. \n\nEach `filter` has the format \n ```{ title =\"TITLE\", exename = \"EXENAME\", classname = \"CLASSNAME\", style = \"STYLE\" }``` and the rule will be applied to all windows that match all the fields specified (you must specify at least one).\n Check the [docs](https://github.com/policastro/mondrian?tab=readme-ov-file#custom-rules-with-corerules-) for more info.",
             "properties": {
-              "filter": { "$ref": "#/definitions/filter" },
-              "behavior": { "$ref": "#/definitions/windowBehavior" },
+              "filter": {
+                "$ref": "#/definitions/filter"
+              },
+              "behavior": {
+                "$ref": "#/definitions/windowBehavior"
+              },
               "behaviors": {
                 "type": "array",
-                "items": { "$ref": "#/definitions/windowBehavior" }
+                "items": {
+                  "$ref": "#/definitions/windowBehavior"
+                }
               }
             },
             "oneOf": [
-              { "required": ["filter", "behavior"] },
-              { "required": ["filter", "behaviors"] }
+              {
+                "required": ["filter", "behavior"]
+              },
+              {
+                "required": ["filter", "behaviors"]
+              }
             ],
             "additionalProperties": false
           },
@@ -493,10 +507,14 @@
                   ]
                 },
                 "focalized_padding": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 120,
-                  "description": "Padding between monitor borders and focalized windows (in pixels)."
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/bordersPadding"
+                    },
+                    {
+                      "description": "Padding between monitor borders and the focalized window (in pixels). Can be:\n\n- A number, which will be applied to all sides;\n- A 2-tuple ([vertical, horizontal]);\n- A 4-tuple ([top, right, bottom, left]).\n\nAll values must be between 0 and 140."
+                    }
+                  ]
                 }
               },
               "additionalProperties": false
@@ -645,6 +663,35 @@
         }
       }
     },
+    "bordersPadding": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 140
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 140
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 140
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ]
+    },
     "layoutPaddings": {
       "type": "object",
       "properties": {
@@ -655,10 +702,14 @@
           "description": "Padding between windows (in pixels)."
         },
         "borders": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100,
-          "description": "Padding between monitor borders and windows (in pixels)."
+          "allOf": [
+            {
+              "$ref": "#/definitions/bordersPadding"
+            },
+            {
+              "description": "Padding between monitor borders and windows (in pixels). Can be:\n\n- A number, which will be applied to all sides;\n- A 2-tuple ([vertical, horizontal]);\n- A 4-tuple ([top, right, bottom, left]).\n\nAll values must be between 0 and 140."
+            }
+          ]
         }
       },
       "additionalProperties": false

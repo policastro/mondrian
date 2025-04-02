@@ -1,4 +1,5 @@
 use crate::app::configs::deserializers;
+use crate::app::structs::paddings::Paddings;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -15,15 +16,15 @@ pub struct MonitorLayout {
     pub tiling_strategy: Option<String>,
     pub paddings: MonitorPaddingsConfigs,
     pub half_focalized_paddings: MonitorPaddingsConfigs,
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<120,_>")]
-    pub focalized_padding: Option<u8>,
+    #[serde(deserialize_with = "deserializers::to_opt_paddings_max::<140,_>")]
+    pub focalized_padding: Option<Paddings>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[serde(deny_unknown_fields, default)]
 pub struct MonitorPaddingsConfigs {
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
+    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<140,_>")]
     pub tiles: Option<u8>,
-    #[serde(deserialize_with = "deserializers::to_opt_u8_max::<100,_>")]
-    pub borders: Option<u8>,
+    #[serde(deserialize_with = "deserializers::to_opt_paddings_max::<140,_>")]
+    pub borders: Option<Paddings>,
 }

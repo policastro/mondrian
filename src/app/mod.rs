@@ -16,6 +16,7 @@ pub mod structs {
     pub mod direction;
     pub mod info_entry;
     pub mod orientation;
+    pub mod paddings;
     pub mod point;
     pub mod win_matcher;
 }

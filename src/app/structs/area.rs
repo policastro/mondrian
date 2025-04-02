@@ -1,4 +1,4 @@
-use super::{direction::Direction, orientation::Orientation, point::Point};
+use super::{direction::Direction, orientation::Orientation, paddings::Paddings, point::Point};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Area {
@@ -200,6 +200,13 @@ impl Area {
             self.y + i32::from(padding_y.0),
             new_width,
             new_height,
+        )
+    }
+
+    pub fn with_paddings(&self, paddings: Paddings) -> Area {
+        self.pad(
+            (paddings.left.into(), paddings.right.into()),
+            (paddings.top.into(), paddings.bottom.into()),
         )
     }
 

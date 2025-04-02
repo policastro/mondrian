@@ -6,6 +6,7 @@ pub(crate) mod modules;
 pub(crate) mod monitors;
 
 use super::area_tree::layout_strategy::LayoutStrategyEnum;
+use super::structs::paddings::Paddings;
 use super::structs::win_matcher::WinMatcher;
 use core::Core;
 use core::WindowBehavior;
@@ -115,8 +116,8 @@ impl AppConfigs {
 pub struct MonitorConfigs {
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
-    pub borders_padding: u8,
-    pub focalized_padding: u8,
-    pub half_focalized_borders_pad: u8,
+    pub borders_padding: Paddings,
+    pub focalized_padding: Paddings,
+    pub half_focalized_borders_pad: Paddings,
     pub half_focalized_tiles_pad: u8,
 }
