@@ -1,4 +1,5 @@
 use super::manager::TilesManager;
+use super::manager::TilesManagerBase;
 use super::result::TilesManagerError;
 use super::result::TilesManagerSuccess;
 use crate::app::mondrian_message::WindowTileState;
@@ -32,6 +33,8 @@ impl TilesManagerFloating for TilesManager {
             return Ok(Success::NoChange);
         }
 
+        // INFO: if I don't cancel the animation, the window will have an incosistent position
+        self.cancel_animation();
         let area = window.get_area().ok_or(Error::NoWindowsInfo)?;
         let monitor = match find_containing_monitor(&self.managed_monitors, area.get_center()) {
             Some(monitor) => monitor,
@@ -86,6 +89,8 @@ impl TilesManagerFloating for TilesManager {
             return Ok(Success::NoChange);
         }
 
+        // INFO: if I don't cancel the animation, the window will have an incosistent size
+        self.cancel_animation();
         let area = window.get_area().ok_or(Error::NoWindowsInfo)?;
         let increment = increment.clamp(-500, 500);
         if increment < 0
