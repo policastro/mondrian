@@ -168,7 +168,7 @@ The **available actions** are:
 - `retile`: re-tiles the windows;
 - `minimize`: minimizes the focused window. This action also works with unmanaged windows;
 - `close`: closes the focused window. This action also works with unmanaged windows;
-- `toggle-topmost`: toggles the topmost state of the focused window. This action also works with unmanaged windows;
+- `toggle-topmost`: toggles the topmost state of the focused window. This action only works with floating windows;
 - `focus <left|right|up|down>`: focuses the window in the specified direction;
 - `switch-focus`: switches focus between tiled and floating windows;
 - `move <left|right|up|down> [40-1000]`: if applied to a tiled window, swaps the focused window with the window in the specified direction. If applied to a floating window, moves the window in the specified direction by the amount in pixels defined in the third parameter (which defaults to 200 if not specified);

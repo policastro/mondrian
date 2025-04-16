@@ -382,7 +382,9 @@ impl TilesManagerOperations for TilesManager {
 
     fn topmost_focused(&mut self, topmost: Option<bool>) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
-        curr.set_topmost(topmost.unwrap_or(!curr.is_topmost())).ok();
+        if matches!(self.get_window_state(curr)?, WindowTileState::Floating) {
+            curr.set_topmost(topmost.unwrap_or(!curr.is_topmost())).ok();
+        }
         Ok(())
     }
 
