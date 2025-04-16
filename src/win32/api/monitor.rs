@@ -21,7 +21,7 @@ pub(crate) struct Monitor {
 }
 
 impl Monitor {
-    pub fn get_area(&self) -> Area {
+    pub fn get_workspace(&self) -> Area {
         self.workspace_area
     }
 }

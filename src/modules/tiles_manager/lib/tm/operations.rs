@@ -74,7 +74,7 @@ impl TilesManagerInternalOperations for TilesManager {
             Some(name) => self
                 .managed_monitors
                 .get(&name)
-                .map(|m| m.get_area().get_center())
+                .map(|m| m.get_workspace().get_center())
                 .unwrap_or(center),
             None => center,
         };

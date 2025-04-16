@@ -226,7 +226,7 @@ impl TilesManager {
                 let bpad2 = self.config.get_focalized_padding(m.id.as_str());
                 let bpad3 = self.config.get_half_focalized_borders_pad(m.id.as_str());
 
-                let area = m.get_area();
+                let area = m.get_workspace();
                 let t1 = WinTree::new(area, layout.clone(), bpad1);
                 let t2 = WinTree::new(area, layout.clone(), bpad2);
                 let t3 = WinTree::new(area, layout, bpad3);

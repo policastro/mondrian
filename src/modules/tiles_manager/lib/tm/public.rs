@@ -253,12 +253,12 @@ impl TilesManagerOperations for TilesManager {
             self.active_trees
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
-                .for_each(|(_, c)| c.set_base_area(m.get_area()));
+                .for_each(|(_, c)| c.set_base_area(m.get_workspace()));
 
             self.inactive_trees
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
-                .for_each(|(_, c)| c.0.set_base_area(m.get_area()));
+                .for_each(|(_, c)| c.0.set_base_area(m.get_workspace()));
         });
         self.managed_monitors = monitors.iter().map(|m| (m.id.clone(), m.clone())).collect();
         self.update_layout(true, None)

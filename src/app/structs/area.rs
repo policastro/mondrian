@@ -23,6 +23,12 @@ impl Area {
         (self.x + i32::from(self.width / 2), self.y + i32::from(self.height / 2))
     }
 
+    pub fn with_center(&self, center: (i32, i32)) -> Area {
+        let x = center.0 - i32::from(self.width / 2);
+        let y = center.1 - i32::from(self.height / 2);
+        Area::new(x, y, self.width, self.height)
+    }
+
     pub fn distance(&self, point: (i32, i32)) -> u32 {
         self.get_center().distance(point)
     }
@@ -191,6 +197,10 @@ impl Area {
         )
     }
 
+    pub fn translate(&self, x: i16, y: i16) -> Area {
+        self.shift((x, y, x, y))
+    }
+
     pub fn pad(&self, padding_x: (i16, i16), padding_y: (i16, i16)) -> Area {
         let new_width = Self::add_to_dimension(self.width, padding_x.0 + padding_x.1);
         let new_height = Self::add_to_dimension(self.height, padding_y.0 + padding_y.1);
@@ -226,15 +236,6 @@ impl Area {
     pub fn overlaps_x(&self, x1: i32, x2: i32) -> bool {
         let (x1, x2) = if x1 < x2 { (x1, x2) } else { (x2, x1) };
         self.x + self.width as i32 >= x1 && self.x <= x2
-    }
-
-    pub fn clamp(&self, other: &Area) -> Area {
-        Area::new(
-            self.x.max(other.x),
-            self.y.max(other.y),
-            self.width.min(other.width),
-            self.height.min(other.height),
-        )
     }
 
     fn get_percent(value: u16, percent: u8) -> u16 {

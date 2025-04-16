@@ -17,10 +17,11 @@ type Error = TilesManagerError;
 type TMResult = Result<Success, Error>;
 
 const MIN_FLOATING_DIM: u16 = 250; // INFO: seems reasonable
-const CROSS_MONITOR_THRESHOLD: i16 = 15; // INFO: seems reasonable
+const CROSS_MONITOR_THRESHOLD: i32 = 15; // INFO: seems reasonable
 
 pub trait TilesManagerFloating {
     fn move_window(&mut self, window: WindowRef, direction: Direction, step: u16) -> TMResult;
+    fn insert(&mut self, window: WindowRef, direction: Direction, center: bool) -> TMResult;
     fn resize(&mut self, window: WindowRef, axis: Orientation, increment: i16) -> TMResult;
     fn change_focus(&mut self, window: WindowRef, direction: Direction, center_cursor: bool) -> TMResult;
 }
@@ -32,41 +33,50 @@ impl TilesManagerFloating for TilesManager {
         }
 
         let area = window.get_area().ok_or(Error::NoWindowsInfo)?;
-        let point_to_check = area
-            .pad_full(-CROSS_MONITOR_THRESHOLD)
-            .get_center_in_direction(direction);
-
-        let src_monitor = find_containing_monitor(&self.managed_monitors, area.get_center());
-        let trg_monitor = find_containing_monitor(&self.managed_monitors, point_to_check);
-        let monitor = match (src_monitor, trg_monitor) {
-            (Some(src), None) => src,
-            (None, Some(trg)) => trg,
-            (Some(src), Some(trg)) => match src.id == trg.id {
-                true => src,
-                false => trg,
-            },
-            _ => return Ok(Success::NoChange),
+        let monitor = match find_containing_monitor(&self.managed_monitors, area.get_center()) {
+            Some(monitor) => monitor,
+            None => return Ok(Success::NoChange),
         };
-        let monitor_area = monitor.get_area();
+        let monitor_area = monitor.get_workspace();
+
+        let is_on_the_edge =
+            (area.get_edge(direction) - monitor_area.get_edge(direction)).abs() <= CROSS_MONITOR_THRESHOLD;
+
+        if is_on_the_edge {
+            return self.insert(window, direction, false);
+        }
 
         let step = step.clamp(0, i16::MAX as u16) as i16;
-        let mut area = match direction {
+        let area = match direction {
             Direction::Left => area.shift((-step, 0, 0, 0)),
             Direction::Right => area.shift((step, 0, 0, 0)),
             Direction::Up => area.shift((0, -step, 0, 0)),
             Direction::Down => area.shift((0, step, 0, 0)),
         };
 
-        area.x = area.x.max(monitor_area.x);
-        area.y = area.y.max(monitor_area.y);
-        area = area.shift((
-            0.min(monitor_area.get_right_edge() - area.get_right_edge()) as i16,
-            0.min(monitor_area.get_bottom_edge() - area.get_bottom_edge()) as i16,
-            0,
-            0,
-        ));
+        let area = fit_area(&area, &monitor_area);
 
-        let area = area.clamp(&monitor_area);
+        Ok(Success::queue(window, area, None))
+    }
+
+    fn insert(&mut self, window: WindowRef, direction: Direction, center: bool) -> TMResult {
+        if !matches!(self.get_window_state(window)?, WindowTileState::Floating) {
+            return Ok(Success::NoChange);
+        }
+
+        let area = window.get_area().ok_or(Error::NoWindowsInfo)?;
+        let monitor = match find_nearest_monitor(&self.managed_monitors, area.get_center(), direction) {
+            Some(monitor) => monitor,
+            None => return Ok(Success::NoChange),
+        };
+
+        let monitor_area = monitor.get_workspace();
+        let area = fit_area(&area, &monitor_area);
+
+        if center {
+            let area = area.with_center(monitor_area.get_center());
+            return Ok(Success::queue(window, area, None));
+        }
 
         Ok(Success::queue(window, area, None))
     }
@@ -87,13 +97,14 @@ impl TilesManagerFloating for TilesManager {
 
         let monitor = find_containing_monitor(&self.managed_monitors, area.get_center());
         let monitor = monitor.ok_or(Error::Generic)?;
-        let monitor_area = monitor.get_area();
+        let monitor_area = monitor.get_workspace();
 
         let area = match axis {
             Orientation::Horizontal => area.pad_xy((-increment, 0)),
             Orientation::Vertical => area.pad_xy((0, -increment)),
-        }
-        .clamp(&monitor_area);
+        };
+
+        let area = fit_area(&area, &monitor_area);
 
         let pad_x = get_corrective_pad(MIN_FLOATING_DIM as i16, area.width as i16);
         let pad_y = get_corrective_pad(MIN_FLOATING_DIM as i16, area.height as i16);
@@ -215,7 +226,10 @@ impl FloatingWindows for HashMap<WindowRef, FloatingProperties> {
 mod utils {
     use std::collections::HashMap;
 
-    use crate::win32::api::monitor::Monitor;
+    use crate::{
+        app::structs::{area::Area, direction::Direction, point::Point},
+        win32::api::monitor::Monitor,
+    };
 
     pub fn get_corrective_pad(min_dim: i16, dim: i16) -> (i16, i16) {
         if dim >= min_dim {
@@ -227,6 +241,50 @@ mod utils {
     }
 
     pub fn find_containing_monitor(monitors: &HashMap<String, Monitor>, point: (i32, i32)) -> Option<&Monitor> {
-        monitors.values().find(|m| m.get_area().contains(point))
+        monitors.values().find(|m| m.get_workspace().contains(point))
+    }
+
+    pub fn find_nearest_monitor(
+        monitors: &HashMap<String, Monitor>,
+        origin: (i32, i32),
+        direction: Direction,
+    ) -> Option<&Monitor> {
+        let opp_dir = direction.opposite();
+        monitors
+            .values()
+            .filter(|m| !m.get_workspace().contains(origin))
+            .filter(|m| {
+                let edge = m.get_workspace().get_edge(opp_dir);
+                match direction {
+                    Direction::Left => edge <= origin.0,
+                    Direction::Right => edge >= origin.0,
+                    Direction::Up => edge <= origin.1,
+                    Direction::Down => edge >= origin.1,
+                }
+            })
+            .min_by(|m1, m2| {
+                let d1 = m1.get_workspace().get_center_in_direction(opp_dir).distance(origin);
+                let d2 = m2.get_workspace().get_center_in_direction(opp_dir).distance(origin);
+                d1.cmp(&d2)
+            })
+    }
+
+    pub fn fit_area(src_area: &Area, dest_area: &Area) -> Area {
+        let area = Area::new(
+            src_area.x.max(dest_area.x),
+            src_area.y.max(dest_area.y),
+            src_area.width.min(dest_area.width),
+            src_area.height.min(dest_area.height),
+        );
+
+        let offset_h = (dest_area.get_bottom_edge() - area.get_bottom_edge()).min(0);
+        let offset_w = (dest_area.get_right_edge() - area.get_right_edge()).min(0);
+
+        area.shift((
+            offset_w.max(i16::MIN as i32) as i16,
+            offset_h.max(i16::MIN as i32) as i16,
+            0,
+            0,
+        ))
     }
 }

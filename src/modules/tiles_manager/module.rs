@@ -310,7 +310,7 @@ fn handle_tm(
 
 fn get_info_entries(tm: &TilesManager) -> Vec<InfoEntry> {
     let monitors = enum_display_monitors();
-    let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), m.get_area())).collect();
+    let monitors_areas: Vec<(String, Area)> = monitors.iter().map(|m| (m.id.clone(), m.get_workspace())).collect();
     let windows = tm.get_visible_managed_windows();
     let windows_str = windows.iter().map(|w| (w.0.snapshot(), w.1)).map(|w| {
         let c = w.0.get_area().map(|a| a.get_center());
