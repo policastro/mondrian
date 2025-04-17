@@ -143,15 +143,13 @@ impl TilesManagerInternalOperations for TilesManager {
             self.floating_wins.insert(window, FloatingProperties::new());
             let area = get_floating_win_area(&monitor_area, &window, &self.config.floating_wins)?;
             let is_topmost = self.config.floating_wins.topmost;
-            self.animation_player.queue(window, area, Some(is_topmost));
+            Ok(Success::queue(window, area, Some(is_topmost)))
         } else {
             self.floating_wins.remove(&window);
-            self.animation_player.dequeue(window);
             self.add(window, None, false)?;
             let _ = window.set_topmost(false);
+            Ok(Success::dequeue(window))
         }
-
-        Ok(Success::LayoutChanged)
     }
 
     fn maximize(&mut self, window: WindowRef, maximize: bool) -> TMResult {

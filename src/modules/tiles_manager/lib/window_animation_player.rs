@@ -89,7 +89,7 @@ impl WindowAnimationPlayer {
             t.join().unwrap();
         }
 
-        self.previous_foreground.take().inspect(|w| w.focus());
+        self.previous_foreground.take().inspect(Self::focus_window);
     }
 
     pub fn play(&mut self, animation: Option<WindowAnimation>, win_in_focus: Option<WindowRef>) {
@@ -155,7 +155,7 @@ impl WindowAnimationPlayer {
             }
 
             Self::move_windows(&wins);
-            prev_focus.inspect(|w| w.focus());
+            prev_focus.inspect(Self::focus_window);
             running.store(false, Ordering::Release);
             (on_complete)();
         }));
@@ -219,6 +219,14 @@ impl WindowAnimationPlayer {
                 }
                 window.redraw().ok();
             });
+    }
+
+    fn focus_window(win: &WindowRef) {
+        win.focus();
+        // INFO: Brings the window to the front
+        if !win.is_topmost() {
+            win.set_topmost(true).and_then(|_| win.set_topmost(false)).ok();
+        }
     }
 }
 

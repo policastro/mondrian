@@ -22,12 +22,19 @@ pub enum TilesManagerSuccess {
         area: Area,
         topmost: Option<bool>,
     },
+    Dequeue {
+        window: WindowRef,
+    },
     NoChange,
 }
 
 impl TilesManagerSuccess {
     pub fn queue(window: WindowRef, area: Area, topmost: Option<bool>) -> Self {
         Self::Queue { window, area, topmost }
+    }
+
+    pub fn dequeue(window: WindowRef) -> Self {
+        Self::Dequeue { window }
     }
 }
 

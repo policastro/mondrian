@@ -297,6 +297,14 @@ impl TilesManagerOperations for TilesManager {
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error> {
         match self.release(get_foreground().ok_or(Error::NoWindow)?, release)? {
             Success::LayoutChanged => self.update_layout(true, None),
+            Success::Queue { window, area, topmost } => {
+                self.animation_player.queue(window, area, topmost);
+                self.update_layout(true, Some(window))
+            }
+            Success::Dequeue { window } => {
+                self.animation_player.dequeue(window);
+                self.update_layout(true, None)
+            }
             _ => Ok(()),
         }
     }
