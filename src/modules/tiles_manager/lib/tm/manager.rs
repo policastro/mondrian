@@ -18,10 +18,12 @@ use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::api::monitor::Monitor;
 use crate::win32::api::window::enum_user_manageable_windows;
+use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Duration;
 use winvd::get_current_desktop;
 use winvd::Desktop;
@@ -179,7 +181,16 @@ impl TilesManagerBase for TilesManager {
         });
 
         let animation = self.config.get_animations().filter(|_| animate);
-        anim_player.play(animation, win_in_focus);
+
+        // INFO: set maximized windows to the front when animation is complete
+        let maximized = self.maximized_wins.clone();
+        anim_player.play(
+            animation,
+            win_in_focus,
+            Some(Arc::new(move || {
+                maximized.iter().for_each(|w| w.to_front());
+            })),
+        );
         Ok(())
     }
 

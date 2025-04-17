@@ -236,4 +236,8 @@ impl WindowObjHandler for WindowRef {
             }
         }
     }
+
+    fn to_front(&self) {
+        self.set_topmost(true).and_then(|_| self.set_topmost(false)).ok();
+    }
 }

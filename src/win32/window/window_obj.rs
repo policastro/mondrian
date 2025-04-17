@@ -30,4 +30,5 @@ pub trait WindowObjHandler {
     fn restore(&self, activate: bool) -> bool;
     fn close(&self);
     fn set_topmost(&self, topmost: bool) -> Result<(), ()>;
+    fn to_front(&self);
 }

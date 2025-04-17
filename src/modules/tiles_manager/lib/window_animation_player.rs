@@ -92,7 +92,12 @@ impl WindowAnimationPlayer {
         self.previous_foreground.take().inspect(Self::focus_window);
     }
 
-    pub fn play(&mut self, animation: Option<WindowAnimation>, win_in_focus: Option<WindowRef>) {
+    pub fn play(
+        &mut self,
+        animation: Option<WindowAnimation>,
+        win_in_focus: Option<WindowRef>,
+        cb_done: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+    ) {
         self.cancel();
         self.previous_foreground = win_in_focus
             .or_else(|| get_foreground_window().map(|fw| fw.into()))
@@ -116,6 +121,7 @@ impl WindowAnimationPlayer {
             (self.on_start)(wins_to_animate);
             Self::move_windows(&self.windows);
             (self.on_complete)();
+            cb_done.inspect(|f| f());
             self.clear();
             return;
         }
@@ -129,6 +135,7 @@ impl WindowAnimationPlayer {
         let on_start = self.on_start.clone();
         let on_error = self.on_error.clone();
         let on_complete = self.on_complete.clone();
+        let cb_done = cb_done;
         let prev_focus = self.previous_foreground;
 
         self.running.store(true, Ordering::Release);
@@ -158,6 +165,7 @@ impl WindowAnimationPlayer {
             prev_focus.inspect(Self::focus_window);
             running.store(false, Ordering::Release);
             (on_complete)();
+            cb_done.inspect(|f| f());
         }));
 
         self.windows.clear();
@@ -225,7 +233,7 @@ impl WindowAnimationPlayer {
         win.focus();
         // INFO: Brings the window to the front
         if !win.is_topmost() {
-            win.set_topmost(true).and_then(|_| win.set_topmost(false)).ok();
+            win.to_front();
         }
     }
 }
