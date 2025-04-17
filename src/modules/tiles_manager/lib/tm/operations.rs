@@ -109,7 +109,7 @@ impl TilesManagerInternalOperations for TilesManager {
     fn remove(&mut self, win: WindowRef) -> TMResult {
         let tile_state = self.get_window_state(win)?;
 
-        if matches!(tile_state, WindowTileState::Floating) {
+        if matches!(tile_state, TileState::Floating) {
             if self.floating_wins.can_be_closed(&win) {
                 self.floating_wins.remove(&win);
             }
@@ -117,13 +117,13 @@ impl TilesManagerInternalOperations for TilesManager {
         }
 
         let k = self.active_trees.find(win)?.key;
-        if matches!(tile_state, WindowTileState::Focalized | WindowTileState::HalfFocalized) {
+        if matches!(tile_state, TileState::Focalized | TileState::HalfFocalized) {
             self.restore_monitor(&k)?;
         }
 
         self.active_trees.find_mut(win)?.value.remove(win);
 
-        if matches!(tile_state, WindowTileState::Maximized) {
+        if matches!(tile_state, TileState::Maximized) {
             self.maximized_wins.remove(&win);
         }
 
@@ -133,11 +133,11 @@ impl TilesManagerInternalOperations for TilesManager {
     fn release(&mut self, window: WindowRef, release: Option<bool>) -> TMResult {
         let tile_state = self.get_window_state(window)?;
 
-        if matches!(tile_state, WindowTileState::Maximized) {
+        if matches!(tile_state, TileState::Maximized) {
             return Ok(Success::NoChange);
         }
 
-        if release.unwrap_or(!matches!(tile_state, WindowTileState::Floating)) {
+        if release.unwrap_or(!matches!(tile_state, TileState::Floating)) {
             let monitor_area = self.active_trees.find(window)?.value.get_area();
             self.remove(window)?;
             self.floating_wins.insert(window, FloatingProperties::new());
@@ -157,7 +157,7 @@ impl TilesManagerInternalOperations for TilesManager {
     fn maximize(&mut self, window: WindowRef, maximize: bool) -> TMResult {
         let tile_state = self.get_window_state(window)?;
 
-        if matches!(tile_state, WindowTileState::Floating) {
+        if matches!(tile_state, TileState::Floating) {
             return Ok(Success::NoChange);
         }
 
@@ -181,6 +181,11 @@ impl TilesManagerInternalOperations for TilesManager {
     }
 
     fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> TMResult {
+        let tile_state = self.get_window_state(window);
+        if tile_state.is_ok_and(|s| matches!(s, TileState::Floating)) {
+            self.release(window, Some(false))?;
+        }
+
         let e = self.active_trees.find(window)?;
         let k = e.key;
 
@@ -301,7 +306,7 @@ impl TilesManagerInternalOperations for TilesManager {
         let tile_state = self.get_window_state(win)?;
         if matches!(
             tile_state,
-            WindowTileState::Floating | WindowTileState::Maximized | WindowTileState::Focalized
+            TileState::Floating | TileState::Maximized | TileState::Focalized
         ) {
             return Ok(Success::NoChange);
         }
@@ -354,7 +359,7 @@ impl TilesManagerInternalOperations for TilesManager {
 
     fn insert_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult {
         let tile_state = self.get_window_state(win)?;
-        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
+        if matches!(tile_state, TileState::Floating | TileState::Maximized) {
             return Ok(Success::NoChange);
         }
 
