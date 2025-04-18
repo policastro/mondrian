@@ -8,17 +8,27 @@ use crate::win32::api::window::show_window;
 use crate::win32::win_event_loop::start_win_event_loop;
 use crate::win32::window::window_ref::WindowRef;
 use std::sync::atomic::AtomicIsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::Condvar;
+use std::sync::Mutex;
 use std::thread;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNA;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
+enum InitState {
+    Idle,
+    Creating,
+    Created,
+}
+
 pub struct Overlay {
     target: WindowRef,
     main_thread: Option<thread::JoinHandle<()>>,
     overlay_handle: Arc<AtomicIsize>,
+    current_state: Arc<(Mutex<InitState>, Condvar)>,
     params: OverlayParams,
     class_name: String,
 }
@@ -28,6 +38,7 @@ impl Overlay {
         Overlay {
             class_name: class_name.to_string(),
             target,
+            current_state: Arc::new((Mutex::new(InitState::Idle), Condvar::new())),
             overlay_handle: Arc::new(AtomicIsize::new(0)),
             params,
             main_thread: None,
@@ -45,16 +56,23 @@ impl Overlay {
         let overlay_handle = self.overlay_handle.clone();
         let target = self.target;
         let params = self.params;
+        let current_state = self.current_state.clone();
+
+        Self::set_init_state(&self.current_state, InitState::Creating);
+
         let main_thread = thread::spawn(move || {
             let hwnd = overlay::create(params, Some(target.into()), class_name.as_str());
             if hwnd.is_invalid() {
+                Self::set_init_state(&current_state, InitState::Idle);
                 return;
             }
 
-            overlay_handle.store(hwnd.0 as isize, std::sync::atomic::Ordering::Release);
+            overlay_handle.store(hwnd.0 as isize, Ordering::Release);
+            Self::set_init_state(&current_state, InitState::Created);
             start_win_event_loop();
-            overlay_handle.store(0, std::sync::atomic::Ordering::Release);
+            overlay_handle.store(0, Ordering::Release);
             destroy_window(hwnd);
+            Self::set_init_state(&current_state, InitState::Idle);
         });
 
         self.main_thread = Some(main_thread);
@@ -67,9 +85,15 @@ impl Overlay {
     pub fn destroy(&mut self) {
         if let Some(th) = self.main_thread.take() {
             // INFO: it takes some time to create the overlay
-            while self.get_overlay_handle().is_none() {
-                thread::sleep(std::time::Duration::from_millis(100));
+            let (lock, cvar) = &*self.current_state;
+            // INFO: scope to release the lock before th.join()
+            {
+                let mut state = lock.lock().unwrap();
+                while matches!(*state, InitState::Creating) {
+                    state = cvar.wait(state).unwrap();
+                }
             }
+
             if let Some(handle) = self.get_overlay_handle() {
                 post_empty_message(handle, WM_QUIT);
             }
@@ -114,6 +138,13 @@ impl Overlay {
         if let Some(o) = self.get_overlay_handle() {
             show_window(o, SW_SHOWNA);
         }
+    }
+
+    fn set_init_state(state_variable: &Arc<(Mutex<InitState>, Condvar)>, state: InitState) {
+        let (lock, cvar) = &**state_variable;
+        let mut guard = lock.lock().unwrap();
+        *guard = state;
+        cvar.notify_all();
     }
 }
 
