@@ -4,6 +4,7 @@ pub mod overlay {
     use crate::win32::api::gdiplus::init_gdiplus;
     use crate::win32::api::window::create_window;
     use crate::win32::api::window::show_window;
+    use crate::win32::window::window_obj::WindowObjHandler;
     use crate::win32::window::window_obj::WindowObjInfo;
     use crate::win32::window::window_ref::WindowRef;
     use std::ffi::OsStr;
@@ -204,7 +205,16 @@ pub mod overlay {
 
         let b = get_box_from_target(target.unwrap_or_default(), params.thickness, params.padding);
         let b = b.unwrap_or_default().into();
-        let hwnd = create_window(ex_style, cs_ptr, style, b, target, hmod, params);
+
+        // INFO: when the task manager is set to be always on top, is not possible to create the
+        // overlay window as a child. Not sure if other applications have the same behavior.
+        let hwnd = match create_window(ex_style, cs_ptr, style, b, target, hmod, params) {
+            Some(hwnd) => Some(hwnd),
+            None => create_window(ex_style, cs_ptr, style, b, None, hmod, params).inspect(|h| {
+                WindowRef::new(*h).set_topmost(true).ok();
+            }),
+        };
+
         let hwnd = hwnd.unwrap_or_default();
 
         show_window(hwnd, SW_SHOWNOACTIVATE);
