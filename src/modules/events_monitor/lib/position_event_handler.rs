@@ -74,7 +74,7 @@ impl PositionEventHandler {
             get_key_state(VK_CONTROL.0).pressed,
         );
 
-        let dest_point = match get_cursor_pos().inspect(|_| log::warn!("Failed to get cursor pos")) {
+        let dest_point = match get_cursor_pos().inspect_err(|e| log::warn!("Failed to get cursor pos: {e:?}")) {
             Ok(point) => point,
             _ => return,
         };
