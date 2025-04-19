@@ -31,6 +31,7 @@ impl WindowRule {
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 struct CoreExt {
+    #[serde(default)]
     pub ignore_rules: Vec<WinMatcher>,
     #[serde(default, deserialize_with = "deserialize_rules")]
     pub rules: Vec<WindowRule>,
