@@ -13,6 +13,8 @@ pub trait WindowObjInfo {
     fn is_iconic(&self) -> bool;
     fn is_cloaked(&self) -> bool;
     fn is_topmost(&self) -> bool;
+    fn is_fullscreen(&self) -> bool;
+    fn is_maximized(&self) -> bool;
     fn get_window_style(&self) -> u32;
 }
 
@@ -30,5 +32,6 @@ pub trait WindowObjHandler {
     fn restore(&self, activate: bool) -> bool;
     fn close(&self);
     fn set_topmost(&self, topmost: bool) -> Result<(), ()>;
+    fn set_normal(&self);
     fn to_front(&self);
 }

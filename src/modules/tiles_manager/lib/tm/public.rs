@@ -188,7 +188,7 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {
-        match self.maximize(window, maximize)? {
+        match self.as_maximized(window, maximize)? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }

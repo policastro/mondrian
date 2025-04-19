@@ -324,4 +324,17 @@ impl TilesManager {
         };
         Ok(())
     }
+
+    pub fn monitor_maximized_win(&self, key: &CrossLayerContainerKey) -> Option<WindowRef> {
+        let t = self.active_trees.get(key)?;
+        self.maximized_wins.iter().find(|w| t.has(**w)).copied()
+    }
+
+    pub fn restore_maximized(&mut self, key: &CrossLayerContainerKey) -> Result<(), Error> {
+        if let Some(win) = self.monitor_maximized_win(key) {
+            win.set_normal();
+            self.as_maximized(win, false)?;
+        }
+        Ok(())
+    }
 }

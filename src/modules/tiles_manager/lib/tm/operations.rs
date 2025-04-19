@@ -34,7 +34,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
     fn remove(&mut self, win: WindowRef) -> TMResult;
 
     fn release(&mut self, window: WindowRef, release: Option<bool>) -> TMResult;
-    fn maximize(&mut self, window: WindowRef, maximize: bool) -> TMResult;
+    fn as_maximized(&mut self, window: WindowRef, maximize: bool) -> TMResult;
     fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> TMResult;
     fn half_focalize(&mut self, window: WindowRef, half_focalize: Option<bool>) -> TMResult;
     fn find_neighbour(
@@ -90,14 +90,13 @@ impl TilesManagerInternalOperations for TilesManager {
         if self.active_trees.find(win).is_ok() {
             return Err(Error::WindowAlreadyAdded(win));
         }
+
         let t = self.active_trees.get_mut(&k).ok_or(C_ERR)?;
         win.set_topmost(false).ok();
         t.insert(win);
 
         // INFO: if the monitor has a maximized window, restore it
-        if let Some(maximized_win) = self.maximized_wins.iter().find(|w| t.has(**w)) {
-            self.maximize(*maximized_win, false)?;
-        }
+        self.restore_maximized(&k)?;
 
         if check_rules && self.config.rules.is_floating(win) {
             self.release(win, Some(true))?;
@@ -152,14 +151,14 @@ impl TilesManagerInternalOperations for TilesManager {
         }
     }
 
-    fn maximize(&mut self, window: WindowRef, maximize: bool) -> TMResult {
+    fn as_maximized(&mut self, window: WindowRef, maximized: bool) -> TMResult {
         let tile_state = self.get_window_state(window)?;
 
         if matches!(tile_state, TileState::Floating) {
             return Ok(Success::NoChange);
         }
 
-        if maximize {
+        if maximized {
             let src_e = self.active_trees.find(window)?;
             let win_center = window.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
             let trg_e = self.active_trees.find_near(win_center)?;
@@ -254,8 +253,15 @@ impl TilesManagerInternalOperations for TilesManager {
         strategy: MonitorSearchStrategy,
     ) -> Option<AreaLeaf<WindowRef>> {
         let src_entry = self.active_trees.find(window).ok()?;
-        if src_entry.key.layer == ContainerLayer::Focalized && matches!(strategy, MonitorSearchStrategy::Same) {
+
+        if (src_entry.key.layer == ContainerLayer::Focalized || self.monitor_maximized_win(&src_entry.key).is_some())
+            && matches!(strategy, MonitorSearchStrategy::Same)
+        {
             return None;
+        };
+
+        if self.monitor_maximized_win(&src_entry.key).is_some() && matches!(strategy, MonitorSearchStrategy::Any) {
+            return self.find_neighbour_closest_monitor(window, direction);
         };
 
         if matches!(strategy, MonitorSearchStrategy::Same | MonitorSearchStrategy::Any) {
@@ -277,6 +283,8 @@ impl TilesManagerInternalOperations for TilesManager {
         let src_k = self.active_trees.find(w1)?.key;
         let trg_k = self.active_trees.find(w2)?.key;
 
+        self.restore_maximized(&src_k).ok();
+        self.restore_maximized(&trg_k).ok();
         if src_k == trg_k {
             let t = self.active_trees.get_mut(&src_k).ok_or(C_ERR)?;
             t.swap_ids(w1, w2);
@@ -381,6 +389,8 @@ impl TilesManagerInternalOperations for TilesManager {
         self.active_trees.get_mut(&src_k).ok_or(Error::NoWindow)?.remove(win);
 
         self.restore_monitor(&trg_k)?;
+        self.restore_maximized(&trg_k)?;
+
         let trg = self.active_trees.get_mut(&trg_k).ok_or(Error::NoWindow)?;
         match free_move {
             true => trg.insert_at(win, point),
@@ -396,6 +406,7 @@ impl TilesManager {
         let src_entry = self.active_trees.find(window).ok()?;
         let src_area = src_entry.value.find_leaf(window, 0)?.viewbox;
         let t = self.active_trees.get(&src_entry.key)?;
+
         let axis_values = src_area.get_corners(direction)[0];
         let pad = match direction.axis() {
             Orientation::Vertical => (1, 0),
@@ -416,6 +427,10 @@ impl TilesManager {
             .active_trees
             .find_closest_at(src_area.get_center(), direction)
             .ok()?;
+
+        if let Some(win) = self.monitor_maximized_win(&e.key) {
+            return e.value.find_leaf(win, 0);
+        }
 
         let corners = e.value.get_area().get_corners(direction.opposite());
         let axis_values = corners[0];

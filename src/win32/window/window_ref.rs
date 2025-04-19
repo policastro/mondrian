@@ -18,7 +18,7 @@ use super::{
 };
 use crate::win32::api::{
     misc::post_empty_message,
-    window::{get_dpi_for_window, get_dwmwa_extended_frame_bounds, is_window_topmost},
+    window::{get_dpi_for_window, get_dwmwa_extended_frame_bounds, is_fullscreen, is_maximized, is_window_topmost},
 };
 use crate::{
     app::structs::area::Area,
@@ -93,17 +93,19 @@ impl WindowRef {
     pub fn snapshot(&self) -> WindowSnapshot {
         WindowSnapshot {
             hwnd: self.hwnd,
-            exe_name: self.get_exe_name(),
             title: self.get_title(),
+            exe_name: self.get_exe_name(),
+            class_name: self.get_class_name(),
+            style: self.get_window_style(),
+            iconic: self.is_iconic(),
+            visible: self.is_visible(),
             area: self.get_area(),
             visible_area: self.get_visible_area(),
             borders: self.get_borders(),
-            class_name: self.get_class_name(),
-            style: self.get_window_style(),
-            visible: self.is_visible(),
-            iconic: self.is_iconic(),
             cloaked: self.is_cloaked(),
             topmost: self.is_topmost(),
+            fullscreen: self.is_fullscreen(),
+            maximized: self.is_maximized(),
         }
     }
 }
@@ -172,6 +174,14 @@ impl WindowObjInfo for WindowRef {
         is_window_topmost(self.hwnd)
     }
 
+    fn is_fullscreen(&self) -> bool {
+        is_fullscreen(self.hwnd)
+    }
+
+    fn is_maximized(&self) -> bool {
+        is_maximized(self.hwnd)
+    }
+
     fn get_window_style(&self) -> u32 {
         get_window_style(self.hwnd)
     }
@@ -193,7 +203,7 @@ impl WindowObjHandler for WindowRef {
             let size = (i32::from(size.0), i32::from(size.1));
 
             if force_normal {
-                show_window(self.hwnd, SW_SHOWNORMAL); // INFO: remove maximized state
+                self.set_normal();
             }
 
             match SetWindowPos(self.hwnd, None, pos.0, pos.1, size.0, size.1, flags) {
@@ -201,6 +211,10 @@ impl WindowObjHandler for WindowRef {
                 Err(_) => Err(()),
             }
         }
+    }
+
+    fn set_normal(&self) {
+        show_window(self.hwnd, SW_SHOWNORMAL);
     }
 
     fn redraw(&self) -> Result<(), ()> {

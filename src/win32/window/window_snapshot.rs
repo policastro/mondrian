@@ -20,6 +20,8 @@ pub struct WindowSnapshot {
     pub(crate) borders: Option<(i32, i32, i32, i32)>,
     pub(crate) cloaked: bool,
     pub(crate) topmost: bool,
+    pub(crate) fullscreen: bool,
+    pub(crate) maximized: bool,
 }
 
 impl WindowObjInfo for WindowSnapshot {
@@ -59,12 +61,20 @@ impl WindowObjInfo for WindowSnapshot {
         self.cloaked
     }
 
-    fn get_window_style(&self) -> u32 {
-        self.style
-    }
-
     fn is_topmost(&self) -> bool {
         self.topmost
+    }
+
+    fn is_fullscreen(&self) -> bool {
+        self.fullscreen
+    }
+
+    fn is_maximized(&self) -> bool {
+        self.maximized
+    }
+
+    fn get_window_style(&self) -> u32 {
+        self.style
     }
 }
 
