@@ -1,6 +1,7 @@
 use crate::app::configs::AppConfigs;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
+use crate::win32::window::window_obj::WindowObjInfo;
 use info_response_builder::build_info_response;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -38,7 +39,26 @@ impl ModuleImpl for LoggerModule {
     fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
         match event {
             MondrianMessage::WindowEvent(e) => {
-                log::info!("[Window:{:?}]: {}", e, e.get_window_ref().snapshot())
+                let wref = e.get_window_ref();
+
+                log::info!(
+                    "[Window:{:?} | {}{}]: {{ class: {}, style: {}, [{}visible, {}iconic, {}cloaked], view: {} }}",
+                    e,
+                    wref.get_exe_name().unwrap_or("".to_string()),
+                    if cfg!(debug_assertions) {
+                        format!(" ({:?})", wref.get_title().unwrap_or("".to_string()))
+                    } else {
+                        "".to_string() // INFO: no title in prod
+                    },
+                    wref.get_class_name().unwrap_or("".to_string()),
+                    format!("{:x}", wref.get_window_style()),
+                    if wref.is_visible() { "" } else { "!" },
+                    if wref.is_iconic() { "" } else { "!" },
+                    if wref.is_cloaked() { "" } else { "!" },
+                    wref.get_visible_area()
+                        .map(|a| format!("({}, {}, {}, {})", a.x, a.y, a.width, a.height))
+                        .unwrap_or("()".to_string()),
+                );
             }
             MondrianMessage::QueryInfo => {
                 let mut data_file = Self::get_app_state_file();
