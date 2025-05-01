@@ -110,6 +110,9 @@ impl WindowAnimationPlayer {
             .filter_map(|(w, i)| {
                 let src_area: Area = w.get_area()?;
                 if src_area == i.target_area {
+                    if let Some(topmost) = i.topmost {
+                        w.set_topmost(topmost).ok();
+                    }
                     return None;
                 };
                 Some((w, src_area, i.target_area))
@@ -120,6 +123,7 @@ impl WindowAnimationPlayer {
         if animation.is_none() {
             (self.on_start)(wins_to_animate);
             Self::move_windows(&self.windows);
+            Self::set_windows_topmost(&self.windows);
             (self.on_complete)();
             cb_done.inspect(|f| f());
             self.clear();
@@ -163,6 +167,7 @@ impl WindowAnimationPlayer {
 
             Self::move_windows(&wins);
             prev_focus.inspect(Self::focus_window);
+            Self::set_windows_topmost(&wins);
             running.store(false, Ordering::Release);
             (on_complete)();
             cb_done.inspect(|f| f());
@@ -218,14 +223,11 @@ impl WindowAnimationPlayer {
         let flags = SWP_SHOWWINDOW | SWP_NOSENDCHANGING | SWP_NOACTIVATE;
         windows
             .iter()
-            .filter(|(w, i)| w.get_area().is_some_and(|a| a != i.target_area))
-            .for_each(|(window, info)| {
+            .filter(|(win, info)| win.get_area().is_some_and(|a| a != info.target_area))
+            .for_each(|(win, info)| {
                 let (pos, size) = (info.target_area.get_origin(), info.target_area.get_size());
-                window.resize_and_move(pos, size, false, flags).ok();
-                if let Some(topmost) = info.topmost {
-                    window.set_topmost(topmost).ok();
-                }
-                window.redraw().ok();
+                win.resize_and_move(pos, size, false, flags).ok();
+                win.redraw().ok();
             });
     }
 
@@ -235,6 +237,15 @@ impl WindowAnimationPlayer {
         if !win.is_topmost() {
             win.to_front();
         }
+    }
+
+    fn set_windows_topmost(windows: &HashMap<WindowRef, WindowAnimationQueueInfo>) {
+        windows
+            .iter()
+            .filter_map(|(win, info)| info.topmost.map(|topmost| (win, topmost)))
+            .for_each(|(win, topmost)| {
+                win.set_topmost(topmost).ok();
+            });
     }
 }
 

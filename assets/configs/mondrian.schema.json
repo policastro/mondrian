@@ -71,12 +71,22 @@
                 "first_step": {
                   "type": "string",
                   "description": "First insertion direction.",
-                  "enum": ["right", "left", "up", "down"]
+                  "enum": [
+                    "right",
+                    "left",
+                    "up",
+                    "down"
+                  ]
                 },
                 "second_step": {
                   "type": "string",
                   "description": "Second insertion direction.",
-                  "enum": ["right", "left", "up", "down"]
+                  "enum": [
+                    "right",
+                    "left",
+                    "up",
+                    "down"
+                  ]
                 },
                 "ratio": {
                   "type": "integer",
@@ -212,51 +222,14 @@
           "additionalProperties": false
         },
         "floating_wins": {
-          "type": "object",
-          "description": "Settings for floating windows.",
-          "properties": {
-            "topmost": {
-              "type": "boolean",
-              "description": "If true, floating windows are always on top of other windows."
+          "allOf": [
+            {
+              "$ref": "#/definitions/floatingSettings"
             },
-            "size": {
-              "type": "string",
-              "description": "How floating windows are resized.",
-              "enum": ["preserve", "relative", "fixed"],
-              "x-taplo": {
-                "docs": {
-                  "enumValues": [
-                    "Keep current size",
-                    "Resize based on monitor size",
-                    "Resize to a fixed size"
-                  ]
-                }
-              }
-            },
-            "size_ratio": {
-              "type": "array",
-              "description": "Ratio of the floating windows size relative to the monitor.",
-              "items": {
-                "type": "number",
-                "minimum": 0.1,
-                "maximum": 1.0
-              },
-              "minItems": 2,
-              "maxItems": 2
-            },
-            "size_fixed": {
-              "type": "array",
-              "description": "Fixed size of the floating windows.",
-              "items": {
-                "type": "integer",
-                "minimum": 100,
-                "maximum": 10000
-              },
-              "minItems": 2,
-              "maxItems": 2
+            {
+              "description": "Settings for floating windows."
             }
-          },
-          "additionalProperties": false
+          ]
         }
       },
       "additionalProperties": false
@@ -301,16 +274,31 @@
                 },
                 "anyOf": [
                   {
-                    "required": ["key", "action"]
+                    "required": [
+                      "key",
+                      "action"
+                    ]
                   },
                   {
-                    "required": ["modifiers", "key", "action"]
+                    "required": [
+                      "modifiers",
+                      "key",
+                      "action"
+                    ]
                   },
                   {
-                    "required": ["modifier", "key", "action"]
+                    "required": [
+                      "modifier",
+                      "key",
+                      "action"
+                    ]
                   },
                   {
-                    "required": ["mod", "key", "action"]
+                    "required": [
+                      "mod",
+                      "key",
+                      "action"
+                    ]
                   }
                 ],
                 "additionalProperties": false
@@ -458,10 +446,16 @@
             },
             "oneOf": [
               {
-                "required": ["filter", "behavior"]
+                "required": [
+                  "filter",
+                  "behavior"
+                ]
               },
               {
-                "required": ["filter", "behaviors"]
+                "required": [
+                  "filter",
+                  "behaviors"
+                ]
               }
             ],
             "additionalProperties": false
@@ -550,16 +544,24 @@
       },
       "anyOf": [
         {
-          "required": ["exename"]
+          "required": [
+            "exename"
+          ]
         },
         {
-          "required": ["classname"]
+          "required": [
+            "classname"
+          ]
         },
         {
-          "required": ["title"]
+          "required": [
+            "title"
+          ]
         },
         {
-          "required": ["style"]
+          "required": [
+            "style"
+          ]
         }
       ],
       "additionalProperties": false
@@ -568,7 +570,10 @@
       "oneOf": [
         {
           "type": "string",
-          "enum": ["float", "ignore"],
+          "enum": [
+            "float",
+            "ignore"
+          ],
           "x-taplo": {
             "docs": {
               "enumValues": [
@@ -591,6 +596,18 @@
                 }
               },
               "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "float": {
+              "allOf": [
+                { "$ref": "#/definitions/floatingSettings" },
+                { "description": "Settings for floating windows." }
+              ]
             }
           },
           "additionalProperties": false
@@ -650,7 +667,13 @@
     "tilingStrategyEnum": {
       "description": "Defines the tiling strategy used in the layout.",
       "type": "string",
-      "enum": ["golden_ratio", "horizontal", "vertical", "twostep", "squared"],
+      "enum": [
+        "golden_ratio",
+        "horizontal",
+        "vertical",
+        "twostep",
+        "squared"
+      ],
       "x-taplo": {
         "docs": {
           "enumValues": [
@@ -710,6 +733,57 @@
               "description": "Padding between monitor borders and windows (in pixels). Can be:\n\n- A number, which will be applied to all sides;\n- A 2-tuple ([vertical, horizontal]);\n- A 4-tuple ([top, right, bottom, left]).\n\nAll values must be between 0 and 140."
             }
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "floatingSettings": {
+      "type": "object",
+      "description": "Settings for floating windows.",
+      "properties": {
+        "topmost": {
+          "type": "boolean",
+          "description": "If true, floating windows are always on top of other windows."
+        },
+        "size": {
+          "type": "string",
+          "description": "How floating windows are resized.",
+          "enum": [
+            "preserve",
+            "relative",
+            "fixed"
+          ],
+          "x-taplo": {
+            "docs": {
+              "enumValues": [
+                "Keep current size",
+                "Resize based on monitor size",
+                "Resize to a fixed size"
+              ]
+            }
+          }
+        },
+        "size_ratio": {
+          "type": "array",
+          "description": "Ratio of the floating windows size relative to the monitor.",
+          "items": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 1.0
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "size_fixed": {
+          "type": "array",
+          "description": "Fixed size of the floating windows.",
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 10000
+          },
+          "minItems": 2,
+          "maxItems": 2
         }
       },
       "additionalProperties": false

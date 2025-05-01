@@ -237,11 +237,11 @@ Each parameter can be either a string or a regex (enclosed in slashes).
 
 The following table shows the available `behavior`/`behaviors` values:
 
-| Behavior | Parameters                   | Description                                                      |
-| -------- | ---------------------------- | ---------------------------------------------------------------- |
-| `float`  | -                            | Make the corresponding window floating.                          |
-| `ignore` | -                            | Ignore the corresponding window.                                 |
-| `insert` | `monitor` (string, required) | Always insert the corresponding window on the specified monitor. |
+| Behavior | Parameters                                                                                                                                                                                                                                                                     | Description                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `float`  | `topmost` (overrides `general.floating_wins.topmost`, optional)<br>`size` (overrides `general.floating_wins.size`, optional)<br>`size_ratio` (overrides `general.floating_wins.size_ratio`, optional)<br>`size_fixed` (overrides `general.floating_wins.size_fixed`, optional) | Make the corresponding window floating.                          |
+| `ignore` | -                                                                                                                                                                                                                                                                              | Ignore the corresponding window.                                 |
+| `insert` | `monitor` (string, required)                                                                                                                                                                                                                                                   | Always insert the corresponding window on the specified monitor. |
 
 Some example:
 
@@ -255,7 +255,12 @@ rules = [
    { filter = { title = "Title" }, behavior.insert = { monitor = "MONITOR1" } },
 
    # Match any window with a title that matches the regex "Title[0-9]"
+   # For the `float` behavior, `topmost` and `size` are inherited from the global options
    { filter = { title = "/Title[0-9]/" }, behaviors = ["float", { insert = { monitor = "MONITOR2" } }] }
+
+   # Match any window with a title="Title"
+   # overrides `general.floating_wins.topmost` and `general.floating_wins.size`
+   { filter = { title = "Title" }, behavior.float = { topmost = true, size = "preserve"} },
 ]
 
 ```
@@ -392,7 +397,7 @@ There are different configurations options that can improve the performances. He
 
 ### 4. How can I ignore a window?
 
-If you want to ignore it temporarily, you can bind the `release` action to a key. Otherwise, you can create a rule in the configuration file (see the `core.ignore_rules` [section](#core-ignore-rules-guide) or the `core.rules` [section](#core-rules-guide) for more info).
+You can create a rule in the configuration file (see the `core.ignore_rules` [section](#core-ignore-rules-guide) or the `core.rules` [section](#core-rules-guide) for more info).
 
 ### 5. How do the `move`/`focus` actions determine the target window?
 

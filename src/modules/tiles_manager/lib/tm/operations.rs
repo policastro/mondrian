@@ -6,6 +6,7 @@ use super::manager::TilesManagerBase;
 use super::result::TilesManagerError;
 use super::result::TilesManagerSuccess;
 use crate::app::area_tree::leaf::AreaLeaf;
+use crate::app::configs::floating::FloatingWinsConfig;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::orientation::Orientation;
@@ -33,7 +34,7 @@ pub trait TilesManagerInternalOperations: TilesManagerBase {
     /// Removes a window from the tile manager.
     fn remove(&mut self, win: WindowRef) -> TMResult;
 
-    fn release(&mut self, window: WindowRef, release: Option<bool>) -> TMResult;
+    fn release(&mut self, window: WindowRef, release: Option<bool>, config: Option<FloatingWinsConfig>) -> TMResult;
     fn as_maximized(&mut self, window: WindowRef, maximize: bool) -> TMResult;
     fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> TMResult;
     fn half_focalize(&mut self, window: WindowRef, half_focalize: Option<bool>) -> TMResult;
@@ -98,8 +99,8 @@ impl TilesManagerInternalOperations for TilesManager {
         // INFO: if the monitor has a maximized window, restore it
         self.restore_maximized(&k)?;
 
-        if check_rules && self.config.rules.is_floating(win) {
-            self.release(win, Some(true))?;
+        if let Some(config) = self.config.rules.get_floating_config(win).filter(|_| check_rules) {
+            return self.release(win, Some(true), Some(config));
         }
 
         Ok(Success::LayoutChanged)
@@ -129,19 +130,21 @@ impl TilesManagerInternalOperations for TilesManager {
         Ok(Success::LayoutChanged)
     }
 
-    fn release(&mut self, window: WindowRef, release: Option<bool>) -> TMResult {
+    fn release(&mut self, window: WindowRef, release: Option<bool>, config: Option<FloatingWinsConfig>) -> TMResult {
         let tile_state = self.get_window_state(window)?;
 
         if matches!(tile_state, TileState::Maximized) {
             return Ok(Success::NoChange);
         }
 
+        let config = &config.unwrap_or(self.config.floating_wins);
         if release.unwrap_or(!matches!(tile_state, TileState::Floating)) {
             let monitor_area = self.active_trees.find(window)?.value.get_area();
             self.remove(window)?;
             self.floating_wins.insert(window, FloatingProperties::new());
-            let area = get_floating_win_area(&monitor_area, &window, &self.config.floating_wins)?;
-            let is_topmost = self.config.floating_wins.topmost;
+            let area = get_floating_win_area(&monitor_area, &window, config)?;
+            let is_topmost = config.topmost;
+            let _ = window.set_topmost(is_topmost);
             Ok(Success::queue(window, area, Some(is_topmost)))
         } else {
             self.floating_wins.remove(&window);
@@ -180,7 +183,7 @@ impl TilesManagerInternalOperations for TilesManager {
     fn focalize(&mut self, window: WindowRef, focalize: Option<bool>) -> TMResult {
         let tile_state = self.get_window_state(window);
         if tile_state.is_ok_and(|s| matches!(s, TileState::Floating)) {
-            self.release(window, Some(false))?;
+            self.release(window, Some(false), None)?;
         }
 
         let e = self.active_trees.find(window)?;

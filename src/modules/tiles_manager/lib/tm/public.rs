@@ -92,6 +92,10 @@ impl TilesManagerOperations for TilesManager {
         self.floating_wins.set_properties(&win, false, false);
         match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok(), true)? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
+            Success::Queue { window, area, topmost } => {
+                self.animation_player.queue(window, area, topmost);
+                self.update_layout(true, Some(window))
+            }
             _ => Ok(()),
         }
     }
@@ -295,7 +299,7 @@ impl TilesManagerOperations for TilesManager {
     }
 
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error> {
-        match self.release(get_foreground().ok_or(Error::NoWindow)?, release)? {
+        match self.release(get_foreground().ok_or(Error::NoWindow)?, release, None)? {
             Success::LayoutChanged => self.update_layout(true, None),
             Success::Queue { window, area, topmost } => {
                 self.animation_player.queue(window, area, topmost);

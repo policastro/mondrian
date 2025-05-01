@@ -3,6 +3,7 @@ use super::floating::FloatingProperties;
 use super::floating::FloatingWindows;
 use super::operations::TilesManagerInternalOperations;
 use super::result::TilesManagerError;
+use super::result::TilesManagerSuccess;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
@@ -137,7 +138,11 @@ impl TilesManagerBase for TilesManager {
         });
 
         for w in wins.iter() {
-            self.add(*w, None, true).ok();
+            self.add(*w, None, true).inspect(|s| {
+                if let TilesManagerSuccess::Queue { window, area, topmost } = s {
+                    self.animation_player.queue(*window, *area, *topmost);
+                }
+            })?;
         }
         Ok(())
     }

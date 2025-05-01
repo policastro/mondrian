@@ -1,10 +1,10 @@
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
+use crate::app::configs::floating::FloatingWinsConfig;
+use crate::app::configs::rules::WindowBehavior;
+use crate::app::configs::rules::WindowRule;
 use crate::app::configs::AnimationsConfig;
 use crate::app::configs::AppConfig;
-use crate::app::configs::FloatingWinsConfig;
 use crate::app::configs::MonitorConfig;
-use crate::app::configs::WindowBehavior;
-use crate::app::configs::WindowRule;
 use crate::app::structs::paddings::Paddings;
 use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::window::window_ref::WindowRef;
@@ -93,20 +93,20 @@ impl From<&AppConfig> for TilesManagerConfig {
             ignore_filter: config.ignore_filter.clone(),
             rules: config.rules.clone(),
             history_based_navigation: config.history_based_navigation,
-            floating_wins: config.floating_wins_config.clone(),
+            floating_wins: config.floating_wins_config,
             monitors_configs: config.monitors_config.clone(),
         }
     }
 }
 
 pub trait Rules {
-    fn is_floating(&self, window: WindowRef) -> bool;
+    fn get_floating_config(&self, window: WindowRef) -> Option<FloatingWinsConfig>;
     fn preferred_monitor(&self, window: WindowRef) -> Option<String>;
 }
 
 impl Rules for Vec<WindowRule> {
-    fn is_floating(&self, window: WindowRef) -> bool {
-        is_floating(self, window)
+    fn get_floating_config(&self, window: WindowRef) -> Option<FloatingWinsConfig> {
+        get_floating_config(self, window)
     }
 
     fn preferred_monitor(&self, window: WindowRef) -> Option<String> {
@@ -118,8 +118,11 @@ fn find_matches(rules: &[WindowRule], window: WindowRef) -> impl Iterator<Item =
     rules.iter().filter(move |r| r.filter.matches(window))
 }
 
-fn is_floating(rules: &[WindowRule], window: WindowRef) -> bool {
-    find_matches(rules, window).any(|r| matches!(r.behavior, WindowBehavior::Float { .. }))
+fn get_floating_config(rules: &[WindowRule], window: WindowRef) -> Option<FloatingWinsConfig> {
+    find_matches(rules, window).find_map(|r| match &r.behavior {
+        WindowBehavior::Float { config } => Some(*config),
+        _ => None,
+    })
 }
 
 fn preferred_monitor(rules: &[WindowRule], window: WindowRef) -> Option<String> {

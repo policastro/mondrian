@@ -116,6 +116,30 @@ fn get_paddings(value: &toml::Value, max: u8) -> Result<Paddings, String> {
     }
 }
 
+pub fn deserialize_size_ratio<'de, D>(deserializer: D) -> Result<(f32, f32), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let (w, h) = serde::Deserialize::deserialize(deserializer)?;
+    if w < 0.1 || h < 0.1 || w > 1.0 || h > 1.0 {
+        return Err(serde::de::Error::custom("Width and height must be between 0.1 and 1.0"));
+    }
+    Ok((w, h))
+}
+
+pub fn deserialize_size_fixed<'de, D>(deserializer: D) -> Result<(u16, u16), D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let (w, h) = serde::Deserialize::deserialize(deserializer)?;
+    if w < 100 || h < 100 || w > 10000 || h > 10000 {
+        return Err(serde::de::Error::custom(
+            "Width and height must be between 100 and 10000",
+        ));
+    }
+    Ok((w, h))
+}
+
 pub fn to_opt_tiling_strategy<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
