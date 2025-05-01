@@ -5,7 +5,7 @@ use super::lib::overlay_manager::OverlaysManagerEnum;
 use super::lib::overlay_manager::OverlaysManagerTrait;
 use super::lib::overlays_event_handler::OverlayEventHandler;
 use super::lib::utils::overlay::overlay_win_proc;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::WindowEvent;
 use crate::app::mondrian_message::WindowTileState;
@@ -114,7 +114,7 @@ impl ModuleImpl for OverlaysModule {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.is_running())),
             MondrianMessage::Configure => {

@@ -1,7 +1,7 @@
 use super::lib::color::Color;
 use super::lib::overlay::OverlayParams;
 use crate::app::configs::deserializers;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::WindowTileState;
 use serde::Deserialize;
 use serde::Serialize;
@@ -71,8 +71,8 @@ impl Default for OverlaysModuleConfigs {
     }
 }
 
-impl From<&AppConfigs> for OverlaysModuleConfigs {
-    fn from(app_configs: &AppConfigs) -> Self {
+impl From<&AppConfig> for OverlaysModuleConfigs {
+    fn from(app_configs: &AppConfig) -> Self {
         app_configs.modules.overlays.clone()
     }
 }

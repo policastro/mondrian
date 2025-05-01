@@ -1,4 +1,4 @@
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::Module;
@@ -103,14 +103,14 @@ impl ModuleImpl for FileWatcherModule {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running)),
             MondrianMessage::Configure => {
-                Module::enable(self, app_configs.general.auto_reload_configs);
+                Module::enable(self, app_configs.auto_reload_configs);
             }
             MondrianMessage::RefreshConfig => {
-                Module::enable(self, app_configs.general.auto_reload_configs);
+                Module::enable(self, app_configs.auto_reload_configs);
                 Module::restart(self);
             }
             MondrianMessage::SystemEvent(evt) => match evt {

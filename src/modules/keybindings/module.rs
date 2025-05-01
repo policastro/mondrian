@@ -1,4 +1,4 @@
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::structs::info_entry::InfoEntry;
 use crate::app::structs::info_entry::InfoEntryIcon;
@@ -143,7 +143,7 @@ impl ModuleImpl for KeybindingsModule {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(!self.paused)),
             MondrianMessage::Configure => {

@@ -126,7 +126,7 @@ impl WindowAnimationPlayer {
             return;
         }
 
-        let animation = animation.unwrap().clone();
+        let animation = animation.unwrap();
         let running = self.running.clone();
         let duration = self.animation_duration.as_millis();
         let framerate = self.framerate;
@@ -238,7 +238,7 @@ impl WindowAnimationPlayer {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum WindowAnimation {
     Linear,

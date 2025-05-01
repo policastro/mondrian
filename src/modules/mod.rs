@@ -53,14 +53,14 @@ pub mod file_watcher {
     pub mod module;
 }
 
-use crate::app::{configs::AppConfigs, mondrian_message::MondrianMessage};
+use crate::app::{configs::AppConfig, mondrian_message::MondrianMessage};
 
 pub trait Module {
     fn start(&mut self);
     fn stop(&mut self);
     fn restart(&mut self);
     fn enable(&mut self, enabled: bool);
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs);
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig);
     fn pause(&mut self, is_paused: bool);
     fn name(&self) -> String;
 }
@@ -70,7 +70,7 @@ pub trait ConfigurableModule: Module {
 }
 
 pub(in crate::modules) mod module_impl {
-    use crate::app::configs::AppConfigs;
+    use crate::app::configs::AppConfig;
     use crate::app::mondrian_message::MondrianMessage;
 
     use super::Module;
@@ -79,7 +79,7 @@ pub(in crate::modules) mod module_impl {
         fn start(&mut self);
         fn stop(&mut self);
         fn restart(&mut self);
-        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs);
+        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig);
         fn enabled(&self) -> bool;
         fn enable(&mut self, enabled: bool);
         fn pause(&mut self, is_paused: bool);
@@ -112,7 +112,7 @@ pub(in crate::modules) mod module_impl {
             }
         }
 
-        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
+        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
             ModuleImpl::handle(self, event, app_configs);
         }
 

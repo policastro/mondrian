@@ -1,4 +1,6 @@
 use crate::app::configs::deserializers;
+use crate::app::configs::FloatingWinsConfig;
+use crate::app::configs::FloatingWinsSizeStrategy;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
 use serde::Deserialize;
 use serde::Serialize;
@@ -12,13 +14,13 @@ pub struct General {
     pub detect_maximized_windows: bool,
     pub insert_in_monitor: bool,
     pub free_move_in_monitor: bool,
-    pub animations: AnimationsConfigs,
-    pub floating_wins: FloatingWinsConfigs,
+    pub animations: ExtAnimationsConfig,
+    pub floating_wins: ExtFloatingWinsConfig,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(default, deny_unknown_fields)]
-pub struct AnimationsConfigs {
+pub struct ExtAnimationsConfig {
     pub enabled: bool,
 
     #[serde(deserialize_with = "deserializers::to_u32_minmax::<100,10000,_>")]
@@ -31,47 +33,6 @@ pub struct AnimationsConfigs {
     pub animation_type: WindowAnimation,
 }
 
-impl Default for General {
-    fn default() -> Self {
-        General {
-            history_based_navigation: false,
-            move_cursor_on_focus: false,
-            auto_reload_configs: true,
-            detect_maximized_windows: true,
-            insert_in_monitor: true,
-            free_move_in_monitor: false,
-            animations: AnimationsConfigs::default(),
-            floating_wins: FloatingWinsConfigs::default(),
-        }
-    }
-}
-
-impl Default for AnimationsConfigs {
-    fn default() -> Self {
-        AnimationsConfigs {
-            enabled: true,
-            duration: 300,
-            framerate: 60,
-            animation_type: WindowAnimation::default(),
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "snake_case", tag = "type")]
-pub enum FloatingWinsSizeStrategy {
-    Preserve,
-    Fixed { w: u16, h: u16 },
-    Relative { w: f32, h: f32 },
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(default, deny_unknown_fields, from = "FloatingWinsExtConfigs")]
-pub struct FloatingWinsConfigs {
-    pub topmost: bool,
-    pub strategy: FloatingWinsSizeStrategy,
-}
-
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum FloatingWinsSizeStrategyLabel {
@@ -82,7 +43,7 @@ pub enum FloatingWinsSizeStrategyLabel {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(default, deny_unknown_fields)]
-pub struct FloatingWinsExtConfigs {
+pub struct ExtFloatingWinsConfig {
     pub topmost: bool,
     pub size: FloatingWinsSizeStrategyLabel,
     #[serde(deserialize_with = "deserialize_size_ratio")]
@@ -91,9 +52,46 @@ pub struct FloatingWinsExtConfigs {
     pub size_fixed: (u16, u16),
 }
 
-impl From<FloatingWinsExtConfigs> for FloatingWinsConfigs {
-    fn from(value: FloatingWinsExtConfigs) -> Self {
-        FloatingWinsConfigs {
+impl Default for General {
+    fn default() -> Self {
+        General {
+            history_based_navigation: false,
+            move_cursor_on_focus: false,
+            auto_reload_configs: true,
+            detect_maximized_windows: true,
+            insert_in_monitor: true,
+            free_move_in_monitor: false,
+            animations: ExtAnimationsConfig::default(),
+            floating_wins: ExtFloatingWinsConfig::default(),
+        }
+    }
+}
+
+impl Default for ExtAnimationsConfig {
+    fn default() -> Self {
+        ExtAnimationsConfig {
+            enabled: true,
+            duration: 300,
+            framerate: 60,
+            animation_type: WindowAnimation::default(),
+        }
+    }
+}
+
+impl Default for ExtFloatingWinsConfig {
+    fn default() -> Self {
+        ExtFloatingWinsConfig {
+            topmost: true,
+            size: FloatingWinsSizeStrategyLabel::Relative,
+            size_ratio: (0.5, 0.5),
+            size_fixed: (700, 400),
+        }
+    }
+}
+
+impl From<ExtFloatingWinsConfig> for FloatingWinsConfig {
+    fn from(value: ExtFloatingWinsConfig) -> Self {
+        FloatingWinsConfig {
             topmost: value.topmost,
             strategy: match value.size {
                 FloatingWinsSizeStrategyLabel::Preserve => FloatingWinsSizeStrategy::Preserve,
@@ -106,26 +104,6 @@ impl From<FloatingWinsExtConfigs> for FloatingWinsConfigs {
                     h: value.size_ratio.1,
                 },
             },
-        }
-    }
-}
-
-impl Default for FloatingWinsExtConfigs {
-    fn default() -> Self {
-        FloatingWinsExtConfigs {
-            topmost: true,
-            size: FloatingWinsSizeStrategyLabel::Relative,
-            size_ratio: (0.5, 0.5),
-            size_fixed: (700, 400),
-        }
-    }
-}
-
-impl Default for FloatingWinsConfigs {
-    fn default() -> Self {
-        FloatingWinsConfigs {
-            topmost: true,
-            strategy: FloatingWinsSizeStrategy::Relative { w: 0.5, h: 0.5 },
         }
     }
 }

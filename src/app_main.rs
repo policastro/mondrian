@@ -1,7 +1,7 @@
 use crate::app::app_lock::AppLock;
 use crate::app::assets::Asset;
 use crate::app::cli_args::CliArgs;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::structs::info_entry::{InfoEntry, InfoEntryIcon};
 use crate::modules::events_monitor::module::EventsMonitorModule;
@@ -60,7 +60,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
         Err(e) => {
             log::error!("Failed to initialize configs: {}", e);
             log::warn!("Using default configs ...");
-            AppConfigs::default()
+            AppConfig::default()
         }
     };
 
@@ -138,7 +138,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     log::info!("Application stopped!");
 }
 
-fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfigs, String> {
+fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfig, String> {
     if !app_cfg_file.parent().unwrap().exists() {
         std::fs::create_dir_all(app_cfg_file.parent().unwrap()).unwrap();
     }
@@ -149,7 +149,7 @@ fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfigs, String> {
     }
 
     let file_content = std::fs::read_to_string(app_cfg_file).expect("Something went wrong reading the file");
-    toml::from_str::<AppConfigs>(&file_content).map_err(|e| e.to_string())
+    toml::from_str::<AppConfig>(&file_content).map_err(|e| e.to_string())
 }
 
 fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {

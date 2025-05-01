@@ -1,4 +1,4 @@
-use crate::app::{configs::AppConfigs, structs::win_matcher};
+use crate::app::{configs::AppConfig, structs::win_matcher};
 
 pub struct EventMonitorModuleConfigs {
     pub default_insert_in_monitor: bool,
@@ -18,13 +18,13 @@ impl Default for EventMonitorModuleConfigs {
     }
 }
 
-impl From<&AppConfigs> for EventMonitorModuleConfigs {
-    fn from(app_configs: &AppConfigs) -> Self {
+impl From<&AppConfig> for EventMonitorModuleConfigs {
+    fn from(app_configs: &AppConfig) -> Self {
         EventMonitorModuleConfigs {
-            default_insert_in_monitor: app_configs.general.insert_in_monitor,
-            default_free_move_in_monitor: app_configs.general.free_move_in_monitor,
-            detect_maximized_windows: app_configs.general.detect_maximized_windows,
-            filter: Some(app_configs.get_ignore_filter()),
+            default_insert_in_monitor: app_configs.insert_in_monitor,
+            default_free_move_in_monitor: app_configs.free_move_in_monitor,
+            detect_maximized_windows: app_configs.detect_maximized_windows,
+            filter: Some(app_configs.ignore_filter.clone()),
         }
     }
 }

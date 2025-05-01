@@ -88,10 +88,9 @@ impl TilesManagerBase for TilesManager {
         C: Fn() + Sync + Send + 'static,
     {
         let config = config.unwrap_or_default();
-        let animation_duration = Duration::from_millis(config.get_animation_duration().into());
         let animation_player = WindowAnimationPlayer::new(
-            animation_duration,
-            config.get_framerate(),
+            Duration::from_millis(config.animation.duration.into()),
+            config.animation.framerate,
             on_update_start,
             on_update_error,
             on_update_complete,
@@ -180,12 +179,10 @@ impl TilesManagerBase for TilesManager {
             let _ = c.update((-tile_pad.0, -tile_pad.1), tile_pad, anim_player, &self.maximized_wins);
         });
 
-        let animation = self.config.get_animations().filter(|_| animate);
-
         // INFO: set maximized windows to the front when animation is complete
         let maximized = self.maximized_wins.clone();
         anim_player.play(
-            animation,
+            self.config.animation.animation_type.filter(|_| animate),
             win_in_focus,
             Some(Arc::new(move || {
                 maximized.iter().for_each(|w| w.to_front());

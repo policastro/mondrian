@@ -1,5 +1,5 @@
 use crate::app::assets::Asset;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::Module;
@@ -187,7 +187,7 @@ impl ModuleImpl for TrayModule {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfig) {
         match event {
             MondrianMessage::Pause(pause) => {
                 let pause = match pause {

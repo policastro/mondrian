@@ -1,4 +1,4 @@
-use crate::app::{configs::AppConfigs, mondrian_message::MondrianMessage};
+use crate::app::{configs::AppConfig, mondrian_message::MondrianMessage};
 use inputbot::KeybdKey::{self, *};
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
@@ -116,8 +116,8 @@ impl From<Binding> for ExternalBinding {
     }
 }
 
-impl From<&AppConfigs> for KeybindingsModuleConfigs {
-    fn from(app_configs: &AppConfigs) -> Self {
+impl From<&AppConfig> for KeybindingsModuleConfigs {
+    fn from(app_configs: &AppConfig) -> Self {
         app_configs.modules.keybindings.clone()
     }
 }

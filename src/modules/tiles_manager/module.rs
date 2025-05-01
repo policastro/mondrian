@@ -4,7 +4,7 @@ use super::lib::tm::manager::TilesManager;
 use super::lib::tm::manager::TilesManagerBase;
 use super::lib::tm::public::TilesManagerOperations;
 use super::lib::tm::result::TilesManagerError;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::MoveSizeResult;
 use crate::app::mondrian_message::SystemEvent;
@@ -59,7 +59,7 @@ impl TilesManagerModule {
         let tm_configs = self.configs.tm_configs.clone();
 
         let app_tx = self.bus_tx.clone();
-        let animations_enabled = tm_configs.animation_type.is_some();
+        let animations_enabled = tm_configs.animation.animation_type.is_some();
         let on_update_start = move |wins| {
             app_tx
                 .send(MondrianMessage::CoreUpdateStart(wins, animations_enabled))
@@ -165,7 +165,7 @@ impl ModuleImpl for TilesManagerModule {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
             MondrianMessage::Configure => {

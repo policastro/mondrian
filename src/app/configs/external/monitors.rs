@@ -5,7 +5,7 @@ use serde::Serialize;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[serde(deny_unknown_fields, default)]
-pub struct ExtMonitorConfigs {
+pub struct MonitorConfig {
     pub layout: MonitorLayout,
 }
 

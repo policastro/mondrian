@@ -1,12 +1,12 @@
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
-use crate::app::configs::core::WindowBehavior;
-use crate::app::configs::core::WindowRule;
-use crate::app::configs::general::FloatingWinsConfigs;
-use crate::app::configs::AppConfigs;
-use crate::app::configs::MonitorConfigs;
+use crate::app::configs::AnimationsConfig;
+use crate::app::configs::AppConfig;
+use crate::app::configs::FloatingWinsConfig;
+use crate::app::configs::MonitorConfig;
+use crate::app::configs::WindowBehavior;
+use crate::app::configs::WindowRule;
 use crate::app::structs::paddings::Paddings;
 use crate::app::structs::win_matcher::WinMatcher;
-use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimation;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 
@@ -18,29 +18,15 @@ pub struct TilesManagerConfig {
     half_focalized_borders_pad: Paddings,
     half_focalized_tiles_pad: i16,
     layout_strategy: LayoutStrategyEnum,
-    monitors_configs: HashMap<String, MonitorConfigs>,
+    monitors_configs: HashMap<String, MonitorConfig>,
     pub ignore_filter: WinMatcher,
     pub rules: Vec<WindowRule>,
-    pub animations_duration: u32,
-    pub animations_framerate: u8,
-    pub animation_type: Option<WindowAnimation>,
+    pub animation: AnimationsConfig,
     pub history_based_navigation: bool,
-    pub floating_wins: FloatingWinsConfigs,
+    pub floating_wins: FloatingWinsConfig,
 }
 
 impl TilesManagerConfig {
-    pub fn get_animations(&self) -> Option<WindowAnimation> {
-        self.animation_type.clone()
-    }
-
-    pub fn get_animation_duration(&self) -> u32 {
-        self.animations_duration
-    }
-
-    pub fn get_framerate(&self) -> u8 {
-        self.animations_framerate
-    }
-
     pub fn get_layout_strategy(&self, monitor_name: &str) -> LayoutStrategyEnum {
         self.monitors_configs
             .get(monitor_name)
@@ -94,26 +80,21 @@ impl TilesManagerConfig {
     }
 }
 
-impl From<&AppConfigs> for TilesManagerConfig {
-    fn from(configs: &AppConfigs) -> Self {
+impl From<&AppConfig> for TilesManagerConfig {
+    fn from(config: &AppConfig) -> Self {
         Self {
-            layout_strategy: configs.get_layout_strategy(),
-            tiles_padding: configs.layout.paddings.tiles as i16,
-            borders_padding: configs.layout.paddings.borders,
-            half_focalized_borders_pad: configs.layout.half_focalized_paddings.borders,
-            half_focalized_tiles_pad: configs.layout.half_focalized_paddings.tiles as i16,
-            focalized_padding: configs.layout.focalized_padding,
-            animations_duration: configs.general.animations.duration,
-            animations_framerate: configs.general.animations.framerate,
-            animation_type: match configs.general.animations.enabled {
-                true => Some(configs.general.animations.animation_type.clone()),
-                false => None,
-            },
-            ignore_filter: configs.get_ignore_filter(),
-            rules: configs.get_rules(),
-            history_based_navigation: configs.general.history_based_navigation,
-            floating_wins: configs.general.floating_wins.clone(),
-            monitors_configs: configs.get_monitors_configs(),
+            layout_strategy: config.layout_strategy.clone(),
+            tiles_padding: config.tiles_pad as i16,
+            borders_padding: config.borders_pads,
+            half_focalized_borders_pad: config.half_focalized_borders_pads,
+            half_focalized_tiles_pad: config.half_focalized_tiles_pad as i16,
+            focalized_padding: config.focalized_pads,
+            animation: config.animations.clone(),
+            ignore_filter: config.ignore_filter.clone(),
+            rules: config.rules.clone(),
+            history_based_navigation: config.history_based_navigation,
+            floating_wins: config.floating_wins_config.clone(),
+            monitors_configs: config.monitors_config.clone(),
         }
     }
 }
@@ -138,7 +119,7 @@ fn find_matches(rules: &[WindowRule], window: WindowRef) -> impl Iterator<Item =
 }
 
 fn is_floating(rules: &[WindowRule], window: WindowRef) -> bool {
-    find_matches(rules, window).any(|r| matches!(r.behavior, WindowBehavior::Float))
+    find_matches(rules, window).any(|r| matches!(r.behavior, WindowBehavior::Float { .. }))
 }
 
 fn preferred_monitor(rules: &[WindowRule], window: WindowRef) -> Option<String> {

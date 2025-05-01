@@ -1,4 +1,4 @@
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -36,7 +36,7 @@ impl ModuleImpl for LoggerModule {
         true
     }
 
-    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfig) {
         match event {
             MondrianMessage::WindowEvent(e) => {
                 let wref = e.get_window_ref();

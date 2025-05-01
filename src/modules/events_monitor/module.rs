@@ -5,7 +5,7 @@ use super::lib::minimize_event_handler::MinimizeEventHandler;
 use super::lib::open_event_handler::OpenCloseEventHandler;
 use super::lib::position_event_handler::PositionEventHandler;
 use super::lib::system_events_detector;
-use crate::app::configs::AppConfigs;
+use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::SystemEvent;
 use crate::modules::module_impl::ModuleImpl;
@@ -224,7 +224,7 @@ impl ModuleImpl for EventsMonitorModule {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfigs) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
             MondrianMessage::Retile => Module::restart(self),

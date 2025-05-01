@@ -35,18 +35,6 @@ impl WinMatcher {
         self.matches_internal(&mut window.into())
     }
 
-    pub fn is_empty(&self) -> bool {
-        match self {
-            WinMatcher::Any(filters) => filters.is_empty(),
-            WinMatcher::All(filters) => filters.is_empty(),
-            _ => false,
-        }
-    }
-
-    pub fn any(filters: impl Iterator<Item = WinMatcher>) -> WinMatcher {
-        WinMatcher::Any(filters.collect())
-    }
-
     fn matches_internal<T: WindowObjInfo>(&self, window: &mut WinMatcherTarget<T>) -> bool {
         match self {
             WinMatcher::Exename(query) => self.match_value(query, window.exe_name()),
