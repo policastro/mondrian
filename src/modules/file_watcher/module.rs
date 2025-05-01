@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 
-pub struct FileWatcherModule {
+pub struct FileWatcher {
     config_watcher_debouncer: Option<Debouncer<RecommendedWatcher>>,
     config_path: PathBuf,
     running: bool,
@@ -19,9 +19,9 @@ pub struct FileWatcherModule {
     bus_tx: Sender<MondrianMessage>,
 }
 
-impl FileWatcherModule {
+impl FileWatcher {
     pub fn new<P: AsRef<Path>>(bus_tx: Sender<MondrianMessage>, config_path: P) -> Self {
-        FileWatcherModule {
+        FileWatcher {
             config_watcher_debouncer: None,
             running: false,
             enabled: true,
@@ -59,7 +59,7 @@ impl FileWatcherModule {
     }
 }
 
-impl ModuleImpl for FileWatcherModule {
+impl ModuleImpl for FileWatcher {
     fn start(&mut self) {
         if self.running {
             return;

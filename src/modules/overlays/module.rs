@@ -26,7 +26,7 @@ use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 const OVERLAY_CLASS_NAME: &str = "mondrian:overlay";
 
-pub struct OverlaysModule {
+pub struct Overlays {
     bus: Sender<MondrianMessage>,
     configs: OverlaysModuleConfigs,
     enabled: bool,
@@ -35,11 +35,11 @@ pub struct OverlaysModule {
     main_thread_id: Arc<AtomicU32>,
 }
 
-impl OverlaysModule {
-    pub fn new(bus: Sender<MondrianMessage>) -> OverlaysModule {
+impl Overlays {
+    pub fn new(bus: Sender<MondrianMessage>) -> Overlays {
         register_class(OVERLAY_CLASS_NAME, Some(overlay_win_proc));
 
-        OverlaysModule {
+        Overlays {
             configs: OverlaysModuleConfigs::default(),
             enabled: true,
             overlays: None,
@@ -54,7 +54,7 @@ impl OverlaysModule {
     }
 }
 
-impl ModuleImpl for OverlaysModule {
+impl ModuleImpl for Overlays {
     fn start(&mut self) {
         if self.is_running() || !self.configs.is_enabled() {
             return;
@@ -187,7 +187,7 @@ impl ModuleImpl for OverlaysModule {
     }
 }
 
-impl ConfigurableModule for OverlaysModule {
+impl ConfigurableModule for Overlays {
     type Config = OverlaysModuleConfigs;
     fn configure(&mut self, config: Self::Config) {
         self.configs = config;

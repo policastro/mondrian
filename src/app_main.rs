@@ -4,14 +4,14 @@ use crate::app::cli_args::CliArgs;
 use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::structs::info_entry::{InfoEntry, InfoEntryIcon};
-use crate::modules::events_monitor::module::EventsMonitorModule;
-use crate::modules::file_watcher::module::FileWatcherModule;
-use crate::modules::keybindings::module::KeybindingsModule;
-use crate::modules::logger::module::LoggerModule;
-use crate::modules::overlays::module::OverlaysModule;
+use crate::modules::events_monitor::module::EventsMonitor;
+use crate::modules::file_watcher::module::FileWatcher;
+use crate::modules::keybindings::module::Keybindings;
+use crate::modules::logger::module::Logger;
+use crate::modules::overlays::module::Overlays;
 use crate::modules::tiles_manager::module::TilesManagerModule;
-use crate::modules::tray::module::TrayModule;
-use crate::modules::Module;
+use crate::modules::tray::module::Tray;
+use crate::modules::{Module, ModuleEnum};
 use crate::win32::api::gdiplus::{init_gdiplus, shutdown_gdiplus};
 use crate::win32::api::monitor::enum_display_monitors;
 use clap::Parser;
@@ -26,6 +26,9 @@ use log4rs::encode::pattern::PatternEncoder;
 use log4rs::filter::threshold::ThresholdFilter;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, RwLock};
+use std::thread::{self, JoinHandle};
 
 pub fn main() {
     let args = CliArgs::parse();
@@ -55,80 +58,101 @@ pub fn main() {
 fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     init_gdiplus();
 
-    let mut configs = match init_configs(cfg_file) {
+    let config = match init_configs(cfg_file) {
         Ok(c) => c,
         Err(e) => {
-            log::error!("Failed to initialize configs: {}", e);
-            log::warn!("Using default configs ...");
+            log::error!("Failed to initialize configs: {}! Using default configs ...", e);
             AppConfig::default()
         }
     };
+    let shared_config = Arc::new(RwLock::new(config));
 
     let (bus_tx, bus_rx) = std::sync::mpsc::channel();
-
-    let modules: Vec<Box<dyn Module>> = vec![
-        Box::new(LoggerModule::new()),
-        Box::new(EventsMonitorModule::new(bus_tx.clone())),
-        Box::new(TilesManagerModule::new(bus_tx.clone())),
-        Box::new(OverlaysModule::new(bus_tx.clone())),
-        Box::new(TrayModule::new(bus_tx.clone())),
-        Box::new(KeybindingsModule::new(bus_tx.clone())),
-        Box::new(FileWatcherModule::new(bus_tx.clone(), cfg_file)),
+    let modules: Vec<ModuleEnum> = vec![
+        Logger::new().into(),
+        EventsMonitor::new(bus_tx.clone()).into(),
+        TilesManagerModule::new(bus_tx.clone()).into(),
+        Overlays::new(bus_tx.clone()).into(),
+        Tray::new(bus_tx.clone()).into(),
+        Keybindings::new(bus_tx.clone()).into(),
+        FileWatcher::new(bus_tx.clone(), cfg_file).into(),
     ];
 
-    let mut modules_map: HashMap<String, Box<dyn Module>> = HashMap::new();
-    for m in modules {
-        if let Some(m) = modules_map.insert(m.name().to_lowercase(), m) {
-            panic!("Module '{}' is already registered", m.name())
+    let mut modules_map: HashMap<String, (Sender<MondrianMessage>, JoinHandle<()>)> = HashMap::new();
+    for mut m in modules.into_iter() {
+        let module_name = m.name().to_lowercase();
+        if modules_map.contains_key(&module_name) {
+            panic!("Module '{module_name}' is already registered")
         }
+
+        let local_shared_config = shared_config.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let th = thread::spawn(move || {
+            let mut config = local_shared_config.read().unwrap().clone();
+
+            m.handle(&MondrianMessage::Configure, &config);
+            m.start();
+            log::info!("Module '{}' started", m.name());
+
+            loop {
+                let event = if let Ok(e) = rx.recv() { e } else { continue };
+                if matches!(event, MondrianMessage::RefreshConfig) {
+                    config = local_shared_config.read().unwrap().clone();
+                }
+                m.handle(&event, &config);
+                if matches!(event, MondrianMessage::Quit) {
+                    log::info!("Module '{}' stopped", m.name());
+                    break;
+                }
+            }
+        });
+
+        modules_map.insert(module_name, (tx, th));
     }
-
-    log::info!("Starting modules ...");
-
-    modules_map.values_mut().for_each(|m| {
-        m.handle(&MondrianMessage::Configure, &configs);
-        m.start();
-        log::info!("Module '{}' started", m.name());
-    });
 
     if dump_info {
         bus_tx.send(MondrianMessage::QueryInfo).ok();
     }
 
-    log::info!("Application started!");
     loop {
         let event = if let Ok(e) = bus_rx.recv() { e } else { continue };
 
-        if event == MondrianMessage::QueryInfo {
-            bus_tx
-                .send(MondrianMessage::QueryInfoResponse {
-                    name: "General".to_string(),
-                    icon: InfoEntryIcon::General,
-                    infos: get_info_entries(cfg_file),
-                })
-                .ok();
+        match &event {
+            MondrianMessage::QueryInfo => {
+                bus_tx
+                    .send(MondrianMessage::QueryInfoResponse {
+                        name: "General".to_string(),
+                        icon: InfoEntryIcon::General,
+                        infos: get_info_entries(cfg_file),
+                    })
+                    .ok();
+            }
+            MondrianMessage::RefreshConfig => {
+                if let Ok(c) = init_configs(cfg_file).inspect_err(|e| log::error!("Can't read config file: {}", e)) {
+                    shared_config.write().unwrap().clone_from(&c);
+                }
+            }
+            _ => (),
         }
 
-        match event.clone() {
+        match &event {
             MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
             MondrianMessage::OpenLogFolder => drop(open::that("logs")),
             MondrianMessage::About => drop(open::that("https://github.com/policastro/mondrian")),
-            MondrianMessage::RefreshConfig => {
-                configs = init_configs(cfg_file).unwrap_or_else(|e| {
-                    log::error!("Can't read config file: {}", e);
-                    configs.clone()
-                });
-                modules_map.values_mut().for_each(|m| m.handle(&event, &configs));
-            }
-            MondrianMessage::PauseModule(name, m) => {
-                if let Some(module) = modules_map.get_mut(&name) {
-                    module.handle(&MondrianMessage::Pause(m), &configs)
+            MondrianMessage::PauseModule(name, pause) => {
+                if let Some((tx, _)) = modules_map.get_mut(name) {
+                    tx.send(MondrianMessage::Pause(*pause)).ok();
                 };
             }
-            event => modules_map.values_mut().for_each(|m| m.handle(&event, &configs)),
+            event => modules_map.values_mut().for_each(|(tx, _)| {
+                tx.send(event.clone()).ok();
+            }),
         }
 
-        if event == MondrianMessage::Quit {
+        if matches!(event, MondrianMessage::Quit) {
+            for (_, m) in modules_map.into_iter() {
+                m.1.join().ok();
+            }
             break;
         }
     }

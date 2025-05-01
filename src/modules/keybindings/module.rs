@@ -17,7 +17,7 @@ use std::thread;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
 use super::configs::KeybindingsModuleConfigs;
-pub struct KeybindingsModule {
+pub struct Keybindings {
     bus: Sender<MondrianMessage>,
     input_thread: Option<thread::JoinHandle<()>>,
     enabled: bool,
@@ -28,9 +28,9 @@ pub struct KeybindingsModule {
     paused: bool,
 }
 
-impl KeybindingsModule {
-    pub fn new(bus: Sender<MondrianMessage>) -> KeybindingsModule {
-        KeybindingsModule {
+impl Keybindings {
+    pub fn new(bus: Sender<MondrianMessage>) -> Keybindings {
+        Keybindings {
             input_thread: None,
             running: Arc::new(AtomicBool::new(false)),
             enabled: true,
@@ -43,7 +43,7 @@ impl KeybindingsModule {
     }
 }
 
-impl ModuleImpl for KeybindingsModule {
+impl ModuleImpl for Keybindings {
     fn start(&mut self) {
         if self.running.load(Ordering::SeqCst) {
             return;
@@ -179,7 +179,7 @@ impl ModuleImpl for KeybindingsModule {
     }
 }
 
-impl ConfigurableModule for KeybindingsModule {
+impl ConfigurableModule for Keybindings {
     type Config = KeybindingsModuleConfigs;
     fn configure(&mut self, config: Self::Config) {
         self.configs = config;

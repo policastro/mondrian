@@ -24,7 +24,7 @@ use winvd::listen_desktop_events;
 use winvd::DesktopEvent;
 use winvd::DesktopEventThread;
 
-pub struct EventsMonitorModule {
+pub struct EventsMonitor {
     win_events_thread: Option<thread::JoinHandle<()>>,
     system_events_thread: Option<thread::JoinHandle<()>>,
     vd_listener_thread: Option<DesktopEventThread>,
@@ -37,9 +37,9 @@ pub struct EventsMonitorModule {
     bus_tx: Sender<MondrianMessage>,
 }
 
-impl EventsMonitorModule {
+impl EventsMonitor {
     pub fn new(bus_tx: Sender<MondrianMessage>) -> Self {
-        EventsMonitorModule {
+        EventsMonitor {
             win_events_thread: None,
             system_events_thread: None,
             vd_listener_thread: None,
@@ -177,7 +177,7 @@ impl EventsMonitorModule {
     }
 }
 
-impl ModuleImpl for EventsMonitorModule {
+impl ModuleImpl for EventsMonitor {
     fn start(&mut self) {
         if self.running.load(Ordering::SeqCst) {
             return;
@@ -258,7 +258,7 @@ impl ModuleImpl for EventsMonitorModule {
     }
 }
 
-impl ConfigurableModule for EventsMonitorModule {
+impl ConfigurableModule for EventsMonitor {
     type Config = EventMonitorModuleConfigs;
     fn configure(&mut self, config: Self::Config) {
         self.configs = config;

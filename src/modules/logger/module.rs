@@ -7,14 +7,14 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 
-pub struct LoggerModule;
+pub struct Logger;
 
-impl LoggerModule {
+impl Logger {
     const APP_STATE_FILENAME: &str = "./logs/app_state.txt";
     const COL_WIDTH: usize = 80;
 
-    pub fn new() -> LoggerModule {
-        LoggerModule {}
+    pub fn new() -> Logger {
+        Logger {}
     }
 
     pub fn get_app_state_file() -> File {
@@ -26,7 +26,7 @@ impl LoggerModule {
     }
 }
 
-impl ModuleImpl for LoggerModule {
+impl ModuleImpl for Logger {
     fn start(&mut self) {}
     fn stop(&mut self) {}
     fn restart(&mut self) {}

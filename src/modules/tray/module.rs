@@ -23,7 +23,7 @@ use tray_icon::TrayIconBuilder;
 use windows::Win32::UI::WindowsAndMessaging::WM_NULL;
 use windows::Win32::UI::WindowsAndMessaging::WM_QUIT;
 
-pub struct TrayModule {
+pub struct Tray {
     bus: Sender<MondrianMessage>,
     main_thread: Option<thread::JoinHandle<()>>,
     running: Arc<AtomicBool>,
@@ -32,7 +32,7 @@ pub struct TrayModule {
     pause_flag: Arc<AtomicU8>,
 }
 
-impl TrayModule {
+impl Tray {
     const PAUSE_UNSET: u8 = 0;
     const PAUSE_DISABLED: u8 = 1;
     const PAUSE_ENABLED: u8 = 2;
@@ -62,7 +62,7 @@ impl TrayModule {
     }
 }
 
-impl ModuleImpl for TrayModule {
+impl ModuleImpl for Tray {
     fn start(&mut self) {
         if self.running.load(Ordering::SeqCst) {
             return;

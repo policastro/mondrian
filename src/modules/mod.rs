@@ -53,8 +53,18 @@ pub mod file_watcher {
     pub mod module;
 }
 
+use enum_dispatch::enum_dispatch;
+use events_monitor::module::EventsMonitor;
+use file_watcher::module::FileWatcher;
+use keybindings::module::Keybindings;
+use logger::module::Logger;
+use overlays::module::Overlays;
+use tiles_manager::module::TilesManagerModule;
+use tray::module::Tray;
+
 use crate::app::{configs::AppConfig, mondrian_message::MondrianMessage};
 
+#[enum_dispatch(ModuleEnum)]
 pub trait Module {
     fn start(&mut self);
     fn stop(&mut self);
@@ -64,6 +74,7 @@ pub trait Module {
     fn pause(&mut self, is_paused: bool);
     fn name(&self) -> String;
 }
+
 pub trait ConfigurableModule: Module {
     type Config;
     fn configure(&mut self, config: Self::Config);
@@ -124,4 +135,15 @@ pub(in crate::modules) mod module_impl {
             ModuleImpl::name(self)
         }
     }
+}
+
+#[enum_dispatch]
+pub enum ModuleEnum {
+    EventsMonitor,
+    TilesManagerModule,
+    Overlays,
+    Tray,
+    Keybindings,
+    Logger,
+    FileWatcher,
 }
