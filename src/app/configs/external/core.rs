@@ -32,6 +32,7 @@ pub enum WindowBehavior {
     Ignore,
     Float {
         topmost: Option<bool>,
+        centered: Option<bool>,
         size: Option<FloatingWinsSizeStrategyLabel>,
         size_ratio: Option<(f32, f32)>,
         size_fixed: Option<(u16, u16)>,
@@ -50,6 +51,7 @@ impl TryFrom<WindowBehaviorRaw> for WindowBehavior {
                 "float" => Ok(WindowBehavior::Float {
                     topmost: None,
                     size: None,
+                    centered: None,
                     size_ratio: None,
                     size_fixed: None,
                 }),

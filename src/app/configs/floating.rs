@@ -28,7 +28,7 @@ impl From<external::general::FloatingWinsConfig> for FloatingWinsConfig {
     fn from(value: external::general::FloatingWinsConfig) -> Self {
         FloatingWinsConfig {
             topmost: value.topmost,
-            centered: true,
+            centered: value.centered,
             strategy: match value.size {
                 FloatingWinsSizeStrategyLabel::Preserve => FloatingWinsSizeStrategy::Preserve,
                 FloatingWinsSizeStrategyLabel::Fixed => FloatingWinsSizeStrategy::Fixed {

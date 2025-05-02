@@ -53,11 +53,13 @@ pub(crate) fn extract_rules(
                 external::core::WindowBehavior::Float {
                     topmost,
                     size,
+                    centered,
                     size_fixed,
                     size_ratio,
                 } => {
                     let config_ext = external::general::FloatingWinsConfig {
                         size: size.unwrap_or(floating_wins_ext.size),
+                        centered: centered.unwrap_or(floating_wins_ext.centered),
                         topmost: topmost.unwrap_or(floating_wins_ext.topmost),
                         size_ratio: size_ratio.unwrap_or(floating_wins_ext.size_ratio),
                         size_fixed: size_fixed.unwrap_or(floating_wins_ext.size_fixed),

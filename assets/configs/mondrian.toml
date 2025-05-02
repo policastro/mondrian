@@ -12,6 +12,7 @@ animations.type = "ease_out_back" # can be "linear" or any of the easings functi
 animations.duration = 350 # duration of the animation in milliseconds
 animations.framerate = 60 # animations framerate
 floating_wins.topmost = true # if true, floating windows are always on top of other windows
+floating_wins.centered = true # if true, floating windows are centered on the monitor when released
 floating_wins.size = "relative" # how floating windows are resized
 floating_wins.size_ratio = [
     0.5,

@@ -43,6 +43,7 @@ pub enum FloatingWinsSizeStrategyLabel {
 #[serde(default, deny_unknown_fields)]
 pub struct FloatingWinsConfig {
     pub topmost: bool,
+    pub centered: bool,
     pub size: FloatingWinsSizeStrategyLabel,
     #[serde(deserialize_with = "deserializers::deserialize_size_ratio")]
     pub size_ratio: (f32, f32),
@@ -80,6 +81,7 @@ impl Default for FloatingWinsConfig {
     fn default() -> Self {
         FloatingWinsConfig {
             topmost: true,
+            centered: true,
             size: FloatingWinsSizeStrategyLabel::Relative,
             size_ratio: (0.5, 0.5),
             size_fixed: (700, 400),

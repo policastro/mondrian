@@ -71,22 +71,12 @@
                 "first_step": {
                   "type": "string",
                   "description": "First insertion direction.",
-                  "enum": [
-                    "right",
-                    "left",
-                    "up",
-                    "down"
-                  ]
+                  "enum": ["right", "left", "up", "down"]
                 },
                 "second_step": {
                   "type": "string",
                   "description": "Second insertion direction.",
-                  "enum": [
-                    "right",
-                    "left",
-                    "up",
-                    "down"
-                  ]
+                  "enum": ["right", "left", "up", "down"]
                 },
                 "ratio": {
                   "type": "integer",
@@ -223,12 +213,8 @@
         },
         "floating_wins": {
           "allOf": [
-            {
-              "$ref": "#/definitions/floatingSettings"
-            },
-            {
-              "description": "Settings for floating windows."
-            }
+            { "$ref": "#/definitions/floatingSettings" },
+            { "description": "Settings for floating windows." }
           ]
         }
       },
@@ -274,31 +260,16 @@
                 },
                 "anyOf": [
                   {
-                    "required": [
-                      "key",
-                      "action"
-                    ]
+                    "required": ["key", "action"]
                   },
                   {
-                    "required": [
-                      "modifiers",
-                      "key",
-                      "action"
-                    ]
+                    "required": ["modifiers", "key", "action"]
                   },
                   {
-                    "required": [
-                      "modifier",
-                      "key",
-                      "action"
-                    ]
+                    "required": ["modifier", "key", "action"]
                   },
                   {
-                    "required": [
-                      "mod",
-                      "key",
-                      "action"
-                    ]
+                    "required": ["mod", "key", "action"]
                   }
                 ],
                 "additionalProperties": false
@@ -446,16 +417,10 @@
             },
             "oneOf": [
               {
-                "required": [
-                  "filter",
-                  "behavior"
-                ]
+                "required": ["filter", "behavior"]
               },
               {
-                "required": [
-                  "filter",
-                  "behaviors"
-                ]
+                "required": ["filter", "behaviors"]
               }
             ],
             "additionalProperties": false
@@ -544,24 +509,16 @@
       },
       "anyOf": [
         {
-          "required": [
-            "exename"
-          ]
+          "required": ["exename"]
         },
         {
-          "required": [
-            "classname"
-          ]
+          "required": ["classname"]
         },
         {
-          "required": [
-            "title"
-          ]
+          "required": ["title"]
         },
         {
-          "required": [
-            "style"
-          ]
+          "required": ["style"]
         }
       ],
       "additionalProperties": false
@@ -570,10 +527,7 @@
       "oneOf": [
         {
           "type": "string",
-          "enum": [
-            "float",
-            "ignore"
-          ],
+          "enum": ["float", "ignore"],
           "x-taplo": {
             "docs": {
               "enumValues": [
@@ -667,13 +621,7 @@
     "tilingStrategyEnum": {
       "description": "Defines the tiling strategy used in the layout.",
       "type": "string",
-      "enum": [
-        "golden_ratio",
-        "horizontal",
-        "vertical",
-        "twostep",
-        "squared"
-      ],
+      "enum": ["golden_ratio", "horizontal", "vertical", "twostep", "squared"],
       "x-taplo": {
         "docs": {
           "enumValues": [
@@ -745,14 +693,14 @@
           "type": "boolean",
           "description": "If true, floating windows are always on top of other windows."
         },
+        "centered": {
+          "type": "boolean",
+          "description": "If true, floating windows are centered on the monitor when released."
+        },
         "size": {
           "type": "string",
           "description": "How floating windows are resized.",
-          "enum": [
-            "preserve",
-            "relative",
-            "fixed"
-          ],
+          "enum": ["preserve", "relative", "fixed"],
           "x-taplo": {
             "docs": {
               "enumValues": [
@@ -819,3 +767,4 @@
     }
   }
 }
+
