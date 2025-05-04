@@ -1,18 +1,17 @@
 use super::floating::FloatingWindows;
 use super::floating::TilesManagerFloating;
-use super::manager::TilesManager;
-use super::manager::TilesManagerBase;
 use super::operations::MonitorSearchStrategy;
-use super::operations::TilesManagerInternalOperations;
+use super::operations::TilesManagerOperations;
 use super::result::TilesManagerError;
 use super::result::TilesManagerSuccess;
+use super::TilesManager;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
-use crate::modules::tiles_manager::lib::containers::inactive::InactiveContainers;
-use crate::modules::tiles_manager::lib::containers::layer::ContainerLayer;
+use crate::modules::tiles_manager::lib::containers::container::ContainerLayer;
+use crate::modules::tiles_manager::lib::containers::map::ContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
@@ -32,8 +31,7 @@ type InterOp = IntermonitorMoveOp;
 type Success = TilesManagerSuccess;
 type Error = TilesManagerError;
 
-pub trait TilesManagerOperations: TilesManagerInternalOperations {
-    // NOTE: Windows events
+pub trait TilesManagerEvents {
     fn on_open(&mut self, window: WindowRef) -> Result<(), Error>;
     fn on_close(&mut self, win: WindowRef) -> Result<(), Error>;
     fn on_restore(&mut self, window: WindowRef) -> Result<(), Error>;
@@ -52,9 +50,9 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     fn on_vd_destroyed(&mut self, destroyed: Desktop, fallback: Desktop) -> Result<(), Error>;
     fn on_vd_changed(&mut self, previous: Desktop, current: Desktop) -> Result<(), Error>;
     fn on_workarea_changed(&mut self) -> Result<(), Error>;
-    // -------------------------
+}
 
-    // NOTE: Actions
+pub trait TilesManagerCommands {
     fn move_focused(&mut self, direction: Direction, center_cursor: bool, floating_increment: u16)
         -> Result<(), Error>;
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error>;
@@ -82,15 +80,14 @@ pub trait TilesManagerOperations: TilesManagerInternalOperations {
     /// - vd == currently active virtual desktop
     /// - monitor == monitor where the focused window is located.
     fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error>;
-    // -------------------------
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error>;
 }
 
-impl TilesManagerOperations for TilesManager {
+impl TilesManagerEvents for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        match TilesManagerInternalOperations::add(self, win, get_cursor_pos().ok(), true)? {
+        match TilesManagerOperations::add(self, win, get_cursor_pos().ok(), true)? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
             Success::Queue { window, area, topmost } => {
                 self.animation_player.queue(window, area, topmost);
@@ -109,7 +106,7 @@ impl TilesManagerOperations for TilesManager {
             self.floating_wins.set_locked(&win, false);
         }
 
-        match TilesManagerInternalOperations::remove(self, win)? {
+        match TilesManagerOperations::remove(self, win)? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
@@ -117,7 +114,7 @@ impl TilesManagerOperations for TilesManager {
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        match TilesManagerInternalOperations::add(self, win, None, false)? {
+        match TilesManagerOperations::add(self, win, None, false)? {
             Success::LayoutChanged => self.update_layout(true, Some(win)),
             _ => Ok(()),
         }
@@ -125,14 +122,14 @@ impl TilesManagerOperations for TilesManager {
 
     fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, true, false);
-        match TilesManagerInternalOperations::remove(self, win)? {
+        match TilesManagerOperations::remove(self, win)? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
     }
 
     fn on_resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
-        match TilesManagerInternalOperations::resize(self, win, delta)? {
+        match TilesManagerOperations::resize(self, win, delta)? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
@@ -160,9 +157,9 @@ impl TilesManagerOperations for TilesManager {
         };
         if src_k == trg_k {
             // If it is in the same monitor
-            let t = self.active_trees.find_mut(src_win)?.value;
+            let c = self.active_trees.find_mut(src_win)?.value;
             if matches!(intra_op, IntraOp::InsertFreeMove) {
-                t.move_to(src_win, target);
+                c.tree_mut().move_to(src_win, target);
             } else if let Ok(trg_win) = trg_win {
                 self.swap_windows(src_win, trg_win)?;
             }
@@ -184,8 +181,8 @@ impl TilesManagerOperations for TilesManager {
         };
 
         if switch_orient {
-            let tree = self.active_trees.find_near_mut(target)?;
-            tree.value.switch_subtree_orientations(target);
+            let e = self.active_trees.find_near_mut(target)?;
+            e.value.tree_mut().switch_subtree_orientations(target);
         }
 
         self.update_layout(true, None)
@@ -236,7 +233,7 @@ impl TilesManagerOperations for TilesManager {
             self.create_inactive_vd_containers(current)?;
         }
 
-        self.activate_vd_containers(current, None)?;
+        self.activate_vd_containers(current)?;
         self.floating_wins.set_all_locked(true);
         self.add_open_windows().ok();
 
@@ -257,17 +254,19 @@ impl TilesManagerOperations for TilesManager {
             self.active_trees
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
-                .for_each(|(_, c)| c.set_base_area(m.get_workspace()));
+                .for_each(|(_, c)| c.tree_mut().set_base_area(m.get_workspace()));
 
             self.inactive_trees
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
-                .for_each(|(_, c)| c.0.set_base_area(m.get_workspace()));
+                .for_each(|(_, c)| c.tree_mut().set_base_area(m.get_workspace()));
         });
         self.managed_monitors = monitors.iter().map(|m| (m.id.clone(), m.clone())).collect();
         self.update_layout(true, None)
     }
+}
 
+impl TilesManagerCommands for TilesManager {
     fn move_focused(
         &mut self,
         direction: Direction,
@@ -320,6 +319,7 @@ impl TilesManagerOperations for TilesManager {
             .active_trees
             .find_closest_at(src_leaf.viewbox.get_center(), direction)?
             .value
+            .tree()
             .get_area()
             .get_center();
 
@@ -376,7 +376,7 @@ impl TilesManagerOperations for TilesManager {
         };
 
         let area = orig_area.pad(padding.0, padding.1);
-        match TilesManagerInternalOperations::resize(self, curr, orig_area.get_shift(&area))? {
+        match TilesManagerOperations::resize(self, curr, orig_area.get_shift(&area))? {
             Success::LayoutChanged => self.update_layout(true, None),
             _ => Ok(()),
         }
@@ -420,33 +420,38 @@ impl TilesManagerOperations for TilesManager {
         let f_win = get_foreground().ok_or(Error::NoWindow)?;
         let e = self.active_trees.find_mut(f_win)?;
 
+        let container_type = e.value.current();
         let is_right_layer_type = match half {
-            Some(true) => e.key.layer == ContainerLayer::HalfFocalized,
-            Some(false) => e.key.layer == ContainerLayer::Focalized,
-            _ => e.key.layer.is_focalized(),
+            Some(true) => container_type == ContainerLayer::HalfFocalized,
+            Some(false) => container_type == ContainerLayer::Focalized,
+            _ => matches!(
+                container_type,
+                ContainerLayer::Focalized | ContainerLayer::HalfFocalized
+            ),
         };
 
         if !is_right_layer_type {
             return Ok(());
         }
 
-        let (main_win, others_win): (Vec<_>, Vec<_>) = e.value.get_ids().into_iter().partition(|x| *x == f_win);
+        let (main_win, others_win): (Vec<_>, Vec<_>) = e.value.tree().get_ids().into_iter().partition(|x| *x == f_win);
         let main_win = match main_win.len() {
             1 => main_win[0],
             _ => return Ok(()),
         };
 
-        let allowed_len = match e.key.layer == ContainerLayer::HalfFocalized {
+        let allowed_len = match e.value.current() == ContainerLayer::HalfFocalized {
             true => 1,
             false => 0,
         };
+
         if others_win.len() != allowed_len {
             return Ok(());
         }
 
-        let wins: Vec<WindowRef> = self
-            .inactive_trees
-            .get_normal(&e.key.into())?
+        let wins: Vec<WindowRef> = e
+            .value
+            .get_tree(ContainerLayer::Normal)
             .get_ids()
             .iter()
             .copied()
@@ -463,7 +468,7 @@ impl TilesManagerOperations for TilesManager {
             return Ok(());
         }
 
-        e.value.replace_id(main_win, *next_win);
+        e.value.tree_mut().replace_id(main_win, *next_win);
         next_win.restore(true);
         main_win.minimize();
 
@@ -474,7 +479,7 @@ impl TilesManagerOperations for TilesManager {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
         let t = self.active_trees.find_mut(curr)?.value;
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
-        t.switch_subtree_orientations(center);
+        t.tree_mut().switch_subtree_orientations(center);
 
         self.update_layout(true, None)
     }
@@ -534,7 +539,7 @@ impl TilesManagerOperations for TilesManager {
             return Ok(());
         }
 
-        let leaves = self.active_trees.find_mut(curr)?.value.leaves(None);
+        let leaves = self.active_trees.find_mut(curr)?.value.tree().leaves(None);
         let max_leaf = leaves
             .iter()
             .max_by(|a, b| a.viewbox.calc_area().cmp(&b.viewbox.calc_area()));
@@ -573,10 +578,9 @@ impl TilesManagerOperations for TilesManager {
         };
 
         if let Some(orig_area) = self.peeked_containers.remove(&k) {
-            t.set_base_area(orig_area);
-            self.inactive_trees.set_layers_base_area(&k, orig_area);
+            t.trees_mut().iter_mut().for_each(|t| t.1.set_base_area(orig_area));
         } else {
-            let prev_area = t.get_base_area();
+            let prev_area = t.tree().get_base_area();
             self.peeked_containers.insert(k.clone(), prev_area);
             let (w, h) = (prev_area.width as f32, prev_area.height as f32);
             let padding = match direction {
@@ -586,8 +590,7 @@ impl TilesManagerOperations for TilesManager {
                 Direction::Down => ((0, 0), (0, (h * ratio).round() as i16)),
             };
             let new_area = prev_area.pad(padding.0, padding.1);
-            t.set_base_area(new_area);
-            self.inactive_trees.set_layers_base_area(&k, new_area);
+            t.trees_mut().iter_mut().for_each(|t| t.1.set_base_area(new_area));
         }
 
         self.update_layout(true, None)

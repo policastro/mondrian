@@ -1,7 +1,6 @@
-use super::manager::TilesManager;
-use super::manager::TilesManagerBase;
 use super::result::TilesManagerError;
 use super::result::TilesManagerSuccess;
+use super::TilesManager;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::orientation::Orientation;

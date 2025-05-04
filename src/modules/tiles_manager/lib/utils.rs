@@ -4,7 +4,6 @@ use crate::app::structs::area::Area;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
-use std::time::SystemTime;
 use winvd::is_window_on_current_desktop;
 
 pub(crate) fn is_on_current_vd(window: &WindowRef) -> Result<bool, TilesManagerError> {
@@ -13,13 +12,6 @@ pub(crate) fn is_on_current_vd(window: &WindowRef) -> Result<bool, TilesManagerE
 
 pub(crate) fn get_foreground() -> Option<WindowRef> {
     get_foreground_window().map(WindowRef::new)
-}
-
-pub(crate) fn get_current_time_ms() -> Result<u128, TilesManagerError> {
-    Ok(SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map_err(|_| TilesManagerError::Generic)?
-        .as_millis())
 }
 
 pub(crate) fn get_floating_win_area(

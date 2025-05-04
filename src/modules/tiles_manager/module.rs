@@ -1,9 +1,9 @@
 use super::configs::CoreModuleConfigs;
 use super::lib::tm::command::TMCommand;
-use super::lib::tm::manager::TilesManager;
-use super::lib::tm::manager::TilesManagerBase;
-use super::lib::tm::public::TilesManagerOperations;
+use super::lib::tm::public::TilesManagerCommands;
+use super::lib::tm::public::TilesManagerEvents;
 use super::lib::tm::result::TilesManagerError;
+use super::lib::tm::TilesManager;
 use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::MoveSizeResult;
