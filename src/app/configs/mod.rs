@@ -25,13 +25,26 @@ pub struct AnimationsConfig {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MonitorConfig {
+pub struct LayoutConfig {
     pub layout_strategy: LayoutStrategyEnum,
     pub tiles_padding: u8,
     pub borders_padding: Paddings,
     pub focalized_padding: Paddings,
     pub half_focalized_borders_pad: Paddings,
     pub half_focalized_tiles_pad: u8,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MonitorConfig {
+    pub default_workspace: String,
+    pub layout: LayoutConfig,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkspaceConfig {
+    pub bind_to_monitor: Option<String>,
+    pub layout: LayoutConfig,
+    pub monitors: HashMap<String, LayoutConfig>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -45,6 +58,7 @@ pub struct AppConfig {
     pub free_move_in_monitor: bool,
     pub animations: AnimationsConfig,
     pub floating_wins_config: FloatingWinsConfig,
+    pub default_workspace: String,
     pub ignore_filter: WinMatcher,
     pub rules: Vec<WindowRule>,
     pub tiles_pad: u8,
@@ -54,6 +68,7 @@ pub struct AppConfig {
     pub focalized_pads: Paddings,
     pub layout_strategy: LayoutStrategyEnum,
     pub monitors_config: HashMap<String, MonitorConfig>,
+    pub workspaces_config: HashMap<String, WorkspaceConfig>,
     pub modules: Modules,
 }
 
@@ -67,9 +82,18 @@ impl Default for AppConfig {
 impl TryFrom<AppConfigExternal> for AppConfig {
     type Error = String;
     fn try_from(v: AppConfigExternal) -> Result<Self, Self::Error> {
+        if v.workspaces
+            .get(&v.general.default_workspace)
+            .is_some_and(|ws| ws.bind_to_monitor.is_some())
+        {
+            return Err("Default workspace cannot be bound to a monitor".to_string());
+        }
+
         let floating_wins_config = v.general.floating_wins.into();
         let (ignore_filter, other_rules) = extract_rules(&v.core.ignore_rules, &v.core.rules, &v.general.floating_wins);
         let layout_strategy = utils::get_layout_strategy(&v.layout.tiling_strategy, &v.layout.strategy);
+        let monitors_config = utils::get_monitors_config(&v.monitors, &v.layout, &v.general.default_workspace);
+        let workspaces_config = utils::get_workspaces_config(&v.workspaces, &v.monitors, &v.layout);
 
         Ok(AppConfig {
             history_based_navigation: v.general.history_based_navigation,
@@ -87,16 +111,18 @@ impl TryFrom<AppConfigExternal> for AppConfig {
                 },
             },
             floating_wins_config,
+            default_workspace: v.general.default_workspace,
             ignore_filter,
             rules: other_rules,
-            modules: v.modules,
-            monitors_config: utils::get_monitors_config(&v.monitors, &v.layout),
-            focalized_pads: v.layout.focalized_padding,
-            layout_strategy,
             tiles_pad: v.layout.paddings.tiles,
             borders_pads: v.layout.paddings.borders,
             half_focalized_tiles_pad: v.layout.half_focalized_paddings.tiles,
             half_focalized_borders_pads: v.layout.half_focalized_paddings.borders,
+            focalized_pads: v.layout.focalized_padding,
+            layout_strategy,
+            monitors_config,
+            workspaces_config,
+            modules: v.modules,
         })
     }
 }

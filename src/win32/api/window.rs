@@ -20,12 +20,12 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, SetFocus, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_NONAME,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, EnumWindows, GetForegroundWindow, GetTitleBarInfo, GetWindow, GetWindowLongW,
-    GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-    RealGetWindowClassW, RegisterClassExW, SendMessageW, SetForegroundWindow, ShowWindow, CS_HREDRAW, CS_VREDRAW,
-    GWL_EXSTYLE, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO, WINDOWPLACEMENT,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WNDCLASSEXW, WNDPROC, WS_CHILD, WS_CHILDWINDOW, WS_EX_TOPMOST,
-    WS_POPUP,
+    CreateWindowExW, DestroyWindow, EnumWindows, GetDesktopWindow, GetForegroundWindow, GetTitleBarInfo, GetWindow,
+    GetWindowLongW, GetWindowPlacement, GetWindowRect, GetWindowTextW, GetWindowThreadProcessId, IsIconic,
+    IsWindowVisible, RealGetWindowClassW, RegisterClassExW, SendMessageW, SetForegroundWindow, ShowWindow, CS_HREDRAW,
+    CS_VREDRAW, GWL_EXSTYLE, GWL_STYLE, GW_OWNER, MINMAXINFO, SHOW_WINDOW_CMD, SW_MAXIMIZE, TITLEBARINFO,
+    WINDOWPLACEMENT, WINDOW_EX_STYLE, WINDOW_STYLE, WM_GETMINMAXINFO, WNDCLASSEXW, WNDPROC, WS_CHILD, WS_CHILDWINDOW,
+    WS_EX_TOPMOST, WS_POPUP,
 };
 
 lazy_static!(
@@ -57,6 +57,13 @@ pub fn show_window(hwnd: HWND, cmd: SHOW_WINDOW_CMD) -> bool {
 
 pub fn get_foreground_window() -> Option<HWND> {
     match unsafe { GetForegroundWindow() } {
+        hwnd if hwnd.is_invalid() => None,
+        hwnd => Some(hwnd),
+    }
+}
+
+pub fn get_desktop_window() -> Option<HWND> {
+    match unsafe { GetDesktopWindow() } {
         hwnd if hwnd.is_invalid() => None,
         hwnd => Some(hwnd),
     }
@@ -147,6 +154,10 @@ pub fn get_title_bar_info(hwnd: HWND) -> TITLEBARINFO {
 
 pub fn is_window_visible(hwnd: HWND) -> bool {
     unsafe { IsWindowVisible(hwnd).as_bool() }
+}
+
+pub fn is_program_manager_window(hwnd: HWND) -> bool {
+    get_executable_name(hwnd).is_some_and(|s| s == "explorer.exe") && get_class_name(hwnd) == "Progman"
 }
 
 /// Returns true if the window is manageable by the tiles manager

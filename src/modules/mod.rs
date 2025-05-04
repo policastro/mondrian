@@ -17,10 +17,8 @@ pub mod tiles_manager {
     pub mod module;
     pub(crate) mod lib {
         pub mod containers;
+        pub mod structs;
         pub mod tm;
-        pub mod structs {
-            pub mod focus_history;
-        }
         pub mod utils;
         pub mod window_animation_player;
     }

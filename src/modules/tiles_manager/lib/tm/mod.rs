@@ -7,18 +7,21 @@ pub mod result;
 
 use super::containers::container::Container;
 use super::containers::container::ContainerLayer;
+use super::containers::keys::ContainerKeyTrait;
 use super::containers::map::ContainersMap;
 use super::structs::focus_history::FocusHistory;
+use super::structs::managed_monitor::ManagedMonitor;
+use super::structs::virtual_desktop::VirtualDesktop;
 use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::area_tree::tree::WinTree;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::area::Area;
 use crate::modules::tiles_manager::lib::containers::keys::ActiveContainerKey;
 use crate::modules::tiles_manager::lib::containers::keys::ContainerKey;
+use crate::modules::tiles_manager::lib::containers::map::ActiveContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::window_animation_player::WindowAnimationPlayer;
 use crate::win32::api::monitor::enum_display_monitors;
-use crate::win32::api::monitor::Monitor;
 use crate::win32::api::window::enum_user_manageable_windows;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -39,17 +42,19 @@ use winvd::Desktop;
 type Error = TilesManagerError;
 
 pub struct TilesManager {
-    pub active_trees: HashMap<ActiveContainerKey, Container>,
-    pub inactive_trees: HashMap<ContainerKey, Container>,
-    pub peeked_containers: HashMap<ActiveContainerKey, Area>,
-    pub floating_wins: HashMap<WindowRef, FloatingProperties>,
-    pub maximized_wins: HashSet<WindowRef>,
-    pub pause_updates: bool,
-    pub config: TilesManagerConfig,
-    pub animation_player: WindowAnimationPlayer,
-    pub focus_history: FocusHistory,
-    pub managed_monitors: HashMap<String, Monitor>,
-    pub(crate) current_vd: Option<Desktop>,
+    containers: HashMap<ActiveContainerKey, Container>,
+    inactive_containers: HashMap<ContainerKey, Container>,
+    floating_wins: HashMap<WindowRef, FloatingProperties>,
+    maximized_wins: HashSet<WindowRef>,
+    peeked_containers: HashMap<ContainerKey, Area>,
+    pause_updates: bool,
+    animation_player: WindowAnimationPlayer,
+    focus_history: FocusHistory,
+    managed_monitors: HashMap<String, ManagedMonitor>,
+    last_focused_monitor: Option<String>,
+    last_workspaces: HashMap<(u128, String), String>,
+    config: TilesManagerConfig,
+    current_vd: VirtualDesktop,
 }
 
 impl TilesManager {
@@ -74,29 +79,29 @@ impl TilesManager {
             on_update_complete,
         );
 
+        let current_vd = get_current_desktop().map_err(Error::VDError)?;
         let mut tm = TilesManager {
             pause_updates: false,
             floating_wins: HashMap::new(),
             maximized_wins: HashSet::new(),
-            inactive_trees: HashMap::new(),
-            active_trees: HashMap::new(),
+            inactive_containers: HashMap::new(),
+            containers: HashMap::new(),
             peeked_containers: HashMap::new(),
-            current_vd: None,
             focus_history: FocusHistory::new(),
             managed_monitors: HashMap::new(),
             config,
             animation_player,
+            last_focused_monitor: None,
+            last_workspaces: HashMap::new(),
+            current_vd: current_vd.try_into()?,
         };
-
-        let current_vd = get_current_desktop().map_err(Error::VDError)?;
 
         tm.managed_monitors = enum_display_monitors()
             .iter()
-            .map(|m| (m.id.clone(), m.clone()))
+            .map(|m| (m.id.clone(), m.clone().into()))
             .collect();
 
-        tm.create_inactive_vd_containers(current_vd)?;
-        tm.activate_vd_containers(current_vd)?;
+        tm.activate_vd(current_vd)?;
 
         Ok(tm)
     }
@@ -104,7 +109,14 @@ impl TilesManager {
     /// Add all open windows to the tiles manager
     pub fn add_open_windows(&mut self) -> Result<(), Error> {
         let filter = self.config.ignore_filter.clone();
-        let wins = enum_user_manageable_windows().into_iter();
+
+        // INFO: filter out windows that are already managed
+        let wins = enum_user_manageable_windows().into_iter().filter(|w| {
+            !self
+                .containers
+                .iter()
+                .any(|(_, c)| c.get_tree(ContainerLayer::Normal).has(*w))
+        });
         let mut wins: Vec<WindowRef> = wins.filter(|w| !filter.matches(*w)).collect();
 
         // INFO: bigger windows first
@@ -127,7 +139,7 @@ impl TilesManager {
     /// Get the state of a managed window
     /// Returns `None` if the window is not managed (i.e. not in any active container)
     pub fn get_visible_managed_windows(&self) -> HashMap<WindowRef, WindowTileState> {
-        let wins = self.active_trees.values().flat_map(|c| c.tree().get_ids());
+        let wins = self.containers.values().flat_map(|c| c.tree().get_ids());
         let mut tiled: HashMap<WindowRef, WindowTileState> = wins
             .filter_map(|win| self.get_window_state(win).map(|state| (win, state)).ok())
             .collect();
@@ -155,11 +167,11 @@ impl TilesManager {
         }
 
         let anim_player = &mut self.animation_player;
-        self.active_trees.iter_mut().for_each(|(k, c)| {
+        self.containers.iter_mut().for_each(|(k, c)| {
             let tile_pad = match c.current() {
                 ContainerLayer::Focalized => (0, 0),
-                ContainerLayer::HalfFocalized => self.config.get_half_focalized_tiles_pad_xy(&k.monitor),
-                ContainerLayer::Normal => self.config.get_tiles_padding_xy(&k.monitor),
+                ContainerLayer::HalfFocalized => self.config.get_half_focalized_tiles_pad_xy(&k.monitor, &k.workspace),
+                ContainerLayer::Normal => self.config.get_tiles_padding_xy(&k.monitor, &k.workspace),
             };
             let _ = update_from_tree(
                 c.tree_mut(),
@@ -201,7 +213,7 @@ impl TilesManager {
             return Ok(WindowTileState::Maximized);
         }
 
-        let container_type = self.active_trees.find(window).map(|e| e.value.current())?;
+        let container_type = self.containers.find(window).map(|e| e.value.current())?;
         match container_type {
             ContainerLayer::Focalized => Ok(WindowTileState::Focalized),
             ContainerLayer::HalfFocalized => Ok(WindowTileState::HalfFocalized),
@@ -209,71 +221,165 @@ impl TilesManager {
         }
     }
 
-    pub(super) fn create_inactive_vd_containers(&mut self, vd: Desktop) -> Result<(), Error> {
-        let vd_id = vd.get_id().map_err(Error::VDError)?.to_u128();
-        if self.current_vd.is_some_and(|curr_vd| curr_vd == vd) || self.inactive_trees.has_vd(vd_id) {
-            return Err(Error::VDContainersAlreadyCreated);
-        }
-
-        self.managed_monitors
-            .values()
-            .map(|m| {
-                let layout = self.config.get_layout_strategy(m.id.as_str());
-                let bpad1 = self.config.get_borders_padding(m.id.as_str());
-                let bpad2 = self.config.get_focalized_padding(m.id.as_str());
-                let bpad3 = self.config.get_half_focalized_borders_pad(m.id.as_str());
-
-                let area = m.get_workspace();
-                let t1 = WinTree::new(area, layout.clone(), bpad1);
-                let t2 = WinTree::new(area, layout.clone(), bpad2);
-                let t3 = WinTree::new(area, layout, bpad3);
-                let c = Container::new(t1, t2, t3);
-
-                (ContainerKey::new(vd_id, m.id.clone()), c)
-            })
-            .for_each(|(k, c)| {
-                self.inactive_trees.insert(k, c);
-            });
-
-        Ok(())
-    }
-
-    pub(super) fn activate_vd_containers(&mut self, vd: Desktop) -> Result<(), Error> {
+    fn activate_vd(&mut self, vd: Desktop) -> Result<TilesManagerSuccess, Error> {
         let vd_id = vd.get_id().map(|id| id.to_u128()).map_err(Error::VDError)?;
-
-        if self.current_vd.is_some_and(|current_vd| current_vd == vd) {
-            return Err(Error::VDContainersAlreadyActivated);
+        if self.containers.has_vd(vd_id) {
+            return Ok(TilesManagerSuccess::NoChange);
         }
 
-        let to_inactivate = self.active_trees.drain().map(|(k, v)| (k.into(), v));
-        self.inactive_trees.extend(to_inactivate);
+        let to_inactivate = self.containers.drain().map(|(k, v)| {
+            let (vd, monitor, ws) = (k.vd, k.monitor.clone(), k.workspace.clone());
+            self.last_workspaces.insert((vd, monitor), ws);
+            (k.into(), v)
+        });
+
+        self.inactive_containers.extend(to_inactivate);
+
+        if !self.inactive_containers.has_vd(vd_id) {
+            self.create_inactive_vd_containers(vd)?;
+        }
 
         let to_activate: Vec<ContainerKey> = self
-            .inactive_trees
+            .inactive_containers
             .keys()
-            .filter(|&k| k.is_vd(vd_id))
+            .filter(|&k| {
+                let last_ws = self.last_workspaces.get(&(vd_id, k.monitor.clone()));
+                k.is_vd(vd_id) && last_ws.is_none_or(|ws| *ws == k.workspace)
+            })
             .cloned()
             .collect();
 
         for k in to_activate {
-            if let Some(c) = self.inactive_trees.remove(&k) {
-                self.active_trees.insert(k.clone().into(), c);
+            if let Some(c) = self.inactive_containers.remove(&k) {
+                self.containers.insert(k.clone().into(), c);
             }
         }
 
-        self.current_vd = Some(vd);
+        self.current_vd = vd.try_into()?;
+        Ok(TilesManagerSuccess::LayoutChanged)
+    }
+
+    fn activate_workspace(
+        &mut self,
+        monitor_name: &str,
+        workspace: &str,
+        silent: bool,
+        move_focus: bool,
+    ) -> Result<TilesManagerSuccess, Error> {
+        let prev_k = self.containers.keys().find(|k| k.monitor == monitor_name);
+        let prev_k = prev_k.ok_or(Error::MonitorNotFound(monitor_name.to_string()))?.clone();
+
+        if prev_k.workspace == workspace {
+            return Ok(TilesManagerSuccess::NoChange);
+        }
+
+        let vd_id = self.current_vd.get_id();
+        if !self.inactive_containers.has(vd_id, monitor_name, workspace) {
+            self.create_inactive_workspace_container(self.current_vd, monitor_name, workspace)?;
+        }
+
+        let new_key = self
+            .inactive_containers
+            .get_key_with_workspace(vd_id, monitor_name, workspace)
+            .ok_or(Error::Generic)?;
+        let new_tree = self.inactive_containers.remove(&new_key).ok_or(Error::Generic)?;
+        let wins_leaves = new_tree.tree().leaves(None);
+        let wins: Vec<WindowRef> = wins_leaves.iter().map(|l| l.id).collect();
+        let old_tree = self.containers.replace(new_key.into(), new_tree);
+        let old_tree = old_tree.ok_or(Error::container_not_found())?;
+
+        // INFO: most recently focused window otherwise top left window
+        let win_to_focus = self
+            .focus_history
+            .latest(&wins)
+            .or(wins_leaves
+                .iter()
+                .min_by(|l1, l2| l1.viewbox.x.cmp(&l2.viewbox.x).then(l1.viewbox.y.cmp(&l2.viewbox.y)))
+                .iter()
+                .next()
+                .map(|l| l.id))
+            .filter(|_| move_focus);
+
+        if !silent {
+            self.managed_monitors.get(monitor_name).inspect(|m| m.focus());
+            old_tree.tree().leaves(None).iter().for_each(|l| {
+                l.id.minimize(false);
+            });
+        }
+
+        self.inactive_containers.insert(prev_k.into(), old_tree);
+        Ok(TilesManagerSuccess::UpdateAndFocus { window: win_to_focus })
+    }
+
+    fn create_inactive_vd_containers(&mut self, vd: Desktop) -> Result<(), Error> {
+        let vd_id = vd.get_id().map_err(Error::VDError)?.to_u128();
+        if self.inactive_containers.has_vd(vd_id) {
+            return Err(Error::VDContainersAlreadyCreated);
+        }
+
+        let containers: Vec<(ContainerKey, Container)> = self
+            .managed_monitors
+            .values()
+            .map(|m| {
+                let ws = self.config.get_default_workspace(&m.info.id);
+                let key = ContainerKey::new(vd_id, &m.info.id, &ws);
+                (key, m)
+            })
+            .filter_map(|(k, m)| self.create_container(&m.info.id, &k.workspace).ok().map(|c| (k, c)))
+            .collect();
+
+        for (k, t) in containers {
+            self.inactive_containers.insert(k, t);
+        }
+
         Ok(())
     }
 
-    pub(super) fn restore_monitor(&mut self, key: &ActiveContainerKey) -> Result<(), Error> {
-        let is_focalized_or_half = self.active_trees.get(key).map(|c| c.current());
+    fn create_inactive_workspace_container(
+        &mut self,
+        vd: VirtualDesktop,
+        monitor_name: &str,
+        ws: &str,
+    ) -> Result<(), Error> {
+        let vd_id = vd.get_id();
+        if self.inactive_containers.has(vd_id, monitor_name, ws) {
+            return Err(Error::WorkspaceAlreadyCreated);
+        }
+
+        let container = self.create_container(monitor_name, ws)?;
+        let key = ContainerKey::new(vd_id, monitor_name, ws);
+        self.inactive_containers.insert(key, container);
+
+        Ok(())
+    }
+
+    fn create_container(&self, monitor_name: &str, workspace: &str) -> Result<Container, Error> {
+        let monitor = &self
+            .managed_monitors
+            .get(monitor_name)
+            .ok_or(Error::MonitorNotFound(monitor_name.to_string()))?
+            .info;
+        let monitor_id = monitor.id.clone();
+
+        let layout = self.config.get_layout_strategy(&monitor_id, workspace);
+        let bpad1 = self.config.get_borders_padding(&monitor_id, workspace);
+        let bpad2 = self.config.get_focalized_padding(&monitor_id, workspace);
+        let bpad3 = self.config.get_half_focalized_borders_pad(&monitor_id, workspace);
+
+        let area = monitor.get_workspace();
+        let t1 = WinTree::new(area, layout.clone(), bpad1);
+        let t2 = WinTree::new(area, layout.clone(), bpad2);
+        let t3 = WinTree::new(area, layout, bpad3);
+
+        Ok(Container::new(t1, t2, t3))
+    }
+
+    fn restore_monitor(&mut self, key: &ActiveContainerKey) -> Result<(), Error> {
+        let is_focalized_or_half = self.containers.get(key).map(|c| c.current());
         let is_focalized_or_half = is_focalized_or_half.is_some_and(|ct| ct.is_focalized_or_half());
 
         if is_focalized_or_half {
-            let container = self
-                .active_trees
-                .get_mut(key)
-                .ok_or(Error::ContainerNotFound { refresh: false })?;
+            let container = self.containers.get_mut(key).ok_or(Error::container_not_found())?;
 
             container.tree_mut().clear();
             container.set_current(ContainerLayer::Normal);
@@ -282,12 +388,12 @@ impl TilesManager {
         Ok(())
     }
 
-    pub(super) fn get_maximized_win_in_monitor(&self, key: &ActiveContainerKey) -> Option<WindowRef> {
-        let t = self.active_trees.get(key)?;
+    fn get_maximized_win_in_monitor(&self, key: &ActiveContainerKey) -> Option<WindowRef> {
+        let t = self.containers.get(key)?;
         self.maximized_wins.iter().find(|w| t.tree().has(**w)).copied()
     }
 
-    pub(super) fn restore_maximized(&mut self, key: &ActiveContainerKey) -> Result<(), Error> {
+    fn restore_maximized(&mut self, key: &ActiveContainerKey) -> Result<(), Error> {
         if let Some(win) = self.get_maximized_win_in_monitor(key) {
             win.set_normal();
             self.as_maximized(win, false)?;

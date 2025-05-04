@@ -91,13 +91,11 @@ impl TilesManagerModule {
         tm.add_open_windows().ok();
         tm.update_layout(true, None).ok();
 
-        let configs = self.configs.clone();
         let tx = self.bus_tx.clone();
-
         self.tiles_manager_thread = Some(thread::spawn(move || loop {
             match event_receiver.recv() {
                 Ok(app_event) => {
-                    if !handle_tm(&mut tm, &tx, &configs, app_event) {
+                    if !handle_tm(&mut tm, &tx, app_event) {
                         log::trace!("TilesManager exit!");
                         break;
                     }
@@ -203,18 +201,13 @@ impl ConfigurableModule for TilesManagerModule {
     }
 }
 
-fn handle_tm(
-    tm: &mut TilesManager,
-    tx: &Sender<MondrianMessage>,
-    configs: &CoreModuleConfigs,
-    event: TMCommand,
-) -> bool {
+fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMCommand) -> bool {
     let prev_wins = tm.get_visible_managed_windows();
     tm.check_for_vd_changes()
         .inspect_err(|m| log::trace!("VD changes check error: {m:?}"))
         .ok();
 
-    let res = match event {
+    let res = match event.clone() {
         TMCommand::WindowEvent(window_event) => match window_event {
             WindowEvent::Maximized(winref) => {
                 // INFO: If Maximized event is fired after StartMoveSize
@@ -243,37 +236,35 @@ fn handle_tm(
             WindowEvent::Focused(winref) => tm.on_focus(winref),
         },
         TMCommand::SystemEvent(evt) => match evt {
-            SystemEvent::VirtualDesktopCreated { desktop } => tm.on_vd_created(desktop),
             SystemEvent::VirtualDesktopRemoved { destroyed, fallback } => tm.on_vd_destroyed(destroyed, fallback),
             SystemEvent::VirtualDesktopChanged { old, new } => tm.on_vd_changed(old, new),
             SystemEvent::WorkareaChanged => tm.on_workarea_changed(),
+            SystemEvent::DesktopFocused { at } => tm.on_desktop_focus(at),
             _ => Ok(()),
         },
-        TMCommand::Focus(direction) => tm.change_focus(direction, configs.move_cursor_on_focus),
+        TMCommand::Focus(direction) => tm.change_focus(direction),
+        TMCommand::FocusWorkspace { id } => tm.focus_workspace(&id),
+        TMCommand::MoveToWorkspace { id, focus } => tm.move_focused_to_workspace(&id, focus),
         TMCommand::SwitchFocus => tm.switch_focus(),
         TMCommand::Minimize => tm.minimize_focused(),
         TMCommand::Close => tm.close_focused(),
         TMCommand::Topmost => tm.topmost_focused(None),
-        TMCommand::Insert(direction) => tm.insert_focused(direction, configs.move_cursor_on_focus),
-        TMCommand::Move(direction, insert_if_empty, floating_inc) => {
-            match tm.move_focused(direction, configs.move_cursor_on_focus, floating_inc) {
-                Err(TilesManagerError::NoWindow) if insert_if_empty => {
-                    tm.insert_focused(direction, configs.move_cursor_on_focus)
-                }
-                res => res,
-            }
-        }
+        TMCommand::Insert(direction) => tm.insert_focused(direction),
+        TMCommand::Move(direction, insert_if_empty, floating_inc) => match tm.move_focused(direction, floating_inc) {
+            Err(TilesManagerError::NoWindow) if insert_if_empty => tm.insert_focused(direction),
+            res => res,
+        },
         TMCommand::Resize(direction, inc, floating_inc) => tm.resize_focused(direction, inc, floating_inc),
         TMCommand::Invert => tm.invert_orientation(),
         TMCommand::Release(b) => tm.release_focused(b),
         TMCommand::Peek(direction, ratio) => tm.peek_current(direction, ratio),
         TMCommand::Focalize => tm.focalize_focused(),
         TMCommand::HalfFocalize => tm.half_focalize_focused(),
-        TMCommand::Amplify => tm.amplify_focused(configs.move_cursor_on_focus),
+        TMCommand::Amplify => tm.amplify_focused(),
         TMCommand::CycleFocalized(next) => tm.cycle_focalized_wins(next, None),
         TMCommand::ListManagedWindows => {
             let windows = tm.get_visible_managed_windows();
-            tx.send(MondrianMessage::UpdatedWindows(windows, event)).unwrap();
+            tx.send(MondrianMessage::UpdatedWindows(windows, event.clone())).ok();
             Ok(())
         }
         TMCommand::QueryInfo => {

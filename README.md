@@ -9,6 +9,7 @@ _Mondrian_ is a tiling window manager built with Rust for Windows 11.
 - Multi-monitor support;
 - Mouse movements support (moving/resizing windows);
 - Compatible with Virtual Desktops;
+- Workspaces;
 - System tray application;
 - Multiple animations;
 - Highly customizable.
@@ -114,6 +115,7 @@ If the configuration file does not exist, it will be created automatically when 
 | `general.floating_wins.size`              | How floating windows should be resized                                                                                         | `"preserve"` (keep previous size)<br>`"relative"` (resize based on monitor resolution)<br>`"fixed"` (fixed pixel values)      | `"relative"`                       |
 | `general.floating_wins.size_ratio`        | The ratio of the floating window's size relative to the monitor (used only if `size` is `"relative"`)                          | [0.1 - 1.0, 0.1 - 1.0]                                                                                                        | [0.5, 0.5]                         |
 | `general.floating_wins.size_fixed`        | The fixed pixel values of the floating window's size (used only if `size` is `"fixed"`)                                        | [100 - 10000, 100 - 10000]                                                                                                    | [700, 400]                         |
+| `general.default_workspace`               | Active workspace on startup.                                                                                                   | A string with the workspace name                                                                                              | `"1"`                              |
 | `modules.keybindings.enabled`             | Enables/disables the keybindings module                                                                                        | `true`, `false`                                                                                                               | `false`                            |
 | `modules.keybindings.bindings`            | Custom keybindings                                                                                                             | check the relative [section](#keybindings-guide) for more info.                                                               | -                                  |
 | `modules.overlays.enabled`                | Enables/disables the overlays module                                                                                           | `true`, `false`                                                                                                               | `true`                             |
@@ -135,10 +137,11 @@ If the configuration file does not exist, it will be created automatically when 
 | `core.rules`                              | Custom rules to control the behavior of specific windows                                                                       | check the relative [section](#core-rules-guide) for more info.                                                                | -                                  |
 | `core.ignore_rules`                       | Custom rules to exclude windows from being managed                                                                             | check the relative [section](#core-ignore-rules-guide) for more info.                                                         | -                                  |
 | `monitors.*`                              | Per-monitor configurations                                                                                                     | check the relative [section](#per-monitor-configurations-guide) for more info.                                                | -                                  |
+| `workspaces.*`                            | Workspaces configurations                                                                                                      | check the relative [section](#workspaces-configurations-guide) for more info.                                                 | -                                  |
 
 All the options are optional and if not specified, the default values will be used.
 
-#### Custom keybindings with `modules.keybindings.bindings` <a name="keybindings-guide"></a>
+#### Keybindings <a name="keybindings-guide"></a>
 
 You can specify custom keybindings with the `modules.keybindings.bindings` option.
 Each binding has the following format:
@@ -172,6 +175,9 @@ The **available actions** are:
 - `close`: closes the focused window. This action also works with unmanaged windows;
 - `toggle-topmost`: toggles the topmost state of the focused window. This action only works with floating windows;
 - `focus <left|right|up|down>`: focuses the window in the specified direction;
+- `focus-workspace <WORKSPACE_NAME>`: focuses the workspace[^1];
+- `move-to-workspace <WORKSPACE_NAME>`: moves the focused window into the workspace[^1] and focuses it;
+- `move-to-workspace-silent <WORKSPACE_NAME>`: moves the focused window into the workspace[^1] without changing the focused workspace;
 - `switch-focus`: switches focus between tiled and floating windows;
 - `move <left|right|up|down> [40-1000]`: if applied to a tiled window, swaps the focused window with the window in the specified direction. If applied to a floating window, moves the window in the specified direction by the amount in pixels defined in the third parameter (which defaults to 200 if not specified);
 - `insert <left|right|up|down>`: adds the focused window in the monitor in the specified direction;
@@ -206,7 +212,9 @@ bindings = [
 ]
 ```
 
-#### Custom rules with `core.rules` <a name="core-rules-guide"></a>
+[^1]: The workspace name is case-insensitive and can only contain a-z, A-Z, 0-9, "\_", ".", "-" or ":" characters. The maximum length is 32 characters.
+
+#### Custom rules <a name="core-rules-guide"></a>
 
 You can create custom rules with the `core.rules` option to control the behavior of specific windows.
 Each rule has the following format (or any equivalent format allowed by the [TOML specification](https://toml.io/en/v1.0.0)):
@@ -287,7 +295,7 @@ To understand how to match specific windows, you can trigger the `dumpstateinfo`
 ...
 ```
 
-#### Ignore windows with `core.ignore_rules` <a name="core-ignore-rules-guide"></a>
+#### Ignore windows <a name="core-ignore-rules-guide"></a>
 
 You can ignore windows with the `core.ignore_rules` option.
 Each rule has the following format:
@@ -335,14 +343,15 @@ You can override some configuration for each monitor with the `monitors` option:
 
 The following options are available:
 
-| **Option**                                          | **Reference**                            |
-| --------------------------------------------------- | ---------------------------------------- |
-| `monitors.*.layout.tiling_strategy`                 | `layout.tiling_strategy`                 |
-| `monitors.*.layout.paddings.tiles`                  | `layout.paddings.tiles`                  |
-| `monitors.*.layout.paddings.borders`                | `layout.paddings.borders`                |
-| `monitors.*.layout.half_focalized_paddings.tiles`   | `layout.half_focalized_paddings.tiles`   |
-| `monitors.*.layout.half_focalized_paddings.borders` | `layout.half_focalized_paddings.borders` |
-| `monitors.*.layout.focalized_padding`               | `layout.focalized_padding`               |
+| **Option**                                          | **Description**                                           |
+| --------------------------------------------------- | --------------------------------------------------------- |
+| `monitors.*.default_workspace`                      | check the `default_workspace` option                      |
+| `monitors.*.layout.tiling_strategy`                 | check the `layout.tiling_strategy` option                 |
+| `monitors.*.layout.paddings.tiles`                  | check the `layout.paddings.tiles` option                  |
+| `monitors.*.layout.paddings.borders`                | check the `layout.paddings.borders` option                |
+| `monitors.*.layout.half_focalized_paddings.tiles`   | check the `layout.half_focalized_paddings.tiles` option   |
+| `monitors.*.layout.half_focalized_paddings.borders` | check the `layout.half_focalized_paddings.borders` option |
+| `monitors.*.layout.focalized_padding`               | check the `layout.focalized_padding` option               |
 
 To find the name of the monitors, you can start the application with the `--dumpstateinfo` flag (or you can trigger the `dumpstateinfo` [action](#keybindings-guide)), then open the `./logs/app_state.txt` file and look for the `Monitors` subsection under the `Tiles Manager` section. The section looks like this:
 
@@ -368,6 +377,67 @@ layout.tiling_strategy = "horizontal"
 [monitors."MONITOR2"]
 layout.paddings.borders = 12
 ```
+
+#### Workspaces <a name="workspaces-configurations-guide"></a>
+
+Workspaces are created automatically when the corresponding actions are triggered (see the [actions](#actions-guide) section).
+Using the `workspaces` option, you can override some default configurations for each workspace:
+
+```toml
+# with this syntax
+[workspaces."workspace-name1"]
+# ...
+
+[workspaces."workspace-name2"]
+# ...
+
+# or with this one
+[workspaces]
+"workspace-name1" = { ... }
+"workspace-name2" = { ... }
+```
+
+The following options are available:
+
+| **Option**                                            | **Description**                                                                                                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `workspaces.*.bind_to_monitor`                        | bind the workspace to a specific monitor                                                                        |
+| `workspaces.*.layout.tiling_strategy`                 | check the `layout.tiling_strategy` option                                                                       |
+| `workspaces.*.layout.paddings.tiles`                  | check the `layout.paddings.tiles` option                                                                        |
+| `workspaces.*.layout.paddings.borders`                | check the `layout.paddings.borders` option                                                                      |
+| `workspaces.*.layout.half_focalized_paddings.tiles`   | check the `layout.half_focalized_paddings.tiles` option                                                         |
+| `workspaces.*.layout.half_focalized_paddings.borders` | check the `layout.half_focalized_paddings.borders` option                                                       |
+| `workspaces.*.layout.focalized_padding`               | check the `layout.focalized_padding` option                                                                     |
+| `workspaces.*.monitors.*.layout.*`                    | monitor-specific configurations (see the [per-monitor configurations](#per-monitor-configurations-guide) guide) |
+
+#### Configuration precedence <a name="configuration-precedence"></a>
+
+The `monitors` and `workspaces` options allow you to override the default configuration for specific monitors and workspaces. Configuration precedence is applied in the following order, from highest to lowest:
+
+1. `workspaces.*.monitors.*`;
+2. `workspaces.*`;
+3. `monitors.*`;
+4. default configurations.
+
+For example, with the following configuration:
+
+```toml
+layout.paddings.borders = 8
+
+[monitors."MONITOR1"]
+layout.paddings.borders = 12
+
+[workspaces."1"]
+layout.paddings.borders = 14
+monitors."MONITOR1".layout.paddings.borders = 16
+```
+
+The resulting borders padding will be:
+
+- 16 when on workspace "1" and monitor "MONITOR1";
+- 14 when on workspace "1" but not on monitor "MONITOR1";
+- 12 when not on workspace "1" but on monitor "MONITOR1";
+- 8 when not on workspace "1" and not on monitor "MONITOR1".
 
 ## FAQ
 

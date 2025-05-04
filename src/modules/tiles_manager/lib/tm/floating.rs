@@ -23,7 +23,7 @@ pub trait TilesManagerFloating {
     fn move_window(&mut self, window: WindowRef, direction: Direction, step: u16) -> TMResult;
     fn insert(&mut self, window: WindowRef, direction: Direction, center: bool) -> TMResult;
     fn resize(&mut self, window: WindowRef, axis: Orientation, increment: i16) -> TMResult;
-    fn change_focus(&mut self, window: WindowRef, direction: Direction, center_cursor: bool) -> TMResult;
+    fn change_focus(&mut self, window: WindowRef, direction: Direction) -> TMResult;
 }
 
 impl TilesManagerFloating for TilesManager {
@@ -36,7 +36,7 @@ impl TilesManagerFloating for TilesManager {
         self.cancel_animation();
         let area = window.get_area().ok_or(Error::NoWindowsInfo)?;
         let monitor = match find_containing_monitor(&self.managed_monitors, area.get_center()) {
-            Some(monitor) => monitor,
+            Some(monitor) => &monitor.info,
             None => return Ok(Success::NoChange),
         };
         let monitor_area = monitor.get_workspace();
@@ -68,7 +68,7 @@ impl TilesManagerFloating for TilesManager {
 
         let area = window.get_area().ok_or(Error::NoWindowsInfo)?;
         let monitor = match find_nearest_monitor(&self.managed_monitors, area.get_center(), direction) {
-            Some(monitor) => monitor,
+            Some(monitor) => &monitor.info,
             None => return Ok(Success::NoChange),
         };
 
@@ -100,7 +100,7 @@ impl TilesManagerFloating for TilesManager {
         }
 
         let monitor = find_containing_monitor(&self.managed_monitors, area.get_center());
-        let monitor = monitor.ok_or(Error::Generic)?;
+        let monitor = &monitor.ok_or(Error::Generic)?.info;
         let monitor_area = monitor.get_workspace();
 
         let area = match axis {
@@ -117,7 +117,7 @@ impl TilesManagerFloating for TilesManager {
         Ok(Success::queue(window, area, None))
     }
 
-    fn change_focus(&mut self, window: WindowRef, direction: Direction, center_cursor: bool) -> TMResult {
+    fn change_focus(&mut self, window: WindowRef, direction: Direction) -> TMResult {
         if !matches!(self.get_window_state(window)?, WindowTileState::Floating) {
             return Ok(Success::NoChange);
         }
@@ -151,7 +151,7 @@ impl TilesManagerFloating for TilesManager {
 
         if let Some(nearest) = nearest {
             nearest.0.focus();
-            if center_cursor {
+            if self.config.focus_follows_cursor {
                 let (x, y) = nearest.1;
                 set_cursor_pos(x, y);
             }
@@ -228,12 +228,11 @@ impl FloatingWindows for HashMap<WindowRef, FloatingProperties> {
 }
 
 mod utils {
-    use std::collections::HashMap;
-
     use crate::{
         app::structs::{area::Area, direction::Direction, point::Point},
-        win32::api::monitor::Monitor,
+        modules::tiles_manager::lib::structs::managed_monitor::ManagedMonitor,
     };
+    use std::collections::HashMap;
 
     pub fn get_corrective_pad(min_dim: i16, dim: i16) -> (i16, i16) {
         if dim >= min_dim {
@@ -244,21 +243,24 @@ mod utils {
         (-new_dim, new_dim - offset)
     }
 
-    pub fn find_containing_monitor(monitors: &HashMap<String, Monitor>, point: (i32, i32)) -> Option<&Monitor> {
-        monitors.values().find(|m| m.get_workspace().contains(point))
+    pub fn find_containing_monitor(
+        monitors: &HashMap<String, ManagedMonitor>,
+        point: (i32, i32),
+    ) -> Option<&ManagedMonitor> {
+        monitors.values().find(|m| m.info.get_workspace().contains(point))
     }
 
     pub fn find_nearest_monitor(
-        monitors: &HashMap<String, Monitor>,
+        monitors: &HashMap<String, ManagedMonitor>,
         origin: (i32, i32),
         direction: Direction,
-    ) -> Option<&Monitor> {
+    ) -> Option<&ManagedMonitor> {
         let opp_dir = direction.opposite();
         monitors
             .values()
-            .filter(|m| !m.get_workspace().contains(origin))
+            .filter(|m| !m.info.get_workspace().contains(origin))
             .filter(|m| {
-                let edge = m.get_workspace().get_edge(opp_dir);
+                let edge = m.info.get_workspace().get_edge(opp_dir);
                 match direction {
                     Direction::Left => edge <= origin.0,
                     Direction::Right => edge >= origin.0,
@@ -267,8 +269,10 @@ mod utils {
                 }
             })
             .min_by(|m1, m2| {
-                let d1 = m1.get_workspace().get_center_in_direction(opp_dir).distance(origin);
-                let d2 = m2.get_workspace().get_center_in_direction(opp_dir).distance(origin);
+                let d1 = m1.info.get_workspace().get_center_in_direction(opp_dir);
+                let d1 = d1.distance(origin);
+                let d2 = m2.info.get_workspace().get_center_in_direction(opp_dir);
+                let d2 = d2.distance(origin);
                 d1.cmp(&d2)
             })
     }

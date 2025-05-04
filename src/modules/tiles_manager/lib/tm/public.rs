@@ -11,7 +11,8 @@ use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
 use crate::modules::tiles_manager::lib::containers::container::ContainerLayer;
-use crate::modules::tiles_manager::lib::containers::map::ContainersMap;
+use crate::modules::tiles_manager::lib::containers::keys::ContainerKeyTrait;
+use crate::modules::tiles_manager::lib::containers::map::ActiveContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
@@ -30,6 +31,8 @@ type IntraOp = IntramonitorMoveOp;
 type InterOp = IntermonitorMoveOp;
 type Success = TilesManagerSuccess;
 type Error = TilesManagerError;
+type TMOperations = dyn TilesManagerOperations;
+type TMFloating = dyn TilesManagerFloating;
 
 pub trait TilesManagerEvents {
     fn on_open(&mut self, window: WindowRef) -> Result<(), Error>;
@@ -46,17 +49,16 @@ pub trait TilesManagerEvents {
     ) -> Result<(), Error>;
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error>;
     fn on_focus(&mut self, window: WindowRef) -> Result<(), Error>;
-    fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error>;
+    fn on_desktop_focus(&mut self, focus_position: (i32, i32)) -> Result<(), Error>;
     fn on_vd_destroyed(&mut self, destroyed: Desktop, fallback: Desktop) -> Result<(), Error>;
     fn on_vd_changed(&mut self, previous: Desktop, current: Desktop) -> Result<(), Error>;
     fn on_workarea_changed(&mut self) -> Result<(), Error>;
 }
 
 pub trait TilesManagerCommands {
-    fn move_focused(&mut self, direction: Direction, center_cursor: bool, floating_increment: u16)
-        -> Result<(), Error>;
+    fn move_focused(&mut self, direction: Direction, floating_increment: u16) -> Result<(), Error>;
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error>;
-    fn insert_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error>;
+    fn insert_focused(&mut self, direction: Direction) -> Result<(), Error>;
     fn resize_focused(&mut self, direction: Direction, increment: u16, floating_increment: u16) -> Result<(), Error>;
     fn minimize_focused(&mut self) -> Result<(), Error>;
     fn close_focused(&mut self) -> Result<(), Error>;
@@ -71,9 +73,11 @@ pub trait TilesManagerCommands {
     /// - If `half` is `None`, the operation cycles both focalized and half-focalized windows without distinction.
     fn cycle_focalized_wins(&mut self, next: bool, half: Option<bool>) -> Result<(), Error>;
     fn invert_orientation(&mut self) -> Result<(), Error>;
-    fn change_focus(&mut self, direction: Direction, center_mouse: bool) -> Result<(), Error>;
+    fn focus_workspace(&mut self, workspace_id: &str) -> Result<(), Error>;
+    fn move_focused_to_workspace(&mut self, workspace_id: &str, focus_workspace: bool) -> Result<(), Error>;
+    fn change_focus(&mut self, direction: Direction) -> Result<(), Error>;
     fn switch_focus(&mut self) -> Result<(), Error>;
-    fn amplify_focused(&mut self, center_cursor: bool) -> Result<(), Error>;
+    fn amplify_focused(&mut self) -> Result<(), Error>;
 
     /// Limits the tiling to a portion of the screen.
     /// The action is propagated to all inactive containers with:
@@ -87,14 +91,9 @@ pub trait TilesManagerCommands {
 impl TilesManagerEvents for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        match TilesManagerOperations::add(self, win, get_cursor_pos().ok(), true)? {
-            Success::LayoutChanged => self.update_layout(true, Some(win)),
-            Success::Queue { window, area, topmost } => {
-                self.animation_player.queue(window, area, topmost);
-                self.update_layout(true, Some(window))
-            }
-            _ => Ok(()),
-        }
+
+        let s = TMOperations::add(self, win, get_cursor_pos().ok(), true)?;
+        self.success_handler(s, true, Some(win))
     }
 
     fn on_close(&mut self, win: WindowRef) -> Result<(), Error> {
@@ -106,33 +105,25 @@ impl TilesManagerEvents for TilesManager {
             self.floating_wins.set_locked(&win, false);
         }
 
-        match TilesManagerOperations::remove(self, win)? {
-            Success::LayoutChanged => self.update_layout(true, None),
-            _ => Ok(()),
-        }
+        let s = TMOperations::remove(self, win)?;
+        self.success_handler(s, true, None)
     }
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        match TilesManagerOperations::add(self, win, None, false)? {
-            Success::LayoutChanged => self.update_layout(true, Some(win)),
-            _ => Ok(()),
-        }
+        let s = TMOperations::add(self, win, None, false)?;
+        self.success_handler(s, true, Some(win))
     }
 
     fn on_minimize(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, true, false);
-        match TilesManagerOperations::remove(self, win)? {
-            Success::LayoutChanged => self.update_layout(true, None),
-            _ => Ok(()),
-        }
+        let s = TMOperations::remove(self, win)?;
+        self.success_handler(s, true, None)
     }
 
     fn on_resize(&mut self, win: WindowRef, delta: (i32, i32, i32, i32)) -> Result<(), Error> {
-        match TilesManagerOperations::resize(self, win, delta)? {
-            Success::LayoutChanged => self.update_layout(true, None),
-            _ => Ok(()),
-        }
+        let s = TMOperations::resize(self, win, delta)?;
+        self.success_handler(s, true, None)
     }
 
     fn on_move(
@@ -147,17 +138,18 @@ impl TilesManagerEvents for TilesManager {
             return Ok(());
         }
 
-        let src_win = self.active_trees.find_leaf(win)?.id;
-        let trg_win = self.active_trees.find_leaf_at(target).map(|l| l.id);
+        let src_win = self.containers.find_leaf(win)?.id;
+        let trg_win = self.containers.find_leaf_at(target).map(|l| l.id);
 
-        let src_k = self.active_trees.find(src_win)?.key;
-        let trg_k = match self.active_trees.find_near(target) {
+        let src_k = self.containers.find(src_win)?.key;
+        let trg_k = match self.containers.find_near(target) {
             Ok(e) => e.key,
             Err(_) => return self.update_layout(true, None), // INFO: update if no container at target
         };
+
         if src_k == trg_k {
             // If it is in the same monitor
-            let c = self.active_trees.find_mut(src_win)?.value;
+            let c = self.containers.find_mut(src_win)?.value;
             if matches!(intra_op, IntraOp::InsertFreeMove) {
                 c.tree_mut().move_to(src_win, target);
             } else if let Ok(trg_win) = trg_win {
@@ -181,7 +173,7 @@ impl TilesManagerEvents for TilesManager {
         };
 
         if switch_orient {
-            let e = self.active_trees.find_near_mut(target)?;
+            let e = self.containers.find_near_mut(target)?;
             e.value.tree_mut().switch_subtree_orientations(target);
         }
 
@@ -189,33 +181,30 @@ impl TilesManagerEvents for TilesManager {
     }
 
     fn on_maximize(&mut self, window: WindowRef, maximize: bool) -> Result<(), Error> {
-        match self.as_maximized(window, maximize)? {
-            Success::LayoutChanged => self.update_layout(true, None),
-            _ => Ok(()),
-        }
+        let s = self.as_maximized(window, maximize)?;
+        self.success_handler(s, true, None)
     }
 
     fn on_focus(&mut self, window: WindowRef) -> Result<(), Error> {
         self.focus_history.update(window);
+        self.last_focused_monitor = None;
         Ok(())
     }
 
-    fn on_vd_created(&mut self, desktop: Desktop) -> Result<(), Error> {
-        let vd_id = desktop.get_id().map_err(Error::VDError)?.to_u128();
-
-        if self.active_trees.keys().any(|k| k.vd == vd_id) || self.inactive_trees.keys().any(|k| k.vd == vd_id) {
-            return Ok(());
-        }
-
-        self.create_inactive_vd_containers(desktop)?;
-        self.update_layout(true, None)
+    fn on_desktop_focus(&mut self, focus_position: (i32, i32)) -> Result<(), Error> {
+        self.last_focused_monitor = self
+            .managed_monitors
+            .iter()
+            .find(|(_, m)| m.info.monitor_area.contains(focus_position))
+            .map(|m| m.0.clone());
+        Ok(())
     }
 
     fn on_vd_destroyed(&mut self, destroyed: Desktop, fallback: Desktop) -> Result<(), Error> {
         let old_vd_id = destroyed.get_id().map_err(Error::VDError)?.to_u128();
-        self.active_trees.retain(|k, _| k.vd != old_vd_id);
-        self.inactive_trees.retain(|k, _| !k.is_vd(old_vd_id));
-        if self.current_vd == Some(destroyed) {
+        self.containers.retain(|k, _| k.vd != old_vd_id);
+        self.inactive_containers.retain(|k, _| !k.is_vd(old_vd_id));
+        if self.current_vd.is_desktop(&destroyed) {
             return self.on_vd_changed(destroyed, fallback);
         }
 
@@ -223,17 +212,11 @@ impl TilesManagerEvents for TilesManager {
     }
 
     fn on_vd_changed(&mut self, _previous: Desktop, current: Desktop) -> Result<(), Error> {
-        let vd_id = current.get_id().map_err(Error::VDError)?.to_u128();
-
-        if self.current_vd == Some(current) {
+        if self.current_vd.is_desktop(&current) {
             return Ok(());
         }
 
-        if !self.inactive_trees.has_vd(vd_id) {
-            self.create_inactive_vd_containers(current)?;
-        }
-
-        self.activate_vd_containers(current)?;
+        self.activate_vd(current).map(|_| ())?;
         self.floating_wins.set_all_locked(true);
         self.add_open_windows().ok();
 
@@ -250,38 +233,29 @@ impl TilesManagerEvents for TilesManager {
 
     fn on_workarea_changed(&mut self) -> Result<(), Error> {
         let monitors = enum_display_monitors();
+        self.peeked_containers.clear();
         monitors.iter().for_each(|m| {
-            self.active_trees
+            self.containers
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
                 .for_each(|(_, c)| c.tree_mut().set_base_area(m.get_workspace()));
 
-            self.inactive_trees
+            self.inactive_containers
                 .iter_mut()
                 .filter(|(k, _)| k.monitor == m.id)
                 .for_each(|(_, c)| c.tree_mut().set_base_area(m.get_workspace()));
         });
-        self.managed_monitors = monitors.iter().map(|m| (m.id.clone(), m.clone())).collect();
+        self.managed_monitors = monitors.iter().map(|m| (m.id.clone(), m.clone().into())).collect();
         self.update_layout(true, None)
     }
 }
 
 impl TilesManagerCommands for TilesManager {
-    fn move_focused(
-        &mut self,
-        direction: Direction,
-        center_cursor: bool,
-        floating_increment: u16,
-    ) -> Result<(), Error> {
+    fn move_focused(&mut self, direction: Direction, floating_increment: u16) -> Result<(), Error> {
         let src_win = get_foreground().ok_or(Error::NoWindow)?;
         if matches!(self.get_window_state(src_win)?, WindowTileState::Floating) {
-            return match TilesManagerFloating::move_window(self, src_win, direction, floating_increment)? {
-                Success::Queue { window, area, topmost } => {
-                    self.animation_player.queue(window, area, topmost);
-                    return self.update_layout(true, Some(window));
-                }
-                _ => Ok(()),
-            };
+            let s = TMFloating::move_window(self, src_win, direction, floating_increment)?;
+            return self.success_handler(s, true, None);
         }
 
         let trg_win = self.find_neighbour(src_win, direction, MonitorSearchStrategy::Any);
@@ -289,8 +263,8 @@ impl TilesManagerCommands for TilesManager {
 
         self.swap_windows(src_win, trg_win)?;
 
-        if center_cursor {
-            let (x, y) = self.active_trees.find_leaf(src_win)?.viewbox.get_center();
+        if self.config.focus_follows_cursor {
+            let (x, y) = self.containers.find_leaf(src_win)?.viewbox.get_center();
             set_cursor_pos(x, y);
         }
 
@@ -298,25 +272,15 @@ impl TilesManagerCommands for TilesManager {
     }
 
     fn release_focused(&mut self, release: Option<bool>) -> Result<(), Error> {
-        match self.release(get_foreground().ok_or(Error::NoWindow)?, release, None)? {
-            Success::LayoutChanged => self.update_layout(true, None),
-            Success::Queue { window, area, topmost } => {
-                self.animation_player.queue(window, area, topmost);
-                self.update_layout(true, Some(window))
-            }
-            Success::Dequeue { window } => {
-                self.animation_player.dequeue(window);
-                self.update_layout(true, None)
-            }
-            _ => Ok(()),
-        }
+        let s = self.release(get_foreground().ok_or(Error::NoWindow)?, release, None)?;
+        self.success_handler(s, true, None)
     }
 
-    fn insert_focused(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
+    fn insert_focused(&mut self, direction: Direction) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
-        let src_leaf = self.active_trees.find_leaf(curr)?;
+        let src_leaf = self.containers.find_leaf(curr)?;
         let point = self
-            .active_trees
+            .containers
             .find_closest_at(src_leaf.viewbox.get_center(), direction)?
             .value
             .tree()
@@ -325,8 +289,8 @@ impl TilesManagerCommands for TilesManager {
 
         self.insert_window(curr, point, false)?;
 
-        if center_cursor {
-            let (x, y) = self.active_trees.find_leaf(curr)?.viewbox.get_center();
+        if self.config.focus_follows_cursor {
+            let (x, y) = self.containers.find_leaf(curr)?.viewbox.get_center();
             set_cursor_pos(x, y);
         }
 
@@ -345,13 +309,8 @@ impl TilesManagerCommands for TilesManager {
                 Direction::Right | Direction::Down => floating_increment as i16,
                 Direction::Left | Direction::Up => -(floating_increment as i16),
             };
-            return match TilesManagerFloating::resize(self, curr, direction.axis(), size)? {
-                Success::Queue { window, area, topmost } => {
-                    self.animation_player.queue(window, area, topmost);
-                    return self.update_layout(true, Some(window));
-                }
-                _ => Ok(()),
-            };
+            let s = TMFloating::resize(self, curr, direction.axis(), size)?;
+            return self.success_handler(s, true, None);
         }
 
         let orig_area = curr.get_area().ok_or(Error::NoWindowsInfo)?;
@@ -376,14 +335,12 @@ impl TilesManagerCommands for TilesManager {
         };
 
         let area = orig_area.pad(padding.0, padding.1);
-        match TilesManagerOperations::resize(self, curr, orig_area.get_shift(&area))? {
-            Success::LayoutChanged => self.update_layout(true, None),
-            _ => Ok(()),
-        }
+        let s = TMOperations::resize(self, curr, orig_area.get_shift(&area))?;
+        self.success_handler(s, true, None)
     }
 
     fn minimize_focused(&mut self) -> Result<(), Error> {
-        get_foreground().ok_or(Error::NoWindow)?.minimize();
+        get_foreground().ok_or(Error::NoWindow)?.minimize(true);
         Ok(())
     }
 
@@ -403,22 +360,28 @@ impl TilesManagerCommands for TilesManager {
     fn focalize_focused(&mut self) -> Result<(), Error> {
         let curr_win = get_foreground().ok_or(Error::NoWindow)?;
         match self.focalize(curr_win, None)? {
-            Success::LayoutChanged => self.update_layout(true, Some(curr_win)),
-            _ => Ok(()),
+            Success::LayoutChanged => {
+                curr_win.focus();
+                self.update_layout(true, Some(curr_win))
+            }
+            s => self.success_handler(s, true, None),
         }
     }
 
     fn half_focalize_focused(&mut self) -> Result<(), Error> {
         let curr_win = get_foreground().ok_or(Error::NoWindow)?;
         match self.half_focalize(curr_win, None)? {
-            Success::LayoutChanged => self.update_layout(true, Some(curr_win)),
-            _ => Ok(()),
+            Success::LayoutChanged => {
+                curr_win.focus();
+                self.update_layout(true, Some(curr_win))
+            }
+            s => self.success_handler(s, true, None),
         }
     }
 
     fn cycle_focalized_wins(&mut self, next: bool, half: Option<bool>) -> Result<(), Error> {
         let f_win = get_foreground().ok_or(Error::NoWindow)?;
-        let e = self.active_trees.find_mut(f_win)?;
+        let e = self.containers.find_mut(f_win)?;
 
         let container_type = e.value.current();
         let is_right_layer_type = match half {
@@ -470,31 +433,85 @@ impl TilesManagerCommands for TilesManager {
 
         e.value.tree_mut().replace_id(main_win, *next_win);
         next_win.restore(true);
-        main_win.minimize();
+        main_win.minimize(false);
 
         self.update_layout(false, Some(*next_win))
     }
 
     fn invert_orientation(&mut self) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
-        let t = self.active_trees.find_mut(curr)?.value;
+        let t = self.containers.find_mut(curr)?.value;
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
         t.tree_mut().switch_subtree_orientations(center);
 
         self.update_layout(true, None)
     }
 
-    fn change_focus(&mut self, direction: Direction, center_cursor: bool) -> Result<(), Error> {
+    fn focus_workspace(&mut self, workspace_id: &str) -> Result<(), Error> {
+        let bounded = self.config.get_bounded_monitor(workspace_id);
+        let monitor_name = if bounded.is_some() {
+            bounded.clone()
+        } else if self.last_focused_monitor.is_some() {
+            self.last_focused_monitor.clone()
+        } else if let Some(c) = get_foreground().and_then(|w| w.get_area().map(|a| a.get_center())) {
+            self.managed_monitors
+                .iter()
+                .find(|(_, m)| m.info.monitor_area.contains(c))
+                .map(|m| m.0.clone())
+        } else {
+            None
+        };
+
+        if monitor_name.is_none() {
+            return Ok(());
+        }
+
+        match self.activate_workspace(&monitor_name.unwrap(), workspace_id, false, bounded.is_none())? {
+            Success::UpdateAndFocus { window } => {
+                window
+                    .filter(|_| self.config.focus_follows_cursor)
+                    .and_then(|w| self.containers.find_leaf(w).ok())
+                    .inspect(|w| {
+                        let (x, y) = w.viewbox.get_center();
+                        set_cursor_pos(x, y);
+                    });
+                self.update_layout(false, window)
+            }
+            s => self.success_handler(s, false, None),
+        }
+    }
+
+    fn move_focused_to_workspace(&mut self, workspace_id: &str, focus_workspace: bool) -> Result<(), Error> {
+        let curr = get_foreground().ok_or(Error::NoWindow)?;
+        let tile_state = self.get_window_state(curr)?;
+        if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
+            return Ok(());
+        }
+
+        match self.insert_window_to_workspace(curr, workspace_id)? {
+            Success::LayoutChanged if !focus_workspace => {
+                curr.minimize(true);
+                self.update_layout(true, None)
+            }
+            Success::LayoutChanged if focus_workspace => {
+                self.focus_workspace(workspace_id)?;
+                self.update_layout(false, Some(curr))
+            }
+            s => self.success_handler(s, true, None),
+        }
+    }
+
+    fn change_focus(&mut self, direction: Direction) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
 
         if matches!(self.get_window_state(curr)?, WindowTileState::Floating) {
-            return TilesManagerFloating::change_focus(self, curr, direction, center_cursor).map(|_| ());
+            return TMFloating::change_focus(self, curr, direction).map(|_| ());
         }
 
         let leaf = self.find_neighbour(curr, direction, MonitorSearchStrategy::Any);
         let leaf = leaf.ok_or(Error::NoWindow)?;
         leaf.id.focus();
-        if center_cursor {
+        if self.config.focus_follows_cursor {
             let (x, y) = leaf.id.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
             set_cursor_pos(x, y);
         }
@@ -528,7 +545,7 @@ impl TilesManagerCommands for TilesManager {
         Ok(())
     }
 
-    fn amplify_focused(&mut self, center_cursor: bool) -> Result<(), Error> {
+    fn amplify_focused(&mut self) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
 
         let tile_state = self.get_window_state(curr)?;
@@ -539,7 +556,7 @@ impl TilesManagerCommands for TilesManager {
             return Ok(());
         }
 
-        let leaves = self.active_trees.find_mut(curr)?.value.tree().leaves(None);
+        let leaves = self.containers.find_mut(curr)?.value.tree().leaves(None);
         let max_leaf = leaves
             .iter()
             .max_by(|a, b| a.viewbox.calc_area().cmp(&b.viewbox.calc_area()));
@@ -550,8 +567,8 @@ impl TilesManagerCommands for TilesManager {
 
         self.swap_windows(curr, max_leaf.ok_or(Error::NoWindow)?.id)?;
 
-        if center_cursor {
-            let (x, y) = self.active_trees.find_leaf(curr)?.viewbox.get_center();
+        if self.config.focus_follows_cursor {
+            let (x, y) = self.containers.find_leaf(curr)?.viewbox.get_center();
             set_cursor_pos(x, y);
         }
 
@@ -560,28 +577,30 @@ impl TilesManagerCommands for TilesManager {
 
     fn peek_current(&mut self, direction: Direction, ratio: f32) -> Result<(), Error> {
         let ratio = ratio.clamp(0.1, 0.9);
-        let fw = get_foreground().ok_or(Error::NoWindow)?;
+        let fw = get_foreground().filter(|w| self.containers.find(*w).is_ok());
+
+        let search_point = fw
+            .and_then(|w| w.get_area().map(|a| a.get_center()))
+            .or(get_cursor_pos().ok())
+            .ok_or(Error::Generic)?;
 
         // NOTE: peek the monitor with the focused window otherwise the one in which the cursor is
-        let (k, t) = match self.active_trees.find_mut(fw) {
-            Ok(e) => (e.key, e.value),
-            Err(_) => {
-                let cursor_pos = get_cursor_pos().map_err(|_| Error::Generic)?;
-                match self.active_trees.find_near_mut(cursor_pos) {
-                    Ok(e) => (e.key, e.value),
-                    Err(_) => match self.peeked_containers.iter().find(|(_, v)| v.contains(cursor_pos)) {
-                        Some(e) => (e.0.clone(), self.active_trees.get_mut(e.0).ok_or(Error::NoWindow)?),
-                        None => return Err(Error::Generic),
-                    },
-                }
-            }
-        };
+        let monitor = self
+            .managed_monitors
+            .iter()
+            .find(|(_, m)| m.info.monitor_area.contains(search_point));
+        let monitor = monitor
+            .map(|m| m.0.clone())
+            .ok_or(Error::NoMonitorAtPoint(search_point))?;
 
+        let k = self.containers.get_key_by_monitor(&monitor)?;
+        let c = self.containers.get_mut(&k).ok_or(Error::container_not_found())?;
+        let k = k.into();
         if let Some(orig_area) = self.peeked_containers.remove(&k) {
-            t.trees_mut().iter_mut().for_each(|t| t.1.set_base_area(orig_area));
+            c.iter_mut().for_each(|t| t.1.set_base_area(orig_area));
         } else {
-            let prev_area = t.tree().get_base_area();
-            self.peeked_containers.insert(k.clone(), prev_area);
+            let prev_area = c.tree().get_base_area();
+            self.peeked_containers.insert(k, prev_area);
             let (w, h) = (prev_area.width as f32, prev_area.height as f32);
             let padding = match direction {
                 Direction::Left => (((w * ratio).round() as i16, 0), (0, 0)),
@@ -590,23 +609,43 @@ impl TilesManagerCommands for TilesManager {
                 Direction::Down => ((0, 0), (0, (h * ratio).round() as i16)),
             };
             let new_area = prev_area.pad(padding.0, padding.1);
-            t.trees_mut().iter_mut().for_each(|t| t.1.set_base_area(new_area));
+            c.iter_mut().for_each(|t| t.1.set_base_area(new_area));
         }
 
         self.update_layout(true, None)
     }
 
     fn check_for_vd_changes(&mut self) -> Result<(), Error> {
-        let current_vd = self.current_vd.as_ref().ok_or(Error::Generic)?;
+        let current_vd = self.current_vd;
         let active_vd = get_current_desktop().map_err(Error::VDError)?;
 
-        if current_vd
-            .get_id()
-            .is_ok_and(|id| active_vd.get_id().is_ok_and(|id2| id != id2))
-        {
-            self.on_vd_changed(*current_vd, active_vd)?
+        if !current_vd.is_desktop(&active_vd) {
+            self.on_vd_changed(current_vd.get_desktop(), active_vd)?
         }
 
         Ok(())
+    }
+}
+
+impl TilesManager {
+    fn success_handler(
+        &mut self,
+        success: Success,
+        animate: bool,
+        win_to_focus: Option<WindowRef>,
+    ) -> Result<(), Error> {
+        match success {
+            Success::LayoutChanged => self.update_layout(animate, win_to_focus),
+            Success::Queue { window, area, topmost } => {
+                self.animation_player.queue(window, area, topmost);
+                self.update_layout(animate, Some(window))
+            }
+            Success::Dequeue { window } => {
+                self.animation_player.dequeue(window);
+                self.update_layout(animate, None)
+            }
+            Success::UpdateAndFocus { window } => self.update_layout(animate, window),
+            _ => Ok(()),
+        }
     }
 }

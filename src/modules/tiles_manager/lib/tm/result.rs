@@ -9,7 +9,10 @@ pub enum TilesManagerError {
     ContainerNotFound { refresh: bool },
     WinNotManaged(WindowRef),
     NoWindow,
+    MonitorNotFound(String),
+    NoMonitorAtPoint((i32, i32)),
     NoContainerAtPoint((i32, i32)),
+    WorkspaceAlreadyCreated,
     VDContainersAlreadyCreated,
     VDContainersAlreadyActivated,
 }
@@ -17,6 +20,9 @@ pub enum TilesManagerError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum TilesManagerSuccess {
     LayoutChanged,
+    UpdateAndFocus {
+        window: Option<WindowRef>,
+    },
     Queue {
         window: WindowRef,
         area: Area,
@@ -59,5 +65,13 @@ impl TilesManagerError {
 
     pub fn require_refresh(&self) -> bool {
         matches!(self, Self::ContainerNotFound { refresh: true })
+    }
+
+    pub fn container_not_found() -> Self {
+        Self::ContainerNotFound { refresh: false }
+    }
+
+    pub fn container_not_found_refresh() -> Self {
+        Self::ContainerNotFound { refresh: true }
     }
 }

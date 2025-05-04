@@ -8,7 +8,7 @@ use windows::Win32::{
     Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
         IsIconic, IsWindowVisible, SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SET_WINDOW_POS_FLAGS, SWP_NOMOVE,
-        SWP_NOSIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL, WM_CLOSE,
+        SWP_NOSIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWMINNOACTIVE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL, WM_CLOSE,
     },
 };
 
@@ -229,8 +229,11 @@ impl WindowObjHandler for WindowRef {
         Ok(())
     }
 
-    fn minimize(&self) -> bool {
-        show_window(self.hwnd, SW_MINIMIZE)
+    fn minimize(&self, move_focus: bool) -> bool {
+        match move_focus {
+            true => show_window(self.hwnd, SW_MINIMIZE),
+            false => show_window(self.hwnd, SW_SHOWMINNOACTIVE),
+        }
     }
 
     fn restore(&self, activate: bool) -> bool {

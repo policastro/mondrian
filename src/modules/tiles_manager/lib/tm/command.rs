@@ -3,7 +3,7 @@ use crate::app::{
     structs::direction::Direction,
 };
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TMCommand {
     WindowEvent(WindowEvent),
     SystemEvent(SystemEvent),
@@ -11,6 +11,7 @@ pub enum TMCommand {
     Close,
     Topmost,
     SwitchFocus,
+    FocusWorkspace { id: String },
     Insert(Direction),
     Move(Direction, bool, u16),
     Resize(Direction, u16, u16),
@@ -26,6 +27,7 @@ pub enum TMCommand {
     Minimize,
     Quit,
     Amplify,
+    MoveToWorkspace { id: String, focus: bool },
 }
 
 impl TMCommand {
@@ -54,7 +56,9 @@ impl TMCommand {
             | TMCommand::Amplify
             | TMCommand::Minimize
             | TMCommand::CycleFocalized(..)
-            | TMCommand::Update(..) => true,
+            | TMCommand::Update(..)
+            | TMCommand::FocusWorkspace { .. }
+            | TMCommand::MoveToWorkspace { .. } => true,
             TMCommand::ListManagedWindows
             | TMCommand::Topmost
             | TMCommand::Focus(..)
@@ -78,6 +82,11 @@ impl TryFrom<&MondrianMessage> for TMCommand {
         match msg {
             MondrianMessage::Minimize => Ok(TMCommand::Minimize),
             MondrianMessage::Focus(direction) => Ok(TMCommand::Focus(*direction)),
+            MondrianMessage::FocusWorkspace { id } => Ok(TMCommand::FocusWorkspace { id: id.clone() }),
+            MondrianMessage::MoveToWorkspace { id, focus } => Ok(TMCommand::MoveToWorkspace {
+                id: id.clone(),
+                focus: *focus,
+            }),
             MondrianMessage::SwitchFocus => Ok(TMCommand::SwitchFocus),
             MondrianMessage::Move(direction, floating_inc) => Ok(TMCommand::Move(*direction, false, *floating_inc)),
             MondrianMessage::Insert(direction) => Ok(TMCommand::Insert(*direction)),

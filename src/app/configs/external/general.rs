@@ -14,6 +14,7 @@ pub struct General {
     pub free_move_in_monitor: bool,
     pub animations: AnimationsConfig,
     pub floating_wins: FloatingWinsConfig,
+    pub default_workspace: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -62,6 +63,7 @@ impl Default for General {
             free_move_in_monitor: false,
             animations: AnimationsConfig::default(),
             floating_wins: FloatingWinsConfig::default(),
+            default_workspace: "1".into(),
         }
     }
 }

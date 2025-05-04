@@ -15,6 +15,7 @@ pub mod callbacks {
     pub mod win_event_hook;
 }
 pub mod window {
+    pub mod ghost_window;
     pub mod window_obj;
     pub mod window_ref;
     pub mod window_snapshot;

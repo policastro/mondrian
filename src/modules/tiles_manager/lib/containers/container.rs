@@ -64,12 +64,13 @@ impl Container {
         }
     }
 
-    pub fn trees_mut(&mut self) -> [(ContainerLayer, &mut WinTree); 3] {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (ContainerLayer, &mut WinTree)> {
         [
             (ContainerLayer::Normal, &mut self.normal),
             (ContainerLayer::Focalized, &mut self.focalized),
             (ContainerLayer::HalfFocalized, &mut self.half_focalized),
         ]
+        .into_iter()
     }
 
     pub fn current(&self) -> ContainerLayer {

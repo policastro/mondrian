@@ -4,6 +4,7 @@ use super::structs::info_entry::InfoEntry;
 use super::structs::info_entry::InfoEntryIcon;
 use crate::modules::tiles_manager::lib::tm::command::TMCommand;
 use crate::win32::window::window_ref::WindowRef;
+use regex::Regex;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -83,6 +84,7 @@ pub enum SystemEvent {
     VirtualDesktopChanged { old: Desktop, new: Desktop },
     VirtualDesktopCreated { desktop: Desktop },
     VirtualDesktopRemoved { destroyed: Desktop, fallback: Desktop },
+    DesktopFocused { at: (i32, i32) },
 }
 
 impl From<SystemEvent> for MondrianMessage {
@@ -165,6 +167,13 @@ pub enum MondrianMessage {
     Retile,
     Configure,
     Focus(Direction),
+    FocusWorkspace {
+        id: String,
+    },
+    MoveToWorkspace {
+        id: String,
+        focus: bool,
+    },
     SwitchFocus,
     Move(Direction, u16),
     MoveInsert(Direction, u16),
@@ -213,6 +222,9 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "toggle-topmost",
             "switch-focus",
             "focus <left|right|up|down>",
+            "focus-workspace <workspace_id>",
+            "move-to-workspace <workspace_id>",
+            "move-to-workspace-silent <workspace_id>",
             "insert <left|right|up|down>",
             "move <left|right|up|down> [40-1000]",
             "moveinsert <left|right|up|down> [40-1000]",
@@ -242,6 +254,9 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "toggle-topmost" => parts.len() == 1,
             "switch-focus" => parts.len() == 1,
             "focus" => parts.len() == 2,
+            "focus-workspace" => parts.len() == 2,
+            "move-to-workspace" => parts.len() == 2,
+            "move-to-workspace-silent" => parts.len() == 2,
             "move" => parts.len() == 2 || parts.len() == 3,
             "insert" => parts.len() == 2,
             "moveinsert" => parts.len() == 2 || parts.len() == 3,
@@ -275,6 +290,15 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "focus" => {
                 let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
                 Ok(MondrianMessage::Focus(dir))
+            }
+            "focus-workspace" => {
+                let id = parse_workspace_id(parts[1]).map_err(serde::de::Error::custom)?;
+                Ok(MondrianMessage::FocusWorkspace { id })
+            }
+            "move-to-workspace" | "move-to-workspace-silent" => {
+                let id = parse_workspace_id(parts[1]).map_err(serde::de::Error::custom)?;
+                let focus = parts[0] == "move-to-workspace";
+                Ok(MondrianMessage::MoveToWorkspace { id, focus })
             }
             "insert" => {
                 let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
@@ -353,6 +377,21 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             _ => Err(serde::de::Error::custom(err)),
         }
     }
+}
+
+fn parse_workspace_id(id: &str) -> Result<String, String> {
+    let id = id.to_string().to_lowercase();
+    if !Regex::new(r"^[a-z0-9_.\-:]{1,32}$")
+        .map_err(|e| e.to_string())?
+        .is_match(&id)
+    {
+        return Err(
+            "The workspace id can only contain a-z, A-Z, 0-9, _, ., - or : and cannot be longer than 32 characters"
+                .into(),
+        );
+    };
+
+    Ok(id)
 }
 
 impl Serialize for MondrianMessage {

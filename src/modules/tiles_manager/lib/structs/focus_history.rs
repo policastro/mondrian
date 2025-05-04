@@ -50,4 +50,12 @@ impl FocusHistory {
             self.order_map.remove(&w);
         }
     }
+
+    pub fn latest(&self, windows: &[WindowRef]) -> Option<WindowRef> {
+        windows
+            .iter()
+            .filter_map(|w| self.value(*w).map(|v| (*w, v)))
+            .max_by_key(|(_, v)| *v)
+            .map(|(w, _)| w)
+    }
 }
