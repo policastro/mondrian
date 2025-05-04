@@ -158,6 +158,7 @@ The **available keys** are:
 - arrow keys (`up`, `down`, `left`, `right`);
 - `SPACE` key;
 - symbols `` ` ``, `'`, `.`, `,`, `;`, `[`, `]`, `-`, `=`, `/`, `\`;
+- numpad keys (`NUM0` to `NUM9`);
 - function keys (`F1` to `F24`).
 
 The keys and modifiers are case-insensitive.

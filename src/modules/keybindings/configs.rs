@@ -217,6 +217,16 @@ fn parse_key(key: String) -> Option<inputbot::KeybdKey> {
             "F22" => Some(F22Key),
             "F23" => Some(F23Key),
             "F24" => Some(F24Key),
+            "NUM0" => Some(Numpad0Key),
+            "NUM1" => Some(Numpad1Key),
+            "NUM2" => Some(Numpad2Key),
+            "NUM3" => Some(Numpad3Key),
+            "NUM4" => Some(Numpad4Key),
+            "NUM5" => Some(Numpad5Key),
+            "NUM6" => Some(Numpad6Key),
+            "NUM7" => Some(Numpad7Key),
+            "NUM8" => Some(Numpad8Key),
+            "NUM9" => Some(Numpad9Key),
             _ => None,
         }
     }
