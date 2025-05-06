@@ -4,7 +4,7 @@ use super::TilesManager;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::orientation::Orientation;
-use crate::app::structs::point::Point;
+use crate::modules::tiles_manager::lib::utils::find_nearest_candidate;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
@@ -123,36 +123,19 @@ impl TilesManagerFloating for TilesManager {
         }
 
         let curr_area = window.get_area().ok_or(Error::NoWindowsInfo)?;
-        let curr_center = curr_area.get_center();
-        let curr_edge = curr_area.get_edge(direction);
-        let floatings_centers: Vec<(WindowRef, (i32, i32))> = self
+        let candidates: Vec<(WindowRef, _)> = self
             .floating_wins
             .enabled_keys()
             .filter(|w| *w != window)
-            .filter_map(|w| w.get_area().map(|a| (w, a.get_center())))
+            .filter_map(|w| w.get_area().map(|a| (w, a)))
             .collect();
 
-        let nearest = floatings_centers
-            .iter()
-            .filter(|f| match direction {
-                Direction::Left => f.1 .0 < curr_edge,
-                Direction::Right => f.1 .0 > curr_edge,
-                Direction::Up => f.1 .1 < curr_edge,
-                Direction::Down => f.1 .1 > curr_edge,
-            })
-            .min_by(|a, b| curr_center.distance(a.1).cmp(&curr_center.distance(b.1)));
-
-        let nearest = match nearest {
-            Some(n) => Some(n),
-            None => floatings_centers
-                .iter()
-                .min_by(|a, b| curr_center.distance(a.1).cmp(&curr_center.distance(b.1))),
-        };
+        let nearest = find_nearest_candidate(&curr_area, direction, &candidates, true);
 
         if let Some(nearest) = nearest {
             nearest.0.focus();
             if self.config.focus_follows_cursor {
-                let (x, y) = nearest.1;
+                let (x, y) = nearest.1.get_center();
                 set_cursor_pos(x, y);
             }
         }

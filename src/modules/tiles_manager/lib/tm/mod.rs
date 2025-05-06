@@ -301,7 +301,12 @@ impl TilesManager {
             .filter(|_| move_focus);
 
         if !silent {
-            self.managed_monitors.get(monitor_name).inspect(|m| m.focus());
+            if let Some(m) = &self.managed_monitors.get(monitor_name) {
+                m.focus();
+                if win_to_focus.is_none() {
+                    self.last_focused_monitor = Some(monitor_name.to_string());
+                }
+            }
             old_tree.tree().leaves(None).iter().for_each(|l| {
                 l.id.minimize(false);
             });

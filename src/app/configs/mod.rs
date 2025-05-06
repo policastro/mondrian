@@ -56,6 +56,7 @@ pub struct AppConfig {
     pub detect_maximized_windows: bool,
     pub insert_in_monitor: bool,
     pub free_move_in_monitor: bool,
+    pub allow_focus_on_empty_monitor: bool,
     pub animations: AnimationsConfig,
     pub floating_wins_config: FloatingWinsConfig,
     pub default_workspace: String,
@@ -123,6 +124,7 @@ impl TryFrom<AppConfigExternal> for AppConfig {
             monitors_config,
             workspaces_config,
             modules: v.modules,
+            allow_focus_on_empty_monitor: v.general.allow_focus_on_empty_monitor,
         })
     }
 }

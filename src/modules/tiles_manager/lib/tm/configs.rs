@@ -23,6 +23,7 @@ pub struct TilesManagerConfig {
     monitors_configs: HashMap<String, MonitorConfig>,
     workspaces_configs: HashMap<String, WorkspaceConfig>,
     default_workspace: String,
+    pub focus_on_empty_monitor: bool,
     pub focus_follows_cursor: bool,
     pub ignore_filter: WinMatcher,
     pub rules: Vec<WindowRule>,
@@ -120,22 +121,23 @@ impl TilesManagerConfig {
 
 impl From<&AppConfig> for TilesManagerConfig {
     fn from(config: &AppConfig) -> Self {
-        Self {
-            layout_strategy: config.layout_strategy.clone(),
+        TilesManagerConfig {
             tiles_padding: config.tiles_pad as i16,
             borders_padding: config.borders_pads,
+            focalized_padding: config.focalized_pads,
             half_focalized_borders_pad: config.half_focalized_borders_pads,
             half_focalized_tiles_pad: config.half_focalized_tiles_pad as i16,
-            focalized_padding: config.focalized_pads,
-            animation: config.animations.clone(),
-            ignore_filter: config.ignore_filter.clone(),
-            rules: config.rules.clone(),
-            history_based_navigation: config.history_based_navigation,
-            floating_wins: config.floating_wins_config,
+            layout_strategy: config.layout_strategy.clone(),
             monitors_configs: config.monitors_config.clone(),
             workspaces_configs: config.workspaces_config.clone(),
             default_workspace: config.default_workspace.clone(),
+            focus_on_empty_monitor: config.allow_focus_on_empty_monitor,
             focus_follows_cursor: config.move_cursor_on_focus,
+            ignore_filter: config.ignore_filter.clone(),
+            rules: config.rules.clone(),
+            animation: config.animations.clone(),
+            history_based_navigation: config.history_based_navigation,
+            floating_wins: config.floating_wins_config,
         }
     }
 }

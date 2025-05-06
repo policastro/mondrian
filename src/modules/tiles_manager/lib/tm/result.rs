@@ -10,6 +10,7 @@ pub enum TilesManagerError {
     WinNotManaged(WindowRef),
     NoWindow,
     MonitorNotFound(String),
+    NoMonitorFound,
     NoMonitorAtPoint((i32, i32)),
     NoContainerAtPoint((i32, i32)),
     WorkspaceAlreadyCreated,

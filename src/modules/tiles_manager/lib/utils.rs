@@ -1,6 +1,8 @@
 use super::tm::result::TilesManagerError;
 use crate::app::configs::floating::{FloatingWinsConfig, FloatingWinsSizeStrategy};
 use crate::app::structs::area::Area;
+use crate::app::structs::direction::Direction;
+use crate::app::structs::point::Point;
 use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
@@ -52,4 +54,35 @@ pub(crate) fn get_floating_win_area(
     };
 
     Ok(new_area)
+}
+
+pub fn find_nearest_candidate<K: Clone>(
+    src_area: &Area,
+    direction: Direction,
+    candidates: &[(K, Area)],
+    relax_search: bool,
+) -> Option<(K, Area)> {
+    let center = src_area.get_center();
+    let edge = src_area.get_edge(direction);
+
+    let centers_candidates = candidates.iter().map(|(k, c)| (k, c, c.get_center()));
+    let nearest = centers_candidates
+        .filter(|(_, _, c)| match direction {
+            Direction::Left => c.0 < edge,
+            Direction::Right => c.0 > edge,
+            Direction::Up => c.1 < edge,
+            Direction::Down => c.1 > edge,
+        })
+        .min_by(|(_, _, c1), (_, _, c2)| center.distance(*c1).cmp(&center.distance(*c2)));
+
+    if !relax_search {
+        return nearest.map(|(k, a, _)| (k.clone(), *a));
+    }
+
+    let nearest = nearest.or(candidates
+        .iter()
+        .map(|(k, c)| (k, c, c.get_center()))
+        .min_by(|(_, _, c1), (_, _, c2)| center.distance(*c1).cmp(&center.distance(*c2))));
+
+    nearest.map(|(k, a, _)| (k.clone(), *a))
 }

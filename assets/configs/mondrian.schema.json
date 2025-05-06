@@ -123,6 +123,10 @@
           "type": "boolean",
           "description": "If true, navigation will prioritize the most recently focused window in the given direction."
         },
+        "allow_focus_on_empty_monitor": {
+          "type": "boolean",
+          "description": "The `focus` action will also consider empty monitors."
+        },
         "insert_in_monitor": {
           "type": "boolean",
           "description": "If true, moving the window to a new monitor inserts it rather than swapping."

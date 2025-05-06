@@ -8,6 +8,7 @@ use serde::Serialize;
 pub struct General {
     pub history_based_navigation: bool,
     pub move_cursor_on_focus: bool,
+    pub allow_focus_on_empty_monitor: bool,
     pub auto_reload_configs: bool,
     pub detect_maximized_windows: bool,
     pub insert_in_monitor: bool,
@@ -57,6 +58,7 @@ impl Default for General {
         General {
             history_based_navigation: false,
             move_cursor_on_focus: false,
+            allow_focus_on_empty_monitor: true,
             auto_reload_configs: true,
             detect_maximized_windows: true,
             insert_in_monitor: true,

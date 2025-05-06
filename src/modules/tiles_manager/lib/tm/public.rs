@@ -5,9 +5,11 @@ use super::operations::TilesManagerOperations;
 use super::result::TilesManagerError;
 use super::result::TilesManagerSuccess;
 use super::TilesManager;
+use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::WindowTileState;
+use crate::app::structs::area::Area;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
 use crate::modules::tiles_manager::lib::containers::container::ContainerLayer;
@@ -15,6 +17,7 @@ use crate::modules::tiles_manager::lib::containers::keys::ContainerKeyTrait;
 use crate::modules::tiles_manager::lib::containers::map::ActiveContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
+use crate::modules::tiles_manager::lib::utils::find_nearest_candidate;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
 use crate::modules::tiles_manager::lib::utils::is_on_current_vd;
 use crate::win32::api::cursor::get_cursor_pos;
@@ -76,6 +79,7 @@ pub trait TilesManagerCommands {
     fn focus_workspace(&mut self, workspace_id: &str) -> Result<(), Error>;
     fn move_focused_to_workspace(&mut self, workspace_id: &str, focus_workspace: bool) -> Result<(), Error>;
     fn change_focus(&mut self, direction: Direction) -> Result<(), Error>;
+    fn change_focus_monitor(&mut self, direction: Direction) -> Result<(), Error>;
     fn switch_focus(&mut self) -> Result<(), Error>;
     fn amplify_focused(&mut self) -> Result<(), Error>;
 
@@ -262,12 +266,7 @@ impl TilesManagerCommands for TilesManager {
         let trg_win = trg_win.ok_or(Error::NoWindow)?.id;
 
         self.swap_windows(src_win, trg_win)?;
-
-        if self.config.focus_follows_cursor {
-            let (x, y) = self.containers.find_leaf(src_win)?.viewbox.get_center();
-            set_cursor_pos(x, y);
-        }
-
+        self.cursor_on_leaf(&self.containers.find_leaf(src_win)?);
         self.update_layout(true, None)
     }
 
@@ -288,12 +287,7 @@ impl TilesManagerCommands for TilesManager {
             .get_center();
 
         self.insert_window(curr, point, false)?;
-
-        if self.config.focus_follows_cursor {
-            let (x, y) = self.containers.find_leaf(curr)?.viewbox.get_center();
-            set_cursor_pos(x, y);
-        }
-
+        self.cursor_on_leaf(&self.containers.find_leaf(curr)?);
         self.update_layout(true, None)
     }
 
@@ -471,10 +465,7 @@ impl TilesManagerCommands for TilesManager {
                 window
                     .filter(|_| self.config.focus_follows_cursor)
                     .and_then(|w| self.containers.find_leaf(w).ok())
-                    .inspect(|w| {
-                        let (x, y) = w.viewbox.get_center();
-                        set_cursor_pos(x, y);
-                    });
+                    .inspect(|w| self.cursor_on_leaf(w));
                 self.update_layout(false, window)
             }
             s => self.success_handler(s, false, None),
@@ -502,17 +493,59 @@ impl TilesManagerCommands for TilesManager {
     }
 
     fn change_focus(&mut self, direction: Direction) -> Result<(), Error> {
-        let curr = get_foreground().ok_or(Error::NoWindow)?;
+        if self.last_focused_monitor.is_some() && self.config.focus_on_empty_monitor {
+            return self.change_focus_monitor(direction);
+        }
 
+        let curr = get_foreground().ok_or(Error::NoWindow)?;
         if matches!(self.get_window_state(curr)?, WindowTileState::Floating) {
             return TMFloating::change_focus(self, curr, direction).map(|_| ());
         }
 
         let leaf = self.find_neighbour(curr, direction, MonitorSearchStrategy::Any);
-        let leaf = leaf.ok_or(Error::NoWindow)?;
-        leaf.id.focus();
+        if let Some(leaf) = leaf {
+            self.focus_leaf(&leaf);
+            Ok(())
+        } else if self.config.focus_on_empty_monitor {
+            self.change_focus_monitor(direction)
+        } else {
+            Err(Error::NoWindow)
+        }
+    }
+
+    fn change_focus_monitor(&mut self, direction: Direction) -> Result<(), Error> {
+        let src_area = if let Some(last_focused) = &self.last_focused_monitor {
+            let area = self.managed_monitors.get(last_focused).map(|m| m.info.monitor_area);
+            area.ok_or(Error::MonitorNotFound(last_focused.clone()))?
+        } else {
+            let curr = get_foreground().ok_or(Error::NoWindow)?;
+            if matches!(self.get_window_state(curr)?, WindowTileState::Floating) {
+                return Ok(());
+            }
+            curr.get_area().ok_or(Error::NoWindowsInfo)?
+        };
+
+        if let Some(leaf) = self.find_neighbour_closest_monitor_at(src_area.get_center(), direction, None) {
+            self.focus_leaf(&leaf);
+            return Ok(());
+        }
+
+        let candidates: Vec<(String, Area)> = self
+            .managed_monitors
+            .iter()
+            .filter(|m| !m.1.info.monitor_area.contains(src_area.get_center()))
+            .map(|m| (m.0.clone(), m.1.info.monitor_area))
+            .collect();
+
+        let nearest = find_nearest_candidate(&src_area, direction, &candidates, false);
+        let nearest = nearest.ok_or(Error::NoMonitorFound)?.0;
+        let monitor = self.managed_monitors.get(&nearest);
+        let monitor = monitor.ok_or(Error::MonitorNotFound(nearest.clone()))?;
+        monitor.focus();
+
+        self.last_focused_monitor = Some(nearest.clone());
         if self.config.focus_follows_cursor {
-            let (x, y) = leaf.id.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
+            let (x, y) = monitor.info.get_workspace().get_center();
             set_cursor_pos(x, y);
         }
 
@@ -566,12 +599,7 @@ impl TilesManagerCommands for TilesManager {
         }
 
         self.swap_windows(curr, max_leaf.ok_or(Error::NoWindow)?.id)?;
-
-        if self.config.focus_follows_cursor {
-            let (x, y) = self.containers.find_leaf(curr)?.viewbox.get_center();
-            set_cursor_pos(x, y);
-        }
-
+        self.cursor_on_leaf(&self.containers.find_leaf(curr)?);
         self.update_layout(true, Some(curr))
     }
 
@@ -646,6 +674,18 @@ impl TilesManager {
             }
             Success::UpdateAndFocus { window } => self.update_layout(animate, window),
             _ => Ok(()),
+        }
+    }
+
+    fn focus_leaf(&mut self, leaf: &AreaLeaf<WindowRef>) {
+        leaf.id.focus();
+        self.cursor_on_leaf(leaf);
+    }
+
+    fn cursor_on_leaf(&self, leaf: &AreaLeaf<WindowRef>) {
+        if self.config.focus_follows_cursor {
+            let (x, y) = leaf.viewbox.get_center();
+            set_cursor_pos(x, y);
         }
     }
 }
