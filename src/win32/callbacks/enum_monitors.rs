@@ -58,10 +58,7 @@ pub(crate) unsafe extern "system" fn enum_monitors_callback(
         id: String::default(), // NOTE: will be assigned later based on `hw_id`
         hw_id: get_monitor_hw_id(info.szDevice.as_ptr()).unwrap_or_default(),
         primary: info.monitorInfo.dwFlags & MONITORINFOF_PRIMARY != 0,
-        resolution: (
-            info.monitorInfo.rcMonitor.right - info.monitorInfo.rcMonitor.left,
-            info.monitorInfo.rcMonitor.bottom - info.monitorInfo.rcMonitor.top,
-        ),
+        resolution,
         monitor_area,
         workspace,
         workspace_area,

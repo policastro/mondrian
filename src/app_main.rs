@@ -29,6 +29,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
+use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 
 pub fn main() {
     let args = CliArgs::parse();
@@ -56,6 +57,9 @@ pub fn main() {
 }
 
 fn start_app(cfg_file: &PathBuf, dump_info: bool) {
+    unsafe {
+        let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
     init_gdiplus();
 
     let config = match init_configs(cfg_file) {
@@ -237,7 +241,7 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
 
 fn log_info() {
     for m in enum_display_monitors() {
-        log::info!(
+        log::error!(
             "Monitor detected {{ ID: {}, primary: {}, resolution: {} x {} }}",
             m.id,
             if m.primary { "Yes" } else { "No" },

@@ -18,7 +18,7 @@ use super::{
 };
 use crate::win32::api::{
     misc::post_empty_message,
-    window::{get_dpi_for_window, get_dwmwa_extended_frame_bounds, is_fullscreen, is_maximized, is_window_topmost},
+    window::{get_dwmwa_extended_frame_bounds, is_fullscreen, is_maximized, is_window_topmost},
 };
 use crate::{
     app::structs::area::Area,
@@ -135,14 +135,11 @@ impl WindowObjInfo for WindowRef {
 
     fn get_visible_area(&self) -> Option<Area> {
         let frame = get_dwmwa_extended_frame_bounds(self.hwnd)?;
-        let dpi: f32 = get_dpi_for_window(self.hwnd) as f32 / 96.0;
-        let frame = frame.map(|x| x as f32 / dpi);
-
         Some(Area::new(
-            frame[0].round() as i32,
-            frame[1].round() as i32,
-            (frame[2] - frame[0]).round().clamp(0.0, u16::MAX as f32) as u16,
-            (frame[3] - frame[1]).round().clamp(0.0, u16::MAX as f32) as u16,
+            frame[0] as i32,
+            frame[1] as i32,
+            (frame[2] - frame[0]).clamp(0, u16::MAX as i32) as u16,
+            (frame[3] - frame[1]).clamp(0, u16::MAX as i32) as u16,
         ))
     }
 

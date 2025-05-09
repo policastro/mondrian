@@ -9,6 +9,7 @@ use crate::app::structs::point::Point;
 use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::key::get_key_state;
+use crate::win32::api::window::get_dpi_for_window;
 use crate::win32::api::window::get_window_minmax_size;
 use crate::win32::api::window::is_fullscreen;
 use crate::win32::api::window::is_maximized;
@@ -19,17 +20,38 @@ use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
-use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_CONTROL;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_MENU;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZEEND;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MOVESIZESTART;
 
+#[derive(Debug)]
+struct WindowState {
+    area: Area,
+    is_maximized: bool,
+    dpi: u32,
+}
+
+impl TryFrom<WindowRef> for WindowState {
+    type Error = ();
+    fn try_from(win: WindowRef) -> Result<WindowState, ()> {
+        let is_maximized = is_maximized(win.hwnd);
+        let is_fullscreen = if is_maximized { false } else { is_fullscreen(win.hwnd) };
+        let area = win.get_area().ok_or(())?;
+        let dpi = get_dpi_for_window(win.hwnd);
+        Ok(WindowState {
+            area,
+            is_maximized: is_maximized || is_fullscreen,
+            dpi,
+        })
+    }
+}
+
 pub struct PositionEventHandler {
     sender: Sender<MondrianMessage>,
     filter: WinMatcher,
-    windows: HashMap<WindowRef, (Area, bool)>,
+    windows: HashMap<WindowRef, WindowState>,
     default_insert_in_monitor: bool,
     default_free_move_in_monitor: bool,
 }
@@ -55,14 +77,11 @@ impl PositionEventHandler {
             return; // NOTE: already in movesize
         }
 
-        // NOTE: check is_maximized as first operation
-        let is_maximized = self.is_maximized(winref.into());
-        let area = winref.get_area();
-        if let Some(area) = area {
+        if let Ok(state) = winref.try_into() {
             let event = WindowEvent::StartMoveSize(winref);
             if !skip_window(&event, &self.filter) {
                 self.sender.send(event.into()).expect("Failed to send event");
-                self.windows.insert(winref, (area, is_maximized));
+                self.windows.insert(winref, state);
             }
         }
     }
@@ -79,61 +98,57 @@ impl PositionEventHandler {
             _ => return,
         };
 
-        let (prev_area, was_maximized) = match self.windows.remove(&winref) {
-            Some(prev_area) => prev_area,
+        let prev_state = match self.windows.remove(&winref) {
+            Some(s) => s,
             None => return,
         };
 
-        let curr_area = match winref.get_area() {
-            Some(area) => area,
-            None => return,
+        let state: WindowState = match winref.try_into() {
+            Ok(s) => s,
+            Err(_) => return,
         };
 
         let (min_w, min_h) = get_window_minmax_size(winref.into()).0;
-        let (pw, ph) = (prev_area.width as i32, prev_area.height as i32);
-        let (w, h) = (curr_area.width as i32, curr_area.height as i32);
+        let (pw, ph) = (prev_state.area.width as i32, prev_state.area.height as i32);
+        let (w, h) = (state.area.width as i32, state.area.height as i32);
 
         let (def_insert, def_free_move) = (self.default_insert_in_monitor, self.default_free_move_in_monitor);
         let intramon_op = IntramonitorMoveOp::calc(alt, ctrl);
         let intermon_op = IntermonitorMoveOp::calc(def_insert, def_free_move, alt, shift, ctrl);
 
-        if was_maximized {
-            let result = match self.is_maximized(winref.into()) {
+        if prev_state.is_maximized {
+            let result = match state.is_maximized {
                 true => MoveSizeResult::None,
                 false => MoveSizeResult::Moved(dest_point, intramon_op, intermon_op),
             };
-            self.send(WindowEvent::EndMoveSize(winref, result));
-            return;
+            return self.send_end(winref, result);
+        }
+
+        // INFO: if the window is now on a different monitor with different DPI
+        if prev_state.dpi != state.dpi {
+            return self.send_end(winref, MoveSizeResult::Moved(dest_point, intramon_op, intermon_op));
         }
 
         let is_shrinking = pw > w || ph > h;
         let is_resizing = (pw != w || ph != h) && w != min_w && h != min_h;
         if is_shrinking || is_resizing {
-            let win_event = WindowEvent::EndMoveSize(winref, MoveSizeResult::Resized(prev_area, curr_area));
-            self.send(win_event);
-            return;
+            return self.send_end(winref, MoveSizeResult::Resized(prev_state.area, state.area));
         }
 
-        let (pcorners, corners) = (prev_area.get_all_corners(), curr_area.get_all_corners());
+        let (pcorners, corners) = (prev_state.area.get_all_corners(), state.area.get_all_corners());
         let corner_eqs = pcorners.iter().zip(corners.iter()).filter(|(p, c)| p.same(**c)).count();
         let result_event = match corner_eqs == 0 {
             true => MoveSizeResult::Moved(dest_point, intramon_op, intermon_op),
-            false => MoveSizeResult::Resized(prev_area, curr_area),
+            false => MoveSizeResult::Resized(prev_state.area, state.area),
         };
 
-        self.send(WindowEvent::EndMoveSize(winref, result_event));
+        self.send_end(winref, result_event);
     }
 
-    fn is_maximized(&self, hwnd: HWND) -> bool {
-        let is_maximized = is_maximized(hwnd);
-        let is_fullscreen = if is_maximized { false } else { is_fullscreen(hwnd) };
-        is_maximized || is_fullscreen
-    }
-
-    fn send(&self, event: WindowEvent) {
+    fn send_end(&self, winref: WindowRef, result: MoveSizeResult) {
         let _ = self
             .sender
-            .send(event.into())
+            .send(WindowEvent::EndMoveSize(winref, result).into())
             .inspect_err(|err| log::error!("Failed to send event: {}", err));
     }
 }
