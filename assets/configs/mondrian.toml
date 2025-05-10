@@ -1,37 +1,39 @@
 #:schema https://raw.githubusercontent.com/policastro/mondrian/refs/heads/main/assets/configs/mondrian.schema.json
 
 [general]
-history_based_navigation = false # if true, the navigation will prioritize the focus history
-detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine
-move_cursor_on_focus = false # if true, the cursor will be moved to the center of the focused window 
-auto_reload_configs = true # if true, the config will be reloaded when a change is detected
-insert_in_monitor = true # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
-free_move_in_monitor = false # if true, when the window is inserted in a new monitor, the position will determined by where the mouse is
+allow_focus_on_empty_monitor = true # if true, the focus action will also consider empty monitors  
+animations.duration = 300 # duration of the animation in milliseconds
 animations.enabled = true # enables or disables the animations
-animations.type = "ease_out_back" # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
-animations.duration = 350 # duration of the animation in milliseconds
 animations.framerate = 60 # animations framerate
-floating_wins.topmost = true # if true, floating windows are always on top of other windows
+animations.type = "ease_out_back" # can be "linear" or any of the easings functions from https://easings.net/ (in snake_case)
+auto_reload_configs = true # if true, the config will be reloaded when a change is detected
+default_workspace = "1" # default workspace
+detect_maximized_windows = true # if true, maximized windows will be detected and they will not be managed by the tiling engine
 floating_wins.centered = true # if true, floating windows are centered on the monitor when released
 floating_wins.size = "relative" # how floating windows are resized
+floating_wins.size_fixed = [700, 400] # fixed size of the floating window 
 floating_wins.size_ratio = [
     0.5,
     0.5,
-] # ratio of the floating window's size relative to the monitor
-floating_wins.size_fixed = [700, 400] # fixed size of the floating window
+] # ratio of the floating window's size relative to the monitor 
+floating_wins.topmost = true # if true, floating windows are always on top of other windows
+free_move_in_monitor = false # if true, when the window is inserted in a new monitor, the position will determined by where the mouse is
+history_based_navigation = true # if true, the navigation will prioritize the focus history
+insert_in_monitor = true # if true, when the window is moved to a new monitor, it will be inserted instead of being swapped
+move_cursor_on_focus = false # if true, the cursor will be moved to the center of the focused window 
 
 [layout]
-tiling_strategy = "golden_ratio"     # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
-paddings.tiles = 12                  # padding between tiles, it must be between 0 and 100 
-paddings.borders = 18                # padding between border and tiles, it must be between 0 and 100
-half_focalized_paddings.tiles = 12   # padding between tiles for the half-focalized windows, it must be between 0 and 100 
-half_focalized_paddings.borders = 18 # padding between border and tiles for the half-focalized windows, it must be between 0 and 100
 focalized_padding = 8                # padding for the focalized window, it must be between 0 and 120
+half_focalized_paddings.borders = 18 # padding between border and tiles for the half-focalized windows, it must be between 0 and 100
+half_focalized_paddings.tiles = 12   # padding between tiles for the half-focalized windows, it must be between 0 and 100 
+paddings.borders = 16                # padding between border and tiles, it must be between 0 and 100
+paddings.tiles = 8                   # padding between tiles, it must be between 0 and 100 
+tiling_strategy = "golden_ratio"     # can be "golden_ratio", "horizontal", "vertical", "twostep" or "squared"
 
 [layout.strategy.golden_ratio] # if tiling_strategy = "golden_ratio"
 clockwise = true # true = clockwise, false = counterclockwise
-vertical = false # if true, the first split will be vertical
 ratio = 65       # ratio of the first split
+vertical = false # if true, the first split will be vertical
 
 [layout.strategy.horizontal] # if tiling_strategy = "horizontal"
 grow_right = true # if true, new windows will be placed on the right side of the screen
@@ -41,27 +43,37 @@ grow_down = true # if true, new windows will be placed on the bottom side of the
 
 [layout.strategy.twostep] # if tiling_strategy = "twostep"
 first_step = "right" # first insertion direction, can be <"right"|"left"|"up"|"down">
-second_step = "down" # second insertion direction, can be <"right"|"left"|"up"|"down">
 ratio = 65           # ratio of the first split
+second_step = "down" # second insertion direction, can be <"right"|"left"|"up"|"down">
 
 [modules.keybindings]
 enabled = true # enables or disables the keybindings module
 bindings = [
     # Navigation
-    { modifiers = "CTRL+ALT", key = "left", action = "focus left" },
-    { modifiers = "CTRL+ALT", key = "right", action = "focus right" },
-    { modifiers = "CTRL+ALT", key = "up", action = "focus up" },
-    { modifiers = "CTRL+ALT", key = "down", action = "focus down" },
+    { modifiers = "WIN", key = "left", action = "focus left" },
+    { modifiers = "WIN", key = "right", action = "focus right" },
+    { modifiers = "WIN", key = "up", action = "focus up" },
+    { modifiers = "WIN", key = "down", action = "focus down" },
     # Movement
-    { modifiers = "CTRL+ALT+SHIFT", key = "left", action = "move left" },
-    { modifiers = "CTRL+ALT+SHIFT", key = "right", action = "move right" },
-    { modifiers = "CTRL+ALT+SHIFT", key = "up", action = "move up" },
-    { modifiers = "CTRL+ALT+SHIFT", key = "down", action = "move down" },
+    { modifiers = "WIN+ALT", key = "left", action = "moveinsert left" },
+    { modifiers = "WIN+ALT", key = "right", action = "moveinsert right" },
+    { modifiers = "WIN+ALT", key = "up", action = "moveinsert up" },
+    { modifiers = "WIN+ALT", key = "down", action = "moveinsert down" },
+    # Insert 
+    { modifiers = "WIN+CTRL+ALT", key = "left", action = "insert left" },
+    { modifiers = "WIN+CTRL+ALT", key = "right", action = "insert right" },
+    { modifiers = "WIN+CTRL+ALT", key = "up", action = "insert up" },
+    { modifiers = "WIN+CTRL+ALT", key = "down", action = "insert down" },
     # Resize
-    { modifiers = "CTRL+SHIFT", key = "left", action = "resize left 150" },
-    { modifiers = "CTRL+SHIFT", key = "right", action = "resize right 150" },
-    { modifiers = "CTRL+SHIFT", key = "up", action = "resize up 150" },
-    { modifiers = "CTRL+SHIFT", key = "down", action = "resize down 150" },
+    { modifiers = "WIN+SHIFT", key = "left", action = "resize left 150" },
+    { modifiers = "WIN+SHIFT", key = "right", action = "resize right 150" },
+    { modifiers = "WIN+SHIFT", key = "up", action = "resize up 150" },
+    { modifiers = "WIN+SHIFT", key = "down", action = "resize down 150" },
+    # Workspaces
+    # { modifiers = "ALT", key = "1", action = "focus-workspace 1" },
+    # { modifiers = "ALT", key = "2", action = "focus-workspace 2" },
+    # { modifiers = "CTRL+ALT", key = "1", action = "move-to-workspace 1" },
+    # { modifiers = "CTRL+ALT", key = "2", action = "move-to-workspace 2" },
     # Others
     { modifiers = "ALT", key = "r", action = "release" },
     { modifiers = "ALT", key = "f", action = "focalize" },
@@ -69,26 +81,25 @@ bindings = [
     { modifiers = "ALT", key = "v", action = "invert" },
     { modifiers = "ALT+SHIFT", key = "p", action = "pause" },
     { modifiers = "ALT+CTRL+SHIFT", key = "i", action = "dumpstateinfo" },
-    { modifiers = "ALT+SHIFT", key = "r", action = "refresh-config" },
 ]
 
 [modules.overlays]
+active.color = "#9BD1E5"         # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+active.enabled = true            # shows the active overlay
+border_radius = 10               # border radius
 enabled = true                   # enables or disables the overlays module
-update_while_dragging = true     # the overlays will be updated while dragging the window
-update_while_animating = true    # the overlays will be updated while the animation is running 
+floating.color = "#DCC6E0"       # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+floating.enabled = true          # shows the floating overlay
+focalized.color = "#EA9999"      # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+focalized.enabled = true         # shows the focalized overlay
+half_focalized.color = "#DCF2D7" # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+half_focalized.enabled = true    # shows the half-focalized overlay
+inactive.color = "#696969"       # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+inactive.enabled = true          # shows the inactive overlays
 padding = 0                      # padding between the overlay and the window
 thickness = 2                    # thickness of the border
-border_radius = 10               # border radius
-active.enabled = true            # shows the active overlay
-active.color = "#9BD1E5"         # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
-inactive.enabled = true          # shows the inactive overlays
-inactive.color = "#696969"       # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
-focalized.enabled = true         # shows the focalized overlay
-focalized.color = "#EA9999"      # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
-half_focalized.enabled = true    # shows the half-focalized overlay
-half_focalized.color = "#DCF2D7" # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
-floating.enabled = true          # shows the floating overlay
-floating.color = "#DCC6E0"       # color of the border, as [r, g, b]/[r, g, b, a] or as hex string ("#rrggbb"/"#rrggbbaa")
+update_while_animating = true    # the overlays will be updated while the animation is running 
+update_while_dragging = true     # the overlays will be updated while dragging the window
 
 [core]
 ignore_rules = [
@@ -97,3 +108,16 @@ ignore_rules = [
     { classname = "OperationStatusWindow" },                                                         # Explorer operation status 
     { title = "/[Pp]icture.in.[Pp]icture/", classname = "/Chrome_WidgetWin_1|MozillaDialogClass/" }, # PIP Firefox/Chrome
 ]
+
+# Custom rules
+#rules = [
+#    { filter = { classname = "#32770" }, behavior.float = { size = "preserve" } },
+#]
+
+# Monitors configuration
+#[monitors."MONITOR1"]
+#layout.tiling_strategy = "horizontal"
+
+# Workspaces configuration
+#[workspaces."1"]
+#layout.tiling_strategy = "horizontal"
