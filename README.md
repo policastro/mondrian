@@ -177,6 +177,7 @@ The **available actions** are:
 - `toggle-topmost`: toggles the topmost state of the focused window. This action only works with floating windows;
 - `focus <left|right|up|down>`: focuses the window in the specified direction;
 - `focus-workspace <WORKSPACE_NAME>`: focuses the workspace[^1];
+- `focus-monitor <left|right|up|down>`: focuses the monitor in the specified direction;
 - `move-to-workspace <WORKSPACE_NAME>`: moves the focused window into the workspace[^1] and focuses it;
 - `move-to-workspace-silent <WORKSPACE_NAME>`: moves the focused window into the workspace[^1] without changing the focused workspace;
 - `switch-focus`: switches focus between tiled and floating windows;

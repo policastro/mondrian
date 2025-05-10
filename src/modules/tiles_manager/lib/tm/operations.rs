@@ -14,6 +14,7 @@ use crate::modules::tiles_manager::lib::containers::map::ContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
 use crate::modules::tiles_manager::lib::utils::get_floating_win_area;
+use crate::modules::tiles_manager::lib::utils::leaves_limited_by_edge;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
@@ -452,92 +453,54 @@ impl TilesManagerOperations for TilesManager {
 }
 
 impl TilesManager {
-    pub fn find_neighbour_closest_monitor_at(
-        &self,
-        point: (i32, i32),
-        direction: Direction,
-        excluded_window: Option<WindowRef>,
-    ) -> Option<AreaLeaf<WindowRef>> {
-        let e = self.containers.find_closest_at(point, direction).ok()?;
-
-        if let Some(win) = self.get_maximized_win_in_monitor(&e.key) {
-            return e.value.tree().find_leaf(win, 0);
-        }
-
-        let corners = e.value.tree().get_area().get_corners(direction.opposite());
-        let axis_values = corners[0];
-        let corners = match direction.axis() {
-            Orientation::Vertical => (corners[0].0, corners[1].0),
-            Orientation::Horizontal => (corners[0].1, corners[1].1),
-        };
-
-        self.find_best_matching_leaf(
-            excluded_window,
-            direction,
-            &e.value.tree().leaves(None),
-            &corners,
-            &axis_values,
-        )
-    }
-
     fn find_neighbour_same_monitor(&self, window: WindowRef, direction: Direction) -> Option<AreaLeaf<WindowRef>> {
         let src_entry = self.containers.find(window).ok()?;
         let src_area = src_entry.value.tree().find_leaf(window, 0)?.viewbox;
-        let t = self.containers.get(&src_entry.key)?;
-
-        let axis_values = src_area.get_corners(direction)[0];
         let pad = match direction.axis() {
-            Orientation::Vertical => (1, 0),
             Orientation::Horizontal => (0, 1),
+            Orientation::Vertical => (1, 0),
         };
-
-        let corners = src_area.pad_xy(pad).get_corners(direction);
-        let corners = match direction.axis() {
-            Orientation::Vertical => (corners[0].0, corners[1].0),
-            Orientation::Horizontal => (corners[0].1, corners[1].1),
-        };
-        self.find_best_matching_leaf(Some(window), direction, &t.tree().leaves(None), &corners, &axis_values)
+        self.find_best_matching_leaf(
+            window,
+            direction,
+            &self.containers.get(&src_entry.key)?.tree().leaves(None),
+            src_area.pad_xy(pad).get_corners(direction),
+        )
     }
 
     fn find_neighbour_closest_monitor(&self, window: WindowRef, direction: Direction) -> Option<AreaLeaf<WindowRef>> {
         let src_area = self.containers.find_leaf(window).ok()?.viewbox;
-        self.find_neighbour_closest_monitor_at(src_area.get_center(), direction, Some(window))
+        let e = self.containers.find_closest_at(src_area.get_center(), direction).ok()?;
+
+        self.get_maximized_leaf_in_monitor(&e.key).or_else(|| {
+            self.find_best_matching_leaf(
+                window,
+                direction,
+                &e.value.tree().leaves(None),
+                e.value.tree().get_area().get_corners(direction.opposite()),
+            )
+        })
     }
 
     fn find_best_matching_leaf(
         &self,
-        excluded_window: Option<WindowRef>,
+        excluded_window: WindowRef,
         direction: Direction,
         leaves: &[AreaLeaf<WindowRef>],
-        cross_axis_limits: &(i32, i32),
-        axis_values: &(i32, i32),
+        edge: [(i32, i32); 2],
     ) -> Option<AreaLeaf<WindowRef>> {
-        let dir_axis = direction.axis();
-        let (lim1, lim2) = *cross_axis_limits;
-
-        let leaves = leaves
-            .iter()
-            .filter(|l| excluded_window.is_none_or(|w| w != l.id))
-            .filter(|l| match dir_axis {
-                Orientation::Horizontal => l.viewbox.overlaps_y(lim1, lim2) && l.viewbox.contains_x(axis_values.0),
-                Orientation::Vertical => l.viewbox.overlaps_x(lim1, lim2) && l.viewbox.contains_y(axis_values.1),
-            });
-
+        let leaves = leaves_limited_by_edge(&leaves, direction, edge);
         if self.config.history_based_navigation {
-            if let Some((l, _)) = leaves
-                .clone()
-                .filter_map(|l| self.focus_history.value(l.id).map(|i| (l, i)))
-                .max_by_key(|&(_, i)| i)
-            {
-                return Some(*l);
+            let leaves: Vec<AreaLeaf<WindowRef>> = leaves.iter().filter(|l| l.id != excluded_window).copied().collect();
+            let leaf = self.focus_history.latest(&leaves).copied();
+            if leaf.is_some() {
+                return leaf;
             }
         }
-
         leaves
-            .min_by_key(|l| match direction.axis() {
-                Orientation::Horizontal => l.viewbox.y,
-                Orientation::Vertical => l.viewbox.x,
-            })
+            .get(0)
+            .filter(|l| l.id != excluded_window)
+            .or_else(|| leaves.get(1))
             .copied()
     }
 }

@@ -243,6 +243,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
             _ => Ok(()),
         },
         TMCommand::Focus(direction) => tm.change_focus(direction),
+        TMCommand::FocusMonitor(direction) => tm.change_focus_monitor(direction),
         TMCommand::FocusWorkspace { id } => tm.focus_workspace(&id),
         TMCommand::MoveToWorkspace { id, focus } => tm.move_focused_to_workspace(&id, focus),
         TMCommand::SwitchFocus => tm.switch_focus(),

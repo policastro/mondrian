@@ -167,6 +167,7 @@ pub enum MondrianMessage {
     Retile,
     Configure,
     Focus(Direction),
+    FocusMonitor(Direction),
     FocusWorkspace {
         id: String,
     },
@@ -222,6 +223,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "toggle-topmost",
             "switch-focus",
             "focus <left|right|up|down>",
+            "focus-monitor <left|right|up|down>",
             "focus-workspace <workspace_id>",
             "move-to-workspace <workspace_id>",
             "move-to-workspace-silent <workspace_id>",
@@ -254,6 +256,7 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "toggle-topmost" => parts.len() == 1,
             "switch-focus" => parts.len() == 1,
             "focus" => parts.len() == 2,
+            "focus-monitor" => parts.len() == 2,
             "focus-workspace" => parts.len() == 2,
             "move-to-workspace" => parts.len() == 2,
             "move-to-workspace-silent" => parts.len() == 2,
@@ -290,6 +293,10 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "focus" => {
                 let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
                 Ok(MondrianMessage::Focus(dir))
+            }
+            "focus-monitor" => {
+                let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
+                Ok(MondrianMessage::FocusMonitor(dir))
             }
             "focus-workspace" => {
                 let id = parse_workspace_id(parts[1]).map_err(serde::de::Error::custom)?;

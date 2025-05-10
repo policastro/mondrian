@@ -8,6 +8,7 @@ pub enum TMCommand {
     WindowEvent(WindowEvent),
     SystemEvent(SystemEvent),
     Focus(Direction),
+    FocusMonitor(Direction),
     Close,
     Topmost,
     SwitchFocus,
@@ -62,6 +63,7 @@ impl TMCommand {
             TMCommand::ListManagedWindows
             | TMCommand::Topmost
             | TMCommand::Focus(..)
+            | TMCommand::FocusMonitor(..)
             | TMCommand::SwitchFocus
             | TMCommand::QueryInfo
             | TMCommand::Quit => false,
@@ -82,6 +84,7 @@ impl TryFrom<&MondrianMessage> for TMCommand {
         match msg {
             MondrianMessage::Minimize => Ok(TMCommand::Minimize),
             MondrianMessage::Focus(direction) => Ok(TMCommand::Focus(*direction)),
+            MondrianMessage::FocusMonitor(direction) => Ok(TMCommand::FocusMonitor(*direction)),
             MondrianMessage::FocusWorkspace { id } => Ok(TMCommand::FocusWorkspace { id: id.clone() }),
             MondrianMessage::MoveToWorkspace { id, focus } => Ok(TMCommand::MoveToWorkspace {
                 id: id.clone(),

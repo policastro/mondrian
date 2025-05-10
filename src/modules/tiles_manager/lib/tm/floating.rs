@@ -130,7 +130,7 @@ impl TilesManagerFloating for TilesManager {
             .filter_map(|w| w.get_area().map(|a| (w, a)))
             .collect();
 
-        let nearest = find_nearest_candidate(&curr_area, direction, &candidates, true);
+        let nearest = find_nearest_candidate(&curr_area, direction, &candidates);
 
         if let Some(nearest) = nearest {
             nearest.0.focus();

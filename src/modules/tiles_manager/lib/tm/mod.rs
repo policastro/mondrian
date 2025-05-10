@@ -284,21 +284,21 @@ impl TilesManager {
             .ok_or(Error::Generic)?;
         let new_tree = self.inactive_containers.remove(&new_key).ok_or(Error::Generic)?;
         let wins_leaves = new_tree.tree().leaves(None);
-        let wins: Vec<WindowRef> = wins_leaves.iter().map(|l| l.id).collect();
         let old_tree = self.containers.replace(new_key.into(), new_tree);
         let old_tree = old_tree.ok_or(Error::container_not_found())?;
 
         // INFO: most recently focused window otherwise top left window
         let win_to_focus = self
             .focus_history
-            .latest(&wins)
+            .latest(&wins_leaves)
             .or(wins_leaves
                 .iter()
                 .min_by(|l1, l2| l1.viewbox.x.cmp(&l2.viewbox.x).then(l1.viewbox.y.cmp(&l2.viewbox.y)))
                 .iter()
                 .next()
-                .map(|l| l.id))
+                .copied())
             .filter(|_| move_focus);
+        let win_to_focus = win_to_focus.map(|l| l.id);
 
         if !silent {
             if let Some(m) = &self.managed_monitors.get(monitor_name) {
@@ -396,6 +396,13 @@ impl TilesManager {
     fn get_maximized_win_in_monitor(&self, key: &ActiveContainerKey) -> Option<WindowRef> {
         let t = self.containers.get(key)?;
         self.maximized_wins.iter().find(|w| t.tree().has(**w)).copied()
+    }
+
+    fn get_maximized_leaf_in_monitor(&self, key: &ActiveContainerKey) -> Option<AreaLeaf<WindowRef>> {
+        if let Some(win) = self.get_maximized_win_in_monitor(key) {
+            return self.containers.get(key)?.tree().find_leaf(win, 0);
+        }
+        None
     }
 
     fn restore_maximized(&mut self, key: &ActiveContainerKey) -> Result<(), Error> {

@@ -22,8 +22,8 @@ impl FocusHistory {
         }
     }
 
-    pub fn value(&self, window: WindowRef) -> Option<u64> {
-        self.map.get(&window).copied()
+    pub fn value(&self, window: &WindowRef) -> Option<u64> {
+        self.map.get(window).copied()
     }
 
     pub fn update(&mut self, window: WindowRef) {
@@ -51,10 +51,13 @@ impl FocusHistory {
         }
     }
 
-    pub fn latest(&self, windows: &[WindowRef]) -> Option<WindowRef> {
+    pub fn latest<'a, V>(&self, windows: &'a [V]) -> Option<&'a V>
+    where
+        &'a V: Into<WindowRef>,
+    {
         windows
             .iter()
-            .filter_map(|w| self.value(*w).map(|v| (*w, v)))
+            .filter_map(|w| self.value(&w.into()).map(|v| (w, v)))
             .max_by_key(|(_, v)| *v)
             .map(|(w, _)| w)
     }

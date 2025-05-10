@@ -9,7 +9,6 @@ use crate::app::area_tree::leaf::AreaLeaf;
 use crate::app::mondrian_message::IntermonitorMoveOp;
 use crate::app::mondrian_message::IntramonitorMoveOp;
 use crate::app::mondrian_message::WindowTileState;
-use crate::app::structs::area::Area;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::point::Point;
 use crate::modules::tiles_manager::lib::containers::container::ContainerLayer;
@@ -17,9 +16,9 @@ use crate::modules::tiles_manager::lib::containers::keys::ContainerKeyTrait;
 use crate::modules::tiles_manager::lib::containers::map::ActiveContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
-use crate::modules::tiles_manager::lib::utils::find_nearest_candidate;
 use crate::modules::tiles_manager::lib::utils::get_foreground;
 use crate::modules::tiles_manager::lib::utils::is_on_current_vd;
+use crate::modules::tiles_manager::lib::utils::leaves_limited_by_edge;
 use crate::win32::api::cursor::get_cursor_pos;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::api::monitor::enum_display_monitors;
@@ -525,25 +524,35 @@ impl TilesManagerCommands for TilesManager {
             curr.get_area().ok_or(Error::NoWindowsInfo)?
         };
 
-        if let Some(leaf) = self.find_neighbour_closest_monitor_at(src_area.get_center(), direction, None) {
+        let closest = self.containers.find_closest_at(src_area.get_center(), direction)?;
+        let monitor = self
+            .managed_monitors
+            .get(&closest.key.monitor)
+            .ok_or(Error::MonitorNotFound(closest.key.monitor.clone()))?;
+        self.last_focused_monitor = None;
+        if let Some(leaf) = self.get_maximized_leaf_in_monitor(&closest.key) {
             self.focus_leaf(&leaf);
             return Ok(());
         }
 
-        let candidates: Vec<(String, Area)> = self
-            .managed_monitors
-            .iter()
-            .filter(|m| !m.1.info.monitor_area.contains(src_area.get_center()))
-            .map(|m| (m.0.clone(), m.1.info.monitor_area))
-            .collect();
+        let leaves = closest.value.tree().leaves(None);
 
-        let nearest = find_nearest_candidate(&src_area, direction, &candidates, false);
-        let nearest = nearest.ok_or(Error::NoMonitorFound)?.0;
-        let monitor = self.managed_monitors.get(&nearest);
-        let monitor = monitor.ok_or(Error::MonitorNotFound(nearest.clone()))?;
+        if self.config.history_based_navigation {
+            if let Some(leaf) = self.focus_history.latest(&leaves) {
+                self.focus_leaf(leaf);
+                return Ok(());
+            }
+        }
+
+        let edge = closest.value.tree().get_area().get_corners(direction.opposite());
+        let leaves = leaves_limited_by_edge(&leaves, direction, edge);
+        if let Some(leaf) = leaves.get(0) {
+            self.focus_leaf(leaf);
+            return Ok(());
+        }
+
         monitor.focus();
-
-        self.last_focused_monitor = Some(nearest.clone());
+        self.last_focused_monitor = Some(closest.key.monitor.clone());
         if self.config.focus_follows_cursor {
             let (x, y) = monitor.info.get_workspace().get_center();
             set_cursor_pos(x, y);

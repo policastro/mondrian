@@ -16,9 +16,12 @@ use super::{
     window_obj::{WindowObjHandler, WindowObjInfo},
     window_snapshot::WindowSnapshot,
 };
-use crate::win32::api::{
-    misc::post_empty_message,
-    window::{get_dwmwa_extended_frame_bounds, is_fullscreen, is_maximized, is_window_topmost},
+use crate::{
+    app::area_tree::leaf::AreaLeaf,
+    win32::api::{
+        misc::post_empty_message,
+        window::{get_dwmwa_extended_frame_bounds, is_fullscreen, is_maximized, is_window_topmost},
+    },
 };
 use crate::{
     app::structs::area::Area,
@@ -82,6 +85,17 @@ impl From<isize> for WindowRef {
 impl From<WindowRef> for WindowSnapshot {
     fn from(val: WindowRef) -> Self {
         val.snapshot()
+    }
+}
+
+impl From<AreaLeaf<WindowRef>> for WindowRef {
+    fn from(val: AreaLeaf<WindowRef>) -> Self {
+        val.id
+    }
+}
+impl From<&AreaLeaf<WindowRef>> for WindowRef {
+    fn from(val: &AreaLeaf<WindowRef>) -> Self {
+        val.id
     }
 }
 
