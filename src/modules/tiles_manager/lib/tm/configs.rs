@@ -1,6 +1,5 @@
 use crate::app::area_tree::layout_strategy::LayoutStrategyEnum;
 use crate::app::configs::floating::FloatingWinsConfig;
-use crate::app::configs::rules::WindowBehavior;
 use crate::app::configs::rules::WindowRule;
 use crate::app::configs::AnimationsConfig;
 use crate::app::configs::AppConfig;
@@ -9,7 +8,6 @@ use crate::app::configs::MonitorConfig;
 use crate::app::configs::WorkspaceConfig;
 use crate::app::structs::paddings::Paddings;
 use crate::app::structs::win_matcher::WinMatcher;
-use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -140,37 +138,4 @@ impl From<&AppConfig> for TilesManagerConfig {
             floating_wins: config.floating_wins_config,
         }
     }
-}
-
-pub trait Rules {
-    fn get_floating_config(&self, window: WindowRef) -> Option<FloatingWinsConfig>;
-    fn preferred_monitor(&self, window: WindowRef) -> Option<String>;
-}
-
-impl Rules for Vec<WindowRule> {
-    fn get_floating_config(&self, window: WindowRef) -> Option<FloatingWinsConfig> {
-        get_floating_config(self, window)
-    }
-
-    fn preferred_monitor(&self, window: WindowRef) -> Option<String> {
-        preferred_monitor(self, window)
-    }
-}
-
-fn find_matches(rules: &[WindowRule], window: WindowRef) -> impl Iterator<Item = &WindowRule> {
-    rules.iter().filter(move |r| r.filter.matches(window))
-}
-
-fn get_floating_config(rules: &[WindowRule], window: WindowRef) -> Option<FloatingWinsConfig> {
-    find_matches(rules, window).find_map(|r| match &r.behavior {
-        WindowBehavior::Float { config } => Some(*config),
-        _ => None,
-    })
-}
-
-fn preferred_monitor(rules: &[WindowRule], window: WindowRef) -> Option<String> {
-    find_matches(rules, window).find_map(|r| match &r.behavior {
-        WindowBehavior::Insert { monitor } => Some(monitor.clone()),
-        _ => None,
-    })
 }

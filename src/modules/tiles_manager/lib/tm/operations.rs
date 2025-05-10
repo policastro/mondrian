@@ -1,4 +1,3 @@
-use super::configs::Rules;
 use super::floating::FloatingProperties;
 use super::floating::FloatingWindows;
 use super::result::TilesManagerError;
@@ -13,6 +12,7 @@ use crate::modules::tiles_manager::lib::containers::container::ContainerLayer;
 use crate::modules::tiles_manager::lib::containers::map::ContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
+use crate::modules::tiles_manager::lib::structs::rules::Rules;
 use crate::modules::tiles_manager::lib::utils::get_floating_win_area;
 use crate::modules::tiles_manager::lib::utils::leaves_limited_by_edge;
 use crate::win32::window::window_obj::WindowObjHandler;
@@ -29,7 +29,13 @@ pub trait TilesManagerOperations {
     /// When `prefer_position` is Some, the window will be added to the monitor that contains the
     /// given position. Otherwise, the window will be added to the monitor that contains the center of the window.
     /// If the target monitor has a focalized window or a maximized window, it will be restored.
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>, check_rules: bool) -> TMResult;
+    fn add(
+        &mut self,
+        win: WindowRef,
+        prefer_position: Option<(i32, i32)>,
+        check_rules: bool,
+        prevent_workspace_switch: bool,
+    ) -> TMResult;
 
     /// Removes a window from the tile manager.
     fn remove(&mut self, win: WindowRef) -> TMResult;
@@ -61,7 +67,13 @@ pub trait TilesManagerOperations {
 const C_ERR: Error = Error::ContainerNotFound { refresh: false };
 
 impl TilesManagerOperations for TilesManager {
-    fn add(&mut self, win: WindowRef, prefer_position: Option<(i32, i32)>, check_rules: bool) -> TMResult {
+    fn add(
+        &mut self,
+        win: WindowRef,
+        prefer_position: Option<(i32, i32)>,
+        check_rules: bool,
+        prevent_workspace_switch: bool,
+    ) -> TMResult {
         let tile_state = self.get_window_state(win);
         if tile_state
             .as_ref()
@@ -84,18 +96,41 @@ impl TilesManagerOperations for TilesManager {
             return Ok(Success::LayoutChanged);
         }
 
+        let add_opt = self.config.rules.get_add_options(win);
+
         let center = prefer_position.or_else(|| win.get_area().map(|a| a.get_center()));
         let center = center.ok_or(Error::NoWindow)?;
-        let center = match self.config.rules.preferred_monitor(win).filter(|_| check_rules) {
-            Some(name) => self
-                .managed_monitors
-                .get(&name)
-                .map(|m| m.info.get_workspace().get_center())
-                .unwrap_or(center),
-            None => center,
+        let center = add_opt
+            .as_ref()
+            .and_then(|opt| opt.monitor.clone())
+            .filter(|_| check_rules)
+            .and_then(|m| {
+                self.managed_monitors
+                    .get(&m)
+                    .map(|m| m.info.get_workspace().get_center())
+            })
+            .unwrap_or(center);
+
+        let k = self.containers.find_near(center).map(|e| e.key)?;
+        let prev_workspace = k.workspace.clone();
+        let trg_workspace_opt = match check_rules {
+            true => add_opt
+                .as_ref()
+                .and_then(|opt| opt.workspace_options.clone())
+                .filter(|o| o.workspace != prev_workspace),
+            false => None,
         };
 
-        let (k, ct) = self.containers.find_near(center).map(|e| (e.key, e.value.current()))?;
+        if let Some(opt) = trg_workspace_opt.as_ref() {
+            let _ = self.activate_workspace(
+                &k.monitor,
+                &opt.workspace,
+                opt.silent || prevent_workspace_switch,
+                false,
+            );
+        }
+
+        let ct = self.containers.get_mut(&k).ok_or(C_ERR)?.current();
         if ct.is_focalized_or_half() && tile_state.is_err() {
             self.restore_monitor(&k)?;
             if self.containers.find(win).is_ok() {
@@ -112,10 +147,18 @@ impl TilesManagerOperations for TilesManager {
         container.tree_mut().insert(win);
 
         // INFO: if the monitor has a maximized window, restore it
-        self.restore_maximized(&k)?;
+        if trg_workspace_opt.is_none() {
+            self.restore_maximized(&k)?;
+        }
 
-        if let Some(config) = self.config.rules.get_floating_config(win).filter(|_| check_rules) {
-            return self.release(win, Some(true), Some(config));
+        if check_rules {
+            if let Some(config) = add_opt.and_then(|opt| opt.floating_config) {
+                return self.release(win, Some(true), Some(config));
+            }
+        }
+
+        if trg_workspace_opt.is_some_and(|opt| opt.silent || prevent_workspace_switch) {
+            let _ = self.activate_workspace(&k.monitor, &prev_workspace, false, false);
         }
 
         Ok(Success::LayoutChanged)
@@ -163,7 +206,7 @@ impl TilesManagerOperations for TilesManager {
             Ok(Success::queue(window, area, Some(is_topmost)))
         } else {
             self.floating_wins.remove(&window);
-            self.add(window, None, false)?;
+            self.add(window, None, false, true)?;
             let _ = window.set_topmost(false);
             Ok(Success::dequeue(window))
         }
@@ -184,7 +227,7 @@ impl TilesManagerOperations for TilesManager {
             // NOTE: if the window is maximized to another monitor, remove it and add it again
             if src_e.key != trg_e.key {
                 self.remove(window)?;
-                self.add(window, None, true)?;
+                self.add(window, None, true, false)?;
             }
 
             self.maximized_wins.insert(window);
@@ -444,10 +487,9 @@ impl TilesManagerOperations for TilesManager {
 
         self.remove(win)?;
         self.activate_workspace(&prev_k.monitor, workspace, true, false).ok();
-        self.add(win, None, false)?;
+        self.add(win, None, false, true)?;
         self.activate_workspace(&prev_k.monitor, &prev_k.workspace, true, false)
             .ok();
-
         Ok(Success::LayoutChanged)
     }
 }

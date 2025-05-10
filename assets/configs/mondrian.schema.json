@@ -608,8 +608,24 @@
                 "monitor": {
                   "type": "string",
                   "description": "Monitor to insert the window in."
+                },
+                "workspace": {
+                  "type": "string",
+                  "description": "Workspace to insert the window in."
+                },
+                "silent": {
+                  "type": "boolean",
+                  "description": "If false, the corresponding workspace will be focused."
                 }
               },
+              "anyOf": [
+                {
+                  "required": ["monitor"]
+                },
+                {
+                  "required": ["workspace"]
+                }
+              ],
               "additionalProperties": false
             }
           },

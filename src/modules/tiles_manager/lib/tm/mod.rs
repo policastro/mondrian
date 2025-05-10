@@ -127,7 +127,7 @@ impl TilesManager {
         });
 
         for w in wins.iter() {
-            self.add(*w, None, true).inspect(|s| {
+            self.add(*w, None, true, true).inspect(|s| {
                 if let TilesManagerSuccess::Queue { window, area, topmost } = s {
                     self.animation_player.queue(*window, *area, *topmost);
                 }

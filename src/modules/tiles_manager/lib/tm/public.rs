@@ -95,7 +95,7 @@ impl TilesManagerEvents for TilesManager {
     fn on_open(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
 
-        let s = TMOperations::add(self, win, get_cursor_pos().ok(), true)?;
+        let s = TMOperations::add(self, win, get_cursor_pos().ok(), true, false)?;
         self.success_handler(s, true, Some(win))
     }
 
@@ -114,7 +114,7 @@ impl TilesManagerEvents for TilesManager {
 
     fn on_restore(&mut self, win: WindowRef) -> Result<(), Error> {
         self.floating_wins.set_properties(&win, false, false);
-        let s = TMOperations::add(self, win, None, false)?;
+        let s = TMOperations::add(self, win, None, false, true)?;
         self.success_handler(s, true, Some(win))
     }
 

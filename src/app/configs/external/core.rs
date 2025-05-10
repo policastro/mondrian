@@ -38,7 +38,10 @@ pub enum WindowBehavior {
         size_fixed: Option<(u16, u16)>,
     },
     Insert {
-        monitor: String,
+        monitor: Option<String>,
+        workspace: Option<String>,
+        #[serde(default)]
+        silent: bool,
     },
 }
 
@@ -68,6 +71,9 @@ impl TryFrom<WindowBehaviorRaw> for WindowBehavior {
                     } else {
                         Ok(w)
                     }
+                }
+                WindowBehavior::Insert { monitor, workspace, .. } if monitor.is_none() && workspace.is_none() => {
+                    Err("A monitor or a workspace must be specified".to_string())
                 }
                 _ => Ok(w),
             },

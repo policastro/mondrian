@@ -12,8 +12,14 @@ pub struct WindowRule {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowBehavior {
-    Float { config: FloatingWinsConfig },
-    Insert { monitor: String },
+    Float {
+        config: FloatingWinsConfig,
+    },
+    Insert {
+        monitor: Option<String>,
+        workspace: Option<String>,
+        silent: bool,
+    },
 }
 
 pub(crate) fn extract_rules(
@@ -68,8 +74,14 @@ pub(crate) fn extract_rules(
                         config: config_ext.into(),
                     }
                 }
-                external::core::WindowBehavior::Insert { monitor } => WindowBehavior::Insert {
+                external::core::WindowBehavior::Insert {
+                    monitor,
+                    workspace,
+                    silent,
+                } => WindowBehavior::Insert {
                     monitor: monitor.clone(),
+                    workspace: workspace.clone(),
+                    silent: *silent,
                 },
             },
         })
