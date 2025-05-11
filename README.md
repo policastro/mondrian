@@ -176,10 +176,10 @@ The **available actions** are:
 - `close`: closes the focused window. This action also works with unmanaged windows;
 - `toggle-topmost`: toggles the topmost state of the focused window. This action only works with floating windows;
 - `focus <left|right|up|down>`: focuses the window in the specified direction;
-- `focus-workspace <WORKSPACE_NAME>`: focuses the workspace[^1];
 - `focus-monitor <left|right|up|down>`: focuses the monitor in the specified direction;
-- `move-to-workspace <WORKSPACE_NAME>`: moves the focused window into the workspace[^1] and focuses it;
-- `move-to-workspace-silent <WORKSPACE_NAME>`: moves the focused window into the workspace[^1] without changing the focused workspace;
+- `focus-workspace <WORKSPACE_NAME> [MONITOR_NAME]`: focuses the workspace[^1] on the specified monitor (if provided, otherwise it will be focused on the current monitor);
+- `move-to-workspace <WORKSPACE_NAME> [MONITOR_NAME]`: moves the focused window into the workspace[^1] and focuses it. The `[MONITOR_NAME]` behaves the same way as in the `focus-workspace` action;
+- `move-to-workspace-silent <WORKSPACE_NAME> [MONITOR_NAME]`: moves the focused window into the workspace[^1] without changing the focused workspace. The `[MONITOR_NAME]` behaves the same way as in the `focus-workspace` action;
 - `switch-focus`: switches focus between tiled and floating windows;
 - `move <left|right|up|down> [40-1000]`: if applied to a tiled window, swaps the focused window with the window in the specified direction. If applied to a floating window, moves the window in the specified direction by the amount in pixels defined in the third parameter (which defaults to 200 if not specified);
 - `insert <left|right|up|down>`: adds the focused window in the monitor in the specified direction;

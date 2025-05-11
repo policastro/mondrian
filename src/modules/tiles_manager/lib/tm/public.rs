@@ -75,8 +75,13 @@ pub trait TilesManagerCommands {
     /// - If `half` is `None`, the operation cycles both focalized and half-focalized windows without distinction.
     fn cycle_focalized_wins(&mut self, next: bool, half: Option<bool>) -> Result<(), Error>;
     fn invert_orientation(&mut self) -> Result<(), Error>;
-    fn focus_workspace(&mut self, workspace_id: &str) -> Result<(), Error>;
-    fn move_focused_to_workspace(&mut self, workspace_id: &str, focus_workspace: bool) -> Result<(), Error>;
+    fn focus_workspace(&mut self, workspace_id: &str, monitor_name: Option<&str>) -> Result<(), Error>;
+    fn move_focused_to_workspace(
+        &mut self,
+        workspace_id: &str,
+        focus_workspace: bool,
+        monitor_name: Option<&str>,
+    ) -> Result<(), Error>;
     fn change_focus(&mut self, direction: Direction) -> Result<(), Error>;
     fn change_focus_monitor(&mut self, direction: Direction) -> Result<(), Error>;
     fn switch_focus(&mut self) -> Result<(), Error>;
@@ -440,10 +445,12 @@ impl TilesManagerCommands for TilesManager {
         self.update_layout(true, None)
     }
 
-    fn focus_workspace(&mut self, workspace_id: &str) -> Result<(), Error> {
+    fn focus_workspace(&mut self, workspace_id: &str, monitor_name: Option<&str>) -> Result<(), Error> {
         let bounded = self.config.get_bounded_monitor(workspace_id);
         let monitor_name = if bounded.is_some() {
             bounded.clone()
+        } else if let Some(monitor_name) = monitor_name {
+            Some(monitor_name.to_uppercase())
         } else if self.last_focused_monitor.is_some() {
             self.last_focused_monitor.clone()
         } else if let Some(c) = get_foreground().and_then(|w| w.get_area().map(|a| a.get_center())) {
@@ -471,20 +478,25 @@ impl TilesManagerCommands for TilesManager {
         }
     }
 
-    fn move_focused_to_workspace(&mut self, workspace_id: &str, focus_workspace: bool) -> Result<(), Error> {
+    fn move_focused_to_workspace(
+        &mut self,
+        workspace_id: &str,
+        focus_workspace: bool,
+        monitor_name: Option<&str>,
+    ) -> Result<(), Error> {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
         let tile_state = self.get_window_state(curr)?;
         if matches!(tile_state, WindowTileState::Floating | WindowTileState::Maximized) {
             return Ok(());
         }
 
-        match self.insert_window_to_workspace(curr, workspace_id)? {
+        match self.insert_window_to_workspace(curr, workspace_id, monitor_name)? {
             Success::LayoutChanged if !focus_workspace => {
                 curr.minimize(true);
                 self.update_layout(true, None)
             }
             Success::LayoutChanged if focus_workspace => {
-                self.focus_workspace(workspace_id)?;
+                self.focus_workspace(workspace_id, monitor_name)?;
                 self.update_layout(false, Some(curr))
             }
             s => self.success_handler(s, true, None),

@@ -170,10 +170,12 @@ pub enum MondrianMessage {
     FocusMonitor(Direction),
     FocusWorkspace {
         id: String,
+        monitor: Option<String>,
     },
     MoveToWorkspace {
         id: String,
         focus: bool,
+        monitor: Option<String>,
     },
     SwitchFocus,
     Move(Direction, u16),
@@ -257,9 +259,9 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             "switch-focus" => parts.len() == 1,
             "focus" => parts.len() == 2,
             "focus-monitor" => parts.len() == 2,
-            "focus-workspace" => parts.len() == 2,
-            "move-to-workspace" => parts.len() == 2,
-            "move-to-workspace-silent" => parts.len() == 2,
+            "focus-workspace" => parts.len() == 2 || parts.len() == 3,
+            "move-to-workspace" => parts.len() == 2 || parts.len() == 3,
+            "move-to-workspace-silent" => parts.len() == 2 || parts.len() == 3,
             "move" => parts.len() == 2 || parts.len() == 3,
             "insert" => parts.len() == 2,
             "moveinsert" => parts.len() == 2 || parts.len() == 3,
@@ -300,12 +302,14 @@ impl<'de> serde::Deserialize<'de> for MondrianMessage {
             }
             "focus-workspace" => {
                 let id = parse_workspace_id(parts[1]).map_err(serde::de::Error::custom)?;
-                Ok(MondrianMessage::FocusWorkspace { id })
+                let monitor = parts.get(2).and_then(|m| parse_escaped_str(m).ok());
+                Ok(MondrianMessage::FocusWorkspace { id, monitor })
             }
             "move-to-workspace" | "move-to-workspace-silent" => {
                 let id = parse_workspace_id(parts[1]).map_err(serde::de::Error::custom)?;
+                let monitor = parts.get(2).and_then(|m| parse_escaped_str(m).ok());
                 let focus = parts[0] == "move-to-workspace";
-                Ok(MondrianMessage::MoveToWorkspace { id, focus })
+                Ok(MondrianMessage::MoveToWorkspace { id, focus, monitor })
             }
             "insert" => {
                 let dir = Direction::from_str(parts[1]).map_err(|_| serde::de::Error::custom(err))?;
@@ -399,6 +403,13 @@ fn parse_workspace_id(id: &str) -> Result<String, String> {
     };
 
     Ok(id)
+}
+
+fn parse_escaped_str(s: &str) -> Result<String, String> {
+    if s.starts_with("'") && s.ends_with("'") {
+        return Ok(s[1..s.len() - 1].to_uppercase());
+    }
+    Ok(s.to_uppercase())
 }
 
 impl Serialize for MondrianMessage {

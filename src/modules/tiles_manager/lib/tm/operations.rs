@@ -9,6 +9,7 @@ use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::orientation::Orientation;
 use crate::modules::tiles_manager::lib::containers::container::ContainerLayer;
+use crate::modules::tiles_manager::lib::containers::map::ActiveContainersMap;
 use crate::modules::tiles_manager::lib::containers::map::ContainersMap;
 use crate::modules::tiles_manager::lib::containers::Containers;
 use crate::modules::tiles_manager::lib::containers::ContainersMut;
@@ -61,7 +62,7 @@ pub trait TilesManagerOperations {
     /// the layout strategy of the tile manager.
     /// If the target monitor is the same as the current monitor, the window will not be moved.
     fn insert_window(&mut self, win: WindowRef, point: (i32, i32), free_move: bool) -> TMResult;
-    fn insert_window_to_workspace(&mut self, win: WindowRef, workspace: &str) -> TMResult;
+    fn insert_window_to_workspace(&mut self, win: WindowRef, workspace: &str, monitor: Option<&str>) -> TMResult;
 }
 
 const C_ERR: Error = Error::ContainerNotFound { refresh: false };
@@ -474,21 +475,29 @@ impl TilesManagerOperations for TilesManager {
         Ok(Success::LayoutChanged)
     }
 
-    fn insert_window_to_workspace(&mut self, win: WindowRef, workspace: &str) -> TMResult {
+    fn insert_window_to_workspace(&mut self, win: WindowRef, workspace: &str, monitor: Option<&str>) -> TMResult {
         let tile_state = self.get_window_state(win)?;
         if matches!(tile_state, TileState::Floating | TileState::Maximized) {
             return Ok(Success::NoChange);
         }
 
-        let prev_k = self.containers.find(win)?.key;
-        if prev_k.workspace == workspace {
+        let win_container_k = self.containers.find(win)?.key;
+        let trg_monitor = monitor.unwrap_or(&win_container_k.monitor);
+        if win_container_k.workspace == workspace && win_container_k.monitor == trg_monitor {
             return Ok(Success::NoChange);
         }
 
+        let prev_k = self.containers.get_key_by_monitor(trg_monitor)?;
+        let trg_monitor_area = self
+            .managed_monitors
+            .get(trg_monitor)
+            .map(|m| m.info.get_workspace())
+            .ok_or(Error::NoWindow)?;
+
         self.remove(win)?;
-        self.activate_workspace(&prev_k.monitor, workspace, true, false).ok();
-        self.add(win, None, false, true)?;
-        self.activate_workspace(&prev_k.monitor, &prev_k.workspace, true, false)
+        self.activate_workspace(&trg_monitor, workspace, true, false).ok();
+        self.add(win, Some(trg_monitor_area.get_center()), false, true)?;
+        self.activate_workspace(&trg_monitor, &prev_k.workspace, true, false)
             .ok();
         Ok(Success::LayoutChanged)
     }

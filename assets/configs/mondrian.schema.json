@@ -702,13 +702,13 @@
           "pattern": "^peek (left|right|up|down) (1[0-9]|[2-8][0-9]|90)$"
         },
         {
-          "pattern": "^focus-workspace ([a-zA-Z0-9_.\\-:]{1,32})$"
+          "pattern": "^focus-workspace ([a-zA-Z0-9_.\\-:]{1,32})( ([a-zA-Z0-9_.\\-:]+|'[a-zA-Z0-9_.\\-: ]+'))?$"
         },
         {
-          "pattern": "^move-to-workspace ([a-zA-Z0-9_.\\-:]{1,32})$"
+          "pattern": "^move-to-workspace ([a-zA-Z0-9_.\\-:]{1,32})( ([a-zA-Z0-9_.\\-:]+|'[a-zA-Z0-9_.\\-: ]+'))?$"
         },
         {
-          "pattern": "^move-to-workspace-silent ([a-zA-Z0-9_.\\-:]{1,32})$"
+          "pattern": "^move-to-workspace-silent ([a-zA-Z0-9_.\\-:]{1,32})( ([a-zA-Z0-9_.\\-:]+|'[a-zA-Z0-9_.\\-: ]+'))?$"
         }
       ]
     },

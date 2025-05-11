@@ -12,7 +12,10 @@ pub enum TMCommand {
     Close,
     Topmost,
     SwitchFocus,
-    FocusWorkspace { id: String },
+    FocusWorkspace {
+        id: String,
+        monitor: Option<String>,
+    },
     Insert(Direction),
     Move(Direction, bool, u16),
     Resize(Direction, u16, u16),
@@ -28,7 +31,11 @@ pub enum TMCommand {
     Minimize,
     Quit,
     Amplify,
-    MoveToWorkspace { id: String, focus: bool },
+    MoveToWorkspace {
+        id: String,
+        focus: bool,
+        monitor: Option<String>,
+    },
 }
 
 impl TMCommand {
@@ -85,10 +92,14 @@ impl TryFrom<&MondrianMessage> for TMCommand {
             MondrianMessage::Minimize => Ok(TMCommand::Minimize),
             MondrianMessage::Focus(direction) => Ok(TMCommand::Focus(*direction)),
             MondrianMessage::FocusMonitor(direction) => Ok(TMCommand::FocusMonitor(*direction)),
-            MondrianMessage::FocusWorkspace { id } => Ok(TMCommand::FocusWorkspace { id: id.clone() }),
-            MondrianMessage::MoveToWorkspace { id, focus } => Ok(TMCommand::MoveToWorkspace {
+            MondrianMessage::FocusWorkspace { id, monitor } => Ok(TMCommand::FocusWorkspace {
+                id: id.clone(),
+                monitor: monitor.clone(),
+            }),
+            MondrianMessage::MoveToWorkspace { id, focus, monitor } => Ok(TMCommand::MoveToWorkspace {
                 id: id.clone(),
                 focus: *focus,
+                monitor: monitor.clone(),
             }),
             MondrianMessage::SwitchFocus => Ok(TMCommand::SwitchFocus),
             MondrianMessage::Move(direction, floating_inc) => Ok(TMCommand::Move(*direction, false, *floating_inc)),
