@@ -1,36 +1,53 @@
 use crate::app::{configs::AppConfig, mondrian_message::MondrianMessage};
 use inputbot::KeybdKey::{self, *};
-use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Error, Deserialize, Deserializer};
 use std::collections::HashMap;
+use std::fmt::Debug;
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Default)]
 #[serde(default, deny_unknown_fields)]
 pub struct KeybindingsModuleConfigs {
     pub enabled: bool,
+
+    #[serde(deserialize_with = "deserialize_bindings")]
     pub bindings: Vec<Binding>,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[serde(try_from = "ExternalBinding", into = "ExternalBinding")]
+#[derive(Clone, Debug)]
 pub struct Binding {
     modifiers: Vec<KeybdKey>,
     key: KeybdKey,
     action: MondrianMessage,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug)]
+enum ModifierKey {
+    Shift,
+    Control,
+    Alt,
+    Win,
+    LeftShift,
+    RightShift,
+    LeftControl,
+    RightControl,
+    LeftAlt,
+    RightAlt,
+    LeftWin,
+    RightWin,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 struct ExternalBinding {
     #[serde(
         default,
         alias = "modifier",
         alias = "mod",
-        deserialize_with = "deserialize_modifiers",
-        serialize_with = "serialize_modifiers"
+        deserialize_with = "deserialize_modifiers"
     )]
-    pub modifiers: Vec<KeybdKey>,
+    pub modifiers: Vec<ModifierKey>,
 
-    #[serde(deserialize_with = "deserialize_key", serialize_with = "serialize_key")]
+    #[serde(deserialize_with = "deserialize_key")]
     pub key: KeybdKey,
     pub action: MondrianMessage,
 }
@@ -99,30 +116,69 @@ impl Binding {
     }
 }
 
-impl TryFrom<ExternalBinding> for Binding {
-    type Error = String;
-    fn try_from(binding: ExternalBinding) -> Result<Binding, String> {
-        Binding::new(binding.modifiers, binding.key, binding.action)
-    }
-}
-
-impl From<Binding> for ExternalBinding {
-    fn from(binding: Binding) -> Self {
-        ExternalBinding {
-            modifiers: binding.modifiers,
-            key: binding.key,
-            action: binding.action,
-        }
-    }
-}
-
 impl From<&AppConfig> for KeybindingsModuleConfigs {
     fn from(app_configs: &AppConfig) -> Self {
         app_configs.modules.keybindings.clone()
     }
 }
 
-fn deserialize_modifiers<'de, D>(deserializer: D) -> Result<Vec<KeybdKey>, D::Error>
+fn cartesian_product<T: Clone>(lists: &[Vec<T>]) -> Vec<Vec<T>> {
+    let mut results: Vec<Vec<T>> = vec![vec![]];
+
+    for list in lists {
+        let mut new_results = Vec::new();
+        for result in &results {
+            for item in list {
+                let mut new_combination = result.clone();
+                new_combination.push(item.clone());
+                new_results.push(new_combination);
+            }
+        }
+        results = new_results;
+    }
+    results
+}
+
+fn deserialize_bindings<'de, D>(deserializer: D) -> Result<Vec<Binding>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let bindings: Vec<ExternalBinding> = Vec::deserialize(deserializer)?;
+    let bindings: Vec<Binding> = bindings
+        .iter()
+        .flat_map(|b| {
+            let modifiers: Vec<Vec<KeybdKey>> = b
+                .modifiers
+                .iter()
+                .map(|m| match m {
+                    ModifierKey::Alt => vec![LAltKey, RAltKey],
+                    ModifierKey::Control => vec![LControlKey, RControlKey],
+                    ModifierKey::Shift => vec![LShiftKey, RShiftKey],
+                    ModifierKey::Win => vec![LSuper, RSuper],
+                    ModifierKey::LeftAlt => vec![LAltKey],
+                    ModifierKey::LeftControl => vec![LControlKey],
+                    ModifierKey::LeftShift => vec![LShiftKey],
+                    ModifierKey::LeftWin => vec![LSuper],
+                    ModifierKey::RightAlt => vec![RAltKey],
+                    ModifierKey::RightControl => vec![RControlKey],
+                    ModifierKey::RightShift => vec![RShiftKey],
+                    ModifierKey::RightWin => vec![RSuper],
+                })
+                .collect();
+
+            let bindings: Vec<Binding> = cartesian_product(&modifiers)
+                .iter()
+                .filter_map(|p| Binding::new(p.clone(), b.key, b.action.clone()).ok())
+                .collect();
+
+            bindings
+        })
+        .collect();
+
+    Ok(bindings)
+}
+
+fn deserialize_modifiers<'de, D>(deserializer: D) -> Result<Vec<ModifierKey>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -139,7 +195,7 @@ where
         .collect();
     keys.sort();
     keys.dedup();
-    let parsed_keys: Vec<KeybdKey> = keys.iter().filter_map(|s| parse_modifier(s.clone())).collect();
+    let parsed_keys: Vec<ModifierKey> = keys.iter().filter_map(|s| parse_modifier(s.clone())).collect();
     if keys.len() != parsed_keys.len() {
         return Err(D::Error::custom(format!("Invalid modifiers: {}", s)));
     }
@@ -157,28 +213,20 @@ where
     }
 }
 
-// FIX: probably doesn't work as expected
-fn serialize_modifiers<S>(modifiers: &[inputbot::KeybdKey], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let keys: Vec<String> = modifiers.iter().map(|k| k.to_string()).collect();
-    serializer.serialize_str(&keys.join("+"))
-}
-
-fn serialize_key<S>(key: &inputbot::KeybdKey, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&key.to_string())
-}
-
-fn parse_modifier(modifier: String) -> Option<inputbot::KeybdKey> {
+fn parse_modifier(modifier: String) -> Option<ModifierKey> {
     match modifier.trim().to_uppercase().as_str() {
-        "ALT" => Some(LAltKey),
-        "CTRL" => Some(LControlKey),
-        "SHIFT" => Some(LShiftKey),
-        "WIN" => Some(LSuper),
+        "ALT" => Some(ModifierKey::Alt),
+        "CTRL" => Some(ModifierKey::Control),
+        "SHIFT" => Some(ModifierKey::Shift),
+        "WIN" => Some(ModifierKey::Win),
+        "LALT" => Some(ModifierKey::LeftAlt),
+        "LCTRL" => Some(ModifierKey::LeftControl),
+        "LSHIFT" => Some(ModifierKey::LeftShift),
+        "LWIN" => Some(ModifierKey::LeftWin),
+        "RALT" => Some(ModifierKey::RightAlt),
+        "RCTRL" => Some(ModifierKey::RightControl),
+        "RSHIFT" => Some(ModifierKey::RightShift),
+        "RWIN" => Some(ModifierKey::RightWin),
         _ => None,
     }
 }

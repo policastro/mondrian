@@ -153,7 +153,9 @@ bindings = [
 ]
 ```
 
-The **available modifiers** are `ALT`, `CTRL`, `SHIFT`, `WIN` or any combination of them joined by `+` (e.g. `ALT+SHIFT`).
+The **available modifiers** are `LALT`/`RALT`, `LCTRL`/`RCTRL`, `LSHIFT`/`RSHIFT`, `LWIN`/`RWIN` or any combination of them joined by `+` (e.g. `LALT+LSHIFT`).
+If you omit the left/right prefix (e.g. use `ALT` instead of `LALT` or `RALT`), the binding will be created for both the left and right versions: for instance, `ALT+LSHIFT` is equivalent to creating a binding with `LALT+LSHIFT` and one with `RALT+LSHIFT`.
+Without the prefix you use both the left and right versions of the modifier (e.g. `ALT` instead of `LALT` and `RALT`).
 This parameter is required, except when the `key` is a function key, in which case it can be omitted.
 
 The **available keys** are:

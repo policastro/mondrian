@@ -11,11 +11,10 @@ use general::General;
 use layout::Layout;
 use monitors::MonitorConfig;
 use serde::Deserialize;
-use serde::Serialize;
 use std::collections::HashMap;
 use workspaces::WorkspaceConfig;
 
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+#[derive(Deserialize, Debug, Clone, Default)]
 #[serde(default, deny_unknown_fields)]
 pub(super) struct AppConfigExternal {
     pub general: General,

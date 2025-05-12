@@ -495,9 +495,9 @@ impl TilesManagerOperations for TilesManager {
             .ok_or(Error::NoWindow)?;
 
         self.remove(win)?;
-        self.activate_workspace(&trg_monitor, workspace, true, false).ok();
+        self.activate_workspace(trg_monitor, workspace, true, false).ok();
         self.add(win, Some(trg_monitor_area.get_center()), false, true)?;
-        self.activate_workspace(&trg_monitor, &prev_k.workspace, true, false)
+        self.activate_workspace(trg_monitor, &prev_k.workspace, true, false)
             .ok();
         Ok(Success::LayoutChanged)
     }
@@ -540,7 +540,7 @@ impl TilesManager {
         leaves: &[AreaLeaf<WindowRef>],
         edge: [(i32, i32); 2],
     ) -> Option<AreaLeaf<WindowRef>> {
-        let leaves = leaves_limited_by_edge(&leaves, direction, edge);
+        let leaves = leaves_limited_by_edge(leaves, direction, edge);
         if self.config.history_based_navigation {
             let leaves: Vec<AreaLeaf<WindowRef>> = leaves.iter().filter(|l| l.id != excluded_window).copied().collect();
             let leaf = self.focus_history.latest(&leaves).copied();
@@ -549,7 +549,7 @@ impl TilesManager {
             }
         }
         leaves
-            .get(0)
+            .first()
             .filter(|l| l.id != excluded_window)
             .or_else(|| leaves.get(1))
             .copied()

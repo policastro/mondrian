@@ -22,7 +22,7 @@ pub struct AddOptions {
 impl AddOptions {
     pub fn merge_with_rule(&mut self, other: &WindowRule) {
         match &other.behavior {
-            WindowBehavior::Float { config } => self.floating_config = Some(config.clone()),
+            WindowBehavior::Float { config } => self.floating_config = Some(*config),
             WindowBehavior::Insert {
                 monitor,
                 workspace,
@@ -52,7 +52,7 @@ impl Rules for Vec<WindowRule> {
             options.merge_with_rule(rule);
         });
         match empty {
-            true => return None,
+            true => None,
             false => Some(options),
         }
     }

@@ -241,7 +241,7 @@ fn init_logger(file_all: bool, file_errors: bool, level: log::LevelFilter) {
 
 fn log_info() {
     for m in enum_display_monitors() {
-        log::error!(
+        log::info!(
             "Monitor detected {{ ID: {}, primary: {}, resolution: {} x {} }}",
             m.id,
             if m.primary { "Yes" } else { "No" },

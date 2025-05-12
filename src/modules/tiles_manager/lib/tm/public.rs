@@ -558,7 +558,7 @@ impl TilesManagerCommands for TilesManager {
 
         let edge = closest.value.tree().get_area().get_corners(direction.opposite());
         let leaves = leaves_limited_by_edge(&leaves, direction, edge);
-        if let Some(leaf) = leaves.get(0) {
+        if let Some(leaf) = leaves.first() {
             self.focus_leaf(leaf);
             return Ok(());
         }

@@ -120,7 +120,7 @@ pub fn get_executable_path(hwnd: HWND) -> Option<String> {
 
 pub fn get_executable_name(hwnd: HWND) -> Option<String> {
     match get_executable_path(hwnd) {
-        Some(path) => path.split('\\').last().map(|s| s.to_string()),
+        Some(path) => path.split('\\').next_back().map(|s| s.to_string()),
         None => None,
     }
 }
