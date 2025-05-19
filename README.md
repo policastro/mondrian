@@ -233,7 +233,7 @@ rules = [
     { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behavior.behavior2 = {param = "value" } },
 
     # Multiple behaviors
-    { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behaviors = ["behavior1", { behavior2 = { param = "value" } }] }
+    { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" }, behaviors = ["behavior1", { behavior2 = { param = "value" } }] },
 
     # Invalid rules
     # { filter = { title = "TITLE", exename = "EXENAME", classname = "CLASSNAME", style = "STYLE" } } # missing behavior/behaviors
@@ -270,7 +270,7 @@ rules = [
 
    # Match any window with a title that matches the regex "Title[0-9]"
    # For the `float` behavior, `topmost` and `size` are inherited from the global options
-   { filter = { title = "/Title[0-9]/" }, behaviors = ["float", { insert = { monitor = "MONITOR2" } }] }
+   { filter = { title = "/Title[0-9]/" }, behaviors = ["float", { insert = { monitor = "MONITOR2" } }] },
 
    # Match any window with a title="Title"
    # overrides `general.floating_wins.topmost` and `general.floating_wins.size`
