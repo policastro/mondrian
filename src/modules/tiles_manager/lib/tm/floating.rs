@@ -4,6 +4,7 @@ use super::TilesManager;
 use crate::app::mondrian_message::WindowTileState;
 use crate::app::structs::direction::Direction;
 use crate::app::structs::orientation::Orientation;
+use crate::modules::tiles_manager::lib::structs::virtual_desktop::VirtualDesktop;
 use crate::modules::tiles_manager::lib::utils::find_nearest_candidate;
 use crate::win32::api::cursor::set_cursor_pos;
 use crate::win32::window::window_obj::WindowObjHandler;
@@ -11,6 +12,7 @@ use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use utils::*;
+use winvd::is_window_on_desktop;
 
 type Success = TilesManagerSuccess;
 type Error = TilesManagerError;
@@ -125,7 +127,7 @@ impl TilesManagerFloating for TilesManager {
         let curr_area = window.get_area().ok_or(Error::NoWindowsInfo)?;
         let candidates: Vec<(WindowRef, _)> = self
             .floating_wins
-            .enabled_keys()
+            .enabled_keys(&self.current_vd)
             .filter(|w| *w != window)
             .filter_map(|w| w.get_area().map(|a| (w, a)))
             .collect();
@@ -160,7 +162,7 @@ impl FloatingProperties {
 }
 
 pub trait FloatingWindows {
-    fn enabled_keys(&self) -> impl Iterator<Item = WindowRef>;
+    fn enabled_keys(&self, vd: &VirtualDesktop) -> impl Iterator<Item = WindowRef>;
     fn locked(&self, window: &WindowRef) -> Option<bool>;
     fn set_properties(&mut self, window: &WindowRef, minimized: bool, locked: bool);
     fn set_all_locked(&mut self, locked: bool);
@@ -170,8 +172,10 @@ pub trait FloatingWindows {
 }
 
 impl FloatingWindows for HashMap<WindowRef, FloatingProperties> {
-    fn enabled_keys(&self) -> impl Iterator<Item = WindowRef> {
-        self.iter().filter(|(_, props)| !props.minimized).map(|(key, _)| *key)
+    fn enabled_keys(&self, vd: &VirtualDesktop) -> impl Iterator<Item = WindowRef> {
+        self.iter()
+            .filter(|(w, props)| !props.minimized && is_window_on_desktop(vd.get_desktop(), w.hwnd).unwrap_or(true))
+            .map(|(key, _)| *key)
     }
 
     fn set_all_locked(&mut self, locked: bool) {

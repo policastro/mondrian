@@ -146,7 +146,7 @@ impl TilesManager {
 
         let floating = self
             .floating_wins
-            .enabled_keys()
+            .enabled_keys(&self.current_vd)
             .map(|w| (w, WindowTileState::Floating));
 
         tiled.extend(floating);

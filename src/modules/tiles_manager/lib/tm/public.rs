@@ -588,7 +588,7 @@ impl TilesManagerCommands for TilesManager {
                 .focus();
         } else if !matches!(tile_state, WindowTileState::Maximized) {
             self.floating_wins
-                .enabled_keys()
+                .enabled_keys(&self.current_vd)
                 .filter_map(|w| w.get_area().map(|a| (w, a.get_center())))
                 .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
                 .ok_or(Error::NoWindow)?
