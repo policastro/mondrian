@@ -61,6 +61,7 @@ pub struct AppConfig {
     pub floating_wins_config: FloatingWinsConfig,
     pub default_workspace: String,
     pub ignore_filter: WinMatcher,
+    pub delayed_filter: Vec<(WinMatcher, u32)>,
     pub rules: Vec<WindowRule>,
     pub tiles_pad: u8,
     pub borders_pads: Paddings,
@@ -91,7 +92,8 @@ impl TryFrom<AppConfigExternal> for AppConfig {
         }
 
         let floating_wins_config = v.general.floating_wins.into();
-        let (ignore_filter, other_rules) = extract_rules(&v.core.ignore_rules, &v.core.rules, &v.general.floating_wins);
+        let (ignore_filter, delayed_filter, other_rules) =
+            extract_rules(&v.core.ignore_rules, &v.core.rules, &v.general.floating_wins);
         let layout_strategy = utils::get_layout_strategy(&v.layout.tiling_strategy, &v.layout.strategy);
         let monitors_config = utils::get_monitors_config(&v.monitors, &v.layout, &v.general.default_workspace);
         let workspaces_config = utils::get_workspaces_config(&v.workspaces, &v.monitors, &v.layout);
@@ -114,6 +116,7 @@ impl TryFrom<AppConfigExternal> for AppConfig {
             floating_wins_config,
             default_workspace: v.general.default_workspace,
             ignore_filter,
+            delayed_filter,
             rules: other_rules,
             tiles_pad: v.layout.paddings.tiles,
             borders_pads: v.layout.paddings.borders,

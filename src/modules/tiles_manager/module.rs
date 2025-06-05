@@ -233,6 +233,7 @@ fn handle_tm(tm: &mut TilesManager, tx: &Sender<MondrianMessage>, event: TMComma
                     MoveSizeResult::None => Ok(()),
                 }
             }
+            WindowEvent::Repositioned(w) => tm.reposition_window(w),
             WindowEvent::Focused(winref) => tm.on_focus(winref),
         },
         TMCommand::SystemEvent(evt) => match evt {

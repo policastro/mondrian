@@ -194,6 +194,22 @@ impl TilesManager {
         Ok(())
     }
 
+    /// Repositions a window
+    pub fn reposition_window(&mut self, window: WindowRef) -> Result<(), Error> {
+        let leaf = self.containers.find_leaf(window)?;
+        let maximized = self.maximized_wins.clone();
+
+        self.animation_player.queue(window, leaf.viewbox, None);
+        self.animation_player.play(
+            self.config.animation.animation_type,
+            None,
+            Some(Arc::new(move || {
+                maximized.iter().for_each(|w| w.to_front());
+            })),
+        );
+        Ok(())
+    }
+
     /// Pause the updates of the tiles manager (i.e. prevents `update_layout` from executing)
     pub fn pause_updates(&mut self, pause: bool) {
         self.pause_updates = pause;

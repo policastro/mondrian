@@ -48,6 +48,7 @@ impl TMCommand {
                 | WindowEvent::Restored(..)
                 | WindowEvent::Maximized(..)
                 | WindowEvent::Unmaximized(..)
+                | WindowEvent::Repositioned(..)
                 | WindowEvent::EndMoveSize(..) => true,
                 WindowEvent::Focused(..) | WindowEvent::StartMoveSize(..) => false,
             },

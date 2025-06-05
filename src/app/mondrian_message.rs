@@ -120,6 +120,7 @@ pub enum WindowEvent {
     Focused(WindowRef),
     StartMoveSize(WindowRef),
     EndMoveSize(WindowRef, MoveSizeResult),
+    Repositioned(WindowRef),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -140,6 +141,7 @@ impl WindowEvent {
             | WindowEvent::Unmaximized(winref)
             | WindowEvent::Focused(winref)
             | WindowEvent::StartMoveSize(winref)
+            | WindowEvent::Repositioned(winref)
             | WindowEvent::EndMoveSize(winref, _) => *winref,
         }
     }

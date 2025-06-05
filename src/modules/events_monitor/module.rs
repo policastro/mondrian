@@ -130,11 +130,16 @@ impl EventsMonitor {
         let thread_id = self.win_events_thread_id.clone();
         let bus_tx = self.bus_tx.clone();
         let filter = self.configs.filter.clone().unwrap();
+        let delayed_filter = self.configs.delayed_filter.clone();
         self.win_events_thread = Some(thread::spawn(move || {
             thread_id.store(get_current_thread_id(), Ordering::SeqCst);
 
             let mut wem = WindowsEventManager::new();
-            wem.hook(OpenCloseEventHandler::new(bus_tx.clone(), filter.clone()));
+            wem.hook(OpenCloseEventHandler::new(
+                bus_tx.clone(),
+                filter.clone(),
+                delayed_filter,
+            ));
             wem.hook(MinimizeEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(FocusEventHandler::new(bus_tx.clone(), filter.clone()));
             wem.hook(PositionEventHandler::new(

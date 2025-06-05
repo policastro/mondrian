@@ -1,8 +1,6 @@
-use std::collections::HashSet;
-
-use crate::app::structs::win_matcher::WinMatcher;
-
 use super::{external, floating::FloatingWinsConfig};
+use crate::app::structs::win_matcher::WinMatcher;
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WindowRule {
@@ -26,11 +24,24 @@ pub(crate) fn extract_rules(
     ignore_filters: &[WinMatcher],
     rules: &[external::core::WindowRule],
     floating_wins_ext: &external::general::FloatingWinsConfig,
-) -> (WinMatcher, Vec<WindowRule>) {
+) -> (WinMatcher, Vec<(WinMatcher, u32)>, Vec<WindowRule>) {
     let (mut ignore_rules, other_rules): (Vec<_>, Vec<external::core::WindowRule>) = rules
         .iter()
         .cloned()
         .partition(|r| matches!(r.behavior, external::core::WindowBehavior::Ignore));
+
+    let (delayed_filter, other_rules): (Vec<_>, Vec<external::core::WindowRule>) = other_rules
+        .iter()
+        .cloned()
+        .partition(|r| matches!(r.behavior, external::core::WindowBehavior::DelayInsert { .. }));
+
+    let delayed_filter = delayed_filter
+        .iter()
+        .map(|r| match &r.behavior {
+            external::core::WindowBehavior::DelayInsert { delay: wait } => (r.filter.clone(), *wait),
+            _ => unreachable!(),
+        })
+        .collect();
 
     if !ignore_filters.is_empty() {
         let rules = ignore_filters
@@ -55,7 +66,9 @@ pub(crate) fn extract_rules(
         .map(|r| WindowRule {
             filter: r.filter.clone(),
             behavior: match &r.behavior {
-                external::core::WindowBehavior::Ignore => unreachable!(),
+                external::core::WindowBehavior::Ignore | external::core::WindowBehavior::DelayInsert { .. } => {
+                    unreachable!()
+                }
                 external::core::WindowBehavior::Float {
                     topmost,
                     size,
@@ -87,5 +100,5 @@ pub(crate) fn extract_rules(
         })
         .collect();
 
-    (ignore_filter, other_rules)
+    (ignore_filter, delayed_filter, other_rules)
 }

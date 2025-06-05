@@ -588,12 +588,13 @@
       "oneOf": [
         {
           "type": "string",
-          "enum": ["float", "ignore"],
+          "enum": ["float", "ignore", "delayinsert"],
           "x-taplo": {
             "docs": {
               "enumValues": [
                 "Make the window floating",
-                "Don't manage the window"
+                "Don't manage the window",
+                "Delay the insertion of the window"
               ]
             }
           }
@@ -643,6 +644,25 @@
                   "description": "Settings for floating windows."
                 }
               ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "delayinsert": {
+              "type": "object",
+              "description": "Delay the insertion of the window.",
+              "properties": {
+                "delay": {
+                  "type": "integer",
+                  "description": "Delay in milliseconds (default: 500).",
+                  "minimum": 10,
+                  "maximum": 20000
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false

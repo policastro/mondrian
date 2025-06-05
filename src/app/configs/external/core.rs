@@ -27,9 +27,12 @@ pub enum WindowBehaviorRaw {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "snake_case")]
+#[serde(deny_unknown_fields, rename_all = "lowercase")]
 pub enum WindowBehavior {
     Ignore,
+    DelayInsert {
+        delay: u32,
+    },
     Float {
         topmost: Option<bool>,
         centered: Option<bool>,
@@ -51,6 +54,7 @@ impl TryFrom<WindowBehaviorRaw> for WindowBehavior {
         match value {
             WindowBehaviorRaw::Shortcut(s) => match s.as_str() {
                 "ignore" => Ok(WindowBehavior::Ignore),
+                "delayinsert" => Ok(WindowBehavior::DelayInsert { delay: 500 }),
                 "float" => Ok(WindowBehavior::Float {
                     topmost: None,
                     size: None,
@@ -74,6 +78,9 @@ impl TryFrom<WindowBehaviorRaw> for WindowBehavior {
                 }
                 WindowBehavior::Insert { monitor, workspace, .. } if monitor.is_none() && workspace.is_none() => {
                     Err("A monitor or a workspace must be specified".to_string())
+                }
+                WindowBehavior::DelayInsert { delay } if !(10..=20000).contains(&delay) => {
+                    Err("Delay must be between 10 and 20000 milliseconds".to_string())
                 }
                 _ => Ok(w),
             },
