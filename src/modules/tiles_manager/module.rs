@@ -17,11 +17,10 @@ use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::monitor::enum_display_monitors;
 use crate::win32::window::window_obj::WindowObjInfo;
+use crossbeam_channel::Receiver;
+use crossbeam_channel::Sender;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 
@@ -119,7 +118,7 @@ impl ModuleImpl for TilesManagerModule {
 
         self.running.store(true, Ordering::SeqCst);
 
-        let (event_sender, event_receiver) = channel();
+        let (event_sender, event_receiver) = crossbeam_channel::unbounded();
         self.tm_command_tx = Some(event_sender.clone());
         self.start_tiles_manager(event_receiver);
 

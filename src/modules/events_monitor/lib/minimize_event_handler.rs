@@ -5,7 +5,7 @@ use crate::app::structs::win_matcher::WinMatcher;
 use crate::win32::api::window::is_user_manageable_window;
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
-use std::sync::mpsc::Sender;
+use crossbeam_channel::Sender;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZEEND;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_MINIMIZESTART;
 

@@ -5,8 +5,8 @@ use crate::win32::api::window::{has_child_window_style, is_fullscreen, is_maximi
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_ref::WindowRef;
+use crossbeam_channel::Sender;
 use std::collections::HashSet;
-use std::sync::mpsc::Sender;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_OBJECT_LOCATIONCHANGE;
 
 pub struct MaximizeEventHandler {

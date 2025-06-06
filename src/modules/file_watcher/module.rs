@@ -2,13 +2,13 @@ use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
 use crate::modules::Module;
+use crossbeam_channel::Sender;
 use notify::RecommendedWatcher;
 use notify_debouncer_mini::DebounceEventResult;
 use notify_debouncer_mini::DebouncedEventKind;
 use notify_debouncer_mini::Debouncer;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 pub struct FileWatcher {

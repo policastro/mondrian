@@ -6,7 +6,7 @@ use crate::win32::api::window::{get_desktop_window, is_program_manager_window, i
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_ref::WindowRef;
-use std::sync::mpsc::Sender;
+use crossbeam_channel::Sender;
 use windows::Win32::UI::WindowsAndMessaging::EVENT_SYSTEM_FOREGROUND;
 
 pub struct FocusEventHandler {

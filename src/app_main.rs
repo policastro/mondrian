@@ -15,6 +15,7 @@ use crate::modules::{Module, ModuleEnum};
 use crate::win32::api::gdiplus::{init_gdiplus, shutdown_gdiplus};
 use crate::win32::api::monitor::enum_display_monitors;
 use clap::Parser;
+use crossbeam_channel::Sender;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
@@ -26,7 +27,6 @@ use log4rs::encode::pattern::PatternEncoder;
 use log4rs::filter::threshold::ThresholdFilter;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
 use windows::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
@@ -71,7 +71,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     };
     let shared_config = Arc::new(RwLock::new(config));
 
-    let (bus_tx, bus_rx) = std::sync::mpsc::channel();
+    let (bus_tx, bus_rx) = crossbeam_channel::unbounded();
     let modules: Vec<ModuleEnum> = vec![
         Logger::new().into(),
         EventsMonitor::new(bus_tx.clone()).into(),
@@ -90,7 +90,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
         }
 
         let local_shared_config = shared_config.clone();
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, rx) = crossbeam_channel::unbounded();
         let th = thread::spawn(move || {
             let mut config = local_shared_config.read().unwrap().clone();
 

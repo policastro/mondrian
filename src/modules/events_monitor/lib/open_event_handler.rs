@@ -5,9 +5,8 @@ use crate::win32::api::window::{enum_user_manageable_windows, is_user_manageable
 use crate::win32::callbacks::win_event_hook::WindowsEvent;
 use crate::win32::win_events_manager::WinEventHandler;
 use crate::win32::window::window_ref::WindowRef;
+use crossbeam_channel::Sender;
 use std::collections::HashSet;
-use std::sync::mpsc;
-use std::sync::mpsc::Sender;
 use std::thread;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -82,7 +81,7 @@ impl WinEventHandler for OpenCloseEventHandler {
             .map(|w| w.hwnd.into())
             .collect();
 
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = crossbeam_channel::unbounded();
         self.message_queue_tx = Some(tx);
         let sender = self.sender.clone();
         self.message_queue_thread = Some(thread::spawn(move || loop {
