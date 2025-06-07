@@ -15,6 +15,7 @@ use crate::modules::{Module, ModuleEnum};
 use crate::win32::api::gdiplus::{init_gdiplus, shutdown_gdiplus};
 use crate::win32::api::monitor::enum_display_monitors;
 use clap::Parser;
+use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
@@ -62,13 +63,9 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     }
     init_gdiplus();
 
-    let config = match init_configs(cfg_file) {
-        Ok(c) => c,
-        Err(e) => {
-            log::error!("Failed to initialize configs: {}! Using default configs ...", e);
-            AppConfig::default()
-        }
-    };
+    let config = load_configs(cfg_file)
+        .inspect_err(|e| log::error!("Can't read config file: {}", e))
+        .unwrap_or_default();
     let shared_config = Arc::new(RwLock::new(config));
 
     let (bus_tx, bus_rx) = crossbeam_channel::unbounded();
@@ -83,6 +80,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     ];
 
     let mut modules_map: HashMap<String, (Sender<MondrianMessage>, JoinHandle<()>)> = HashMap::new();
+
     for mut m in modules.into_iter() {
         let module_name = m.name().to_lowercase();
         if modules_map.contains_key(&module_name) {
@@ -91,25 +89,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
 
         let local_shared_config = shared_config.clone();
         let (tx, rx) = crossbeam_channel::unbounded();
-        let th = thread::spawn(move || {
-            let mut config = local_shared_config.read().unwrap().clone();
-
-            m.handle(&MondrianMessage::Configure, &config);
-            m.start();
-            log::info!("Module '{}' started", m.name());
-
-            loop {
-                let event = if let Ok(e) = rx.recv() { e } else { continue };
-                if matches!(event, MondrianMessage::RefreshConfig) {
-                    config = local_shared_config.read().unwrap().clone();
-                }
-                m.handle(&event, &config);
-                if matches!(event, MondrianMessage::Quit) {
-                    log::info!("Module '{}' stopped", m.name());
-                    break;
-                }
-            }
-        });
+        let th = thread::spawn(move || module_handler(&mut m, local_shared_config, rx));
 
         modules_map.insert(module_name, (tx, th));
     }
@@ -118,55 +98,13 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
         bus_tx.send(MondrianMessage::QueryInfo).ok();
     }
 
-    loop {
-        let event = if let Ok(e) = bus_rx.recv() { e } else { continue };
-
-        match &event {
-            MondrianMessage::QueryInfo => {
-                bus_tx
-                    .send(MondrianMessage::QueryInfoResponse {
-                        name: "General".to_string(),
-                        icon: InfoEntryIcon::General,
-                        infos: get_info_entries(cfg_file),
-                    })
-                    .ok();
-            }
-            MondrianMessage::RefreshConfig => {
-                if let Ok(c) = init_configs(cfg_file).inspect_err(|e| log::error!("Can't read config file: {}", e)) {
-                    shared_config.write().unwrap().clone_from(&c);
-                }
-            }
-            _ => (),
-        }
-
-        match &event {
-            MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
-            MondrianMessage::OpenLogFolder => drop(open::that("logs")),
-            MondrianMessage::About => drop(open::that("https://github.com/policastro/mondrian")),
-            MondrianMessage::PauseModule(name, pause) => {
-                if let Some((tx, _)) = modules_map.get_mut(name) {
-                    tx.send(MondrianMessage::Pause(*pause)).ok();
-                };
-            }
-            event => modules_map.values_mut().for_each(|(tx, _)| {
-                tx.send(event.clone()).ok();
-            }),
-        }
-
-        if matches!(event, MondrianMessage::Quit) {
-            for (_, m) in modules_map.into_iter() {
-                m.1.join().ok();
-            }
-            break;
-        }
-    }
-
+    event_dispatcher(bus_rx, bus_tx, modules_map, shared_config, cfg_file);
     shutdown_gdiplus();
 
     log::info!("Application stopped!");
 }
 
-fn init_configs(app_cfg_file: &PathBuf) -> Result<AppConfig, String> {
+fn load_configs(app_cfg_file: &PathBuf) -> Result<AppConfig, String> {
     if !app_cfg_file.parent().unwrap().exists() {
         std::fs::create_dir_all(app_cfg_file.parent().unwrap()).unwrap();
     }
@@ -252,10 +190,81 @@ fn log_info() {
 }
 
 fn get_info_entries(cfg_file: &PathBuf) -> Vec<InfoEntry> {
-    let configs = init_configs(cfg_file);
+    let configs = load_configs(cfg_file);
     let configs_info = configs
         .map(|_| "Ok".to_string())
         .unwrap_or_else(|e| format!("ERROR - {:?}", e));
     let infos = InfoEntry::simple("Configuration", configs_info).with_icon(InfoEntryIcon::Configs);
     vec![infos]
+}
+
+fn module_handler(m: &mut ModuleEnum, shared_config: Arc<RwLock<AppConfig>>, rx: Receiver<MondrianMessage>) {
+    let mut config = shared_config.read().unwrap().clone();
+
+    m.handle(&MondrianMessage::Configure, &config);
+    m.start();
+    log::info!("Module '{}' started", m.name());
+
+    loop {
+        let event = if let Ok(e) = rx.recv() { e } else { continue };
+        if matches!(event, MondrianMessage::RefreshConfig) {
+            config = shared_config.read().unwrap().clone();
+        }
+        m.handle(&event, &config);
+        if matches!(event, MondrianMessage::Quit) {
+            log::info!("Module '{}' stopped", m.name());
+            break;
+        }
+    }
+}
+
+fn event_dispatcher(
+    bus_rx: Receiver<MondrianMessage>,
+    bus_tx: Sender<MondrianMessage>,
+    mut modules_map: HashMap<String, (Sender<MondrianMessage>, JoinHandle<()>)>,
+    shared_config: Arc<RwLock<AppConfig>>,
+    cfg_file: &PathBuf,
+) {
+    loop {
+        let event = if let Ok(e) = bus_rx.recv() { e } else { continue };
+
+        match &event {
+            MondrianMessage::QueryInfo => {
+                bus_tx
+                    .send(MondrianMessage::QueryInfoResponse {
+                        name: "General".to_string(),
+                        icon: InfoEntryIcon::General,
+                        infos: get_info_entries(cfg_file),
+                    })
+                    .ok();
+            }
+            MondrianMessage::RefreshConfig => {
+                if let Ok(c) = load_configs(cfg_file).inspect_err(|e| log::error!("Can't read config file: {}", e)) {
+                    shared_config.write().unwrap().clone_from(&c);
+                }
+            }
+            _ => (),
+        }
+
+        match &event {
+            MondrianMessage::OpenConfig => drop(open::that(cfg_file.clone())),
+            MondrianMessage::OpenLogFolder => drop(open::that("logs")),
+            MondrianMessage::About => drop(open::that("https://github.com/policastro/mondrian")),
+            MondrianMessage::PauseModule(name, pause) => {
+                if let Some((tx, _)) = modules_map.get_mut(name) {
+                    tx.send(MondrianMessage::Pause(*pause)).ok();
+                };
+            }
+            event => modules_map.values_mut().for_each(|(tx, _)| {
+                tx.send(event.clone()).ok();
+            }),
+        }
+
+        if matches!(event, MondrianMessage::Quit) {
+            for (_, m) in modules_map.into_iter() {
+                m.1.join().ok();
+            }
+            break;
+        }
+    }
 }
