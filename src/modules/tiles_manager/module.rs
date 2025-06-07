@@ -13,6 +13,7 @@ use crate::app::structs::area::Area;
 use crate::app::structs::info_entry::InfoEntry;
 use crate::app::structs::info_entry::InfoEntryIcon;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::monitor::enum_display_monitors;
@@ -162,7 +163,7 @@ impl ModuleImpl for TilesManagerModule {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, _tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
             MondrianMessage::Configure => {
@@ -179,6 +180,7 @@ impl ModuleImpl for TilesManagerModule {
             MondrianMessage::SystemEvent(evt) if *evt == SystemEvent::MonitorsLayoutChanged => {
                 Module::restart(self);
             }
+            MondrianMessage::HealthCheckPing => utils::send_pong(&Module::name(self), &self.bus_tx),
             MondrianMessage::Quit => Module::stop(self),
             msg => {
                 if let Ok(command) = msg.try_into() {
@@ -189,7 +191,7 @@ impl ModuleImpl for TilesManagerModule {
     }
 
     fn name(&self) -> String {
-        "core".to_string()
+        "tiles-manager".to_string()
     }
 }
 

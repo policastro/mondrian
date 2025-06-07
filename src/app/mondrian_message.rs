@@ -212,6 +212,10 @@ pub enum MondrianMessage {
     OpenLogFolder,
     About,
     Quit,
+    HealthCheckPing,
+    HealthCheckPong {
+        module_name: String,
+    },
     WindowEvent(WindowEvent),
     SystemEvent(SystemEvent),
 }

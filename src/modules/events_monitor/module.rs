@@ -9,6 +9,7 @@ use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::SystemEvent;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::misc::{get_current_thread_id, post_empty_thread_message};
@@ -229,7 +230,7 @@ impl ModuleImpl for EventsMonitor {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, _tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running.load(Ordering::SeqCst))),
             MondrianMessage::Retile => Module::restart(self),
@@ -253,6 +254,7 @@ impl ModuleImpl for EventsMonitor {
                 }
                 _ => {}
             },
+            MondrianMessage::HealthCheckPing => utils::send_pong(&Module::name(self), &self.bus_tx),
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

@@ -53,9 +53,15 @@ pub mod file_watcher {
     pub mod module;
 }
 
+pub mod healthcheck {
+    pub mod module;
+}
+
+use crossbeam_channel::Sender;
 use enum_dispatch::enum_dispatch;
 use events_monitor::module::EventsMonitor;
 use file_watcher::module::FileWatcher;
+use healthcheck::module::HealthCheck;
 use keybindings::module::Keybindings;
 use logger::module::Logger;
 use overlays::module::Overlays;
@@ -70,7 +76,7 @@ pub trait Module {
     fn stop(&mut self);
     fn restart(&mut self);
     fn enable(&mut self, enabled: bool);
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig);
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, tx: &Sender<MondrianMessage>);
     fn pause(&mut self, is_paused: bool);
     fn name(&self) -> String;
 }
@@ -81,6 +87,8 @@ pub trait ConfigurableModule: Module {
 }
 
 pub(in crate::modules) mod module_impl {
+    use crossbeam_channel::Sender;
+
     use crate::app::configs::AppConfig;
     use crate::app::mondrian_message::MondrianMessage;
 
@@ -90,7 +98,7 @@ pub(in crate::modules) mod module_impl {
         fn start(&mut self);
         fn stop(&mut self);
         fn restart(&mut self);
-        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig);
+        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, tx: &Sender<MondrianMessage>);
         fn enabled(&self) -> bool;
         fn enable(&mut self, enabled: bool);
         fn pause(&mut self, is_paused: bool);
@@ -123,8 +131,8 @@ pub(in crate::modules) mod module_impl {
             }
         }
 
-        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
-            ModuleImpl::handle(self, event, app_configs);
+        fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, tx: &Sender<MondrianMessage>) {
+            ModuleImpl::handle(self, event, app_configs, tx);
         }
 
         fn pause(&mut self, is_paused: bool) {
@@ -146,4 +154,16 @@ pub enum ModuleEnum {
     Keybindings,
     Logger,
     FileWatcher,
+    HealthCheck,
+}
+
+pub(crate) mod utils {
+    use crate::app::mondrian_message::MondrianMessage;
+
+    pub fn send_pong(module_name: &str, tx: &crossbeam_channel::Sender<MondrianMessage>) {
+        tx.send(MondrianMessage::HealthCheckPong {
+            module_name: module_name.to_string(),
+        })
+        .ok();
+    }
 }

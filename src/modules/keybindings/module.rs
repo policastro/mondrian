@@ -3,6 +3,7 @@ use crate::app::mondrian_message::MondrianMessage;
 use crate::app::structs::info_entry::InfoEntry;
 use crate::app::structs::info_entry::InfoEntryIcon;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::misc::get_current_thread_id;
@@ -143,7 +144,7 @@ impl ModuleImpl for Keybindings {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, _tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(!self.paused)),
             MondrianMessage::Configure => {
@@ -169,6 +170,7 @@ impl ModuleImpl for Keybindings {
                     })
                     .ok();
             }
+            MondrianMessage::HealthCheckPing => utils::send_pong(&Module::name(self), &self.bus),
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

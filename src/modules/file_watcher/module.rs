@@ -1,6 +1,7 @@
 use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::modules::Module;
 use crossbeam_channel::Sender;
 use notify::RecommendedWatcher;
@@ -103,7 +104,7 @@ impl ModuleImpl for FileWatcher {
         self.enabled = enabled;
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, _tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.running)),
             MondrianMessage::Configure => {
@@ -118,6 +119,7 @@ impl ModuleImpl for FileWatcher {
                 evt if evt.session_is_inactive() => Module::stop(self),
                 _ => {}
             },
+            MondrianMessage::HealthCheckPing => utils::send_pong(&Module::name(self), &self.bus_tx),
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

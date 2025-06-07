@@ -22,13 +22,14 @@ To start _Mondrian_, just download the `mondrian.exe` executable from the latest
 
 The application takes the following arguments (all of them are optional):
 
-    ./mondrian.exe --log <LOG_TYPE> --loglevel <LOGLEVEL> --dumpstateinfo
+    ./mondrian.exe --log <LOG_TYPE> --loglevel <LOGLEVEL> --dumpstateinfo --healthcheck
 
 Where:
 
 - `<LOG_TYPE>` can be 0 (no log file is created), 1 (error log files is created) or 2 (all log files are created). By default, it is set to 1.
 - `<LOG_LEVEL>` can be 0 (off), 1 (trace), 2 (debug), 3 (info), 4 (warn) or 5 (error). By default, it is set to 3.
-- `dumpstateinfo` is a flag that, if set, will dump the application state into a file (`./logs/app_state.txt`).
+- `dumpstateinfo` dump the application state into a file (`./logs/app_state.txt`) at the start of the application;
+- `healthcheck` enables health checks to detect freezes.
 
 All the log files will be stored in the application directory under the `logs` subfolder. When a log file reaches 10MB, it will be archived in a `.gz` file (up to three previous versions).
 
@@ -513,4 +514,4 @@ This project is licensed under the GPLv3 license. See the `LICENSE.md` for more 
 
 ## Acknowledgments
 
-- [Andrey Sitnik](https://github.com/ai) for the website [easings.net](https://easings.net), which I used as reference for implementing the animations.
+- [Andrey Sitnik](https://github.com/ai) for [easings.net](https://easings.net), which I used as reference for implementing the animations.

@@ -6,6 +6,7 @@ use crate::app::mondrian_message::MondrianMessage;
 use crate::app::structs::info_entry::{InfoEntry, InfoEntryIcon};
 use crate::modules::events_monitor::module::EventsMonitor;
 use crate::modules::file_watcher::module::FileWatcher;
+use crate::modules::healthcheck::module::HealthCheck;
 use crate::modules::keybindings::module::Keybindings;
 use crate::modules::logger::module::Logger;
 use crate::modules::overlays::module::Overlays;
@@ -54,10 +55,10 @@ pub fn main() {
         .join(".config/mondrian/mondrian.toml");
 
     log_info();
-    start_app(&cfg_file, args.dump_info);
+    start_app(&cfg_file, args.dump_info, args.health_check);
 }
 
-fn start_app(cfg_file: &PathBuf, dump_info: bool) {
+fn start_app(cfg_file: &PathBuf, dump_info: bool, health_check: bool) {
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     }
@@ -69,7 +70,7 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
     let shared_config = Arc::new(RwLock::new(config));
 
     let (bus_tx, bus_rx) = crossbeam_channel::unbounded();
-    let modules: Vec<ModuleEnum> = vec![
+    let mut modules: Vec<ModuleEnum> = vec![
         Logger::new().into(),
         EventsMonitor::new(bus_tx.clone()).into(),
         TilesManagerModule::new(bus_tx.clone()).into(),
@@ -78,6 +79,12 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
         Keybindings::new(bus_tx.clone()).into(),
         FileWatcher::new(bus_tx.clone(), cfg_file).into(),
     ];
+
+    if health_check {
+        log::info!("Health check enabled");
+        let modules_names: Vec<String> = modules.iter().map(|m| m.name().to_string()).collect();
+        modules.push(HealthCheck::new(modules_names, bus_tx.clone()).into());
+    }
 
     let mut modules_map: HashMap<String, (Sender<MondrianMessage>, JoinHandle<()>)> = HashMap::new();
 
@@ -89,7 +96,8 @@ fn start_app(cfg_file: &PathBuf, dump_info: bool) {
 
         let local_shared_config = shared_config.clone();
         let (tx, rx) = crossbeam_channel::unbounded();
-        let th = thread::spawn(move || module_handler(&mut m, local_shared_config, rx));
+        let bus_tx = bus_tx.clone();
+        let th = thread::spawn(move || module_handler(&mut m, local_shared_config, bus_tx, rx));
 
         modules_map.insert(module_name, (tx, th));
     }
@@ -198,10 +206,15 @@ fn get_info_entries(cfg_file: &PathBuf) -> Vec<InfoEntry> {
     vec![infos]
 }
 
-fn module_handler(m: &mut ModuleEnum, shared_config: Arc<RwLock<AppConfig>>, rx: Receiver<MondrianMessage>) {
+fn module_handler(
+    m: &mut ModuleEnum,
+    shared_config: Arc<RwLock<AppConfig>>,
+    tx: Sender<MondrianMessage>,
+    rx: Receiver<MondrianMessage>,
+) {
     let mut config = shared_config.read().unwrap().clone();
 
-    m.handle(&MondrianMessage::Configure, &config);
+    m.handle(&MondrianMessage::Configure, &config, &tx);
     m.start();
     log::info!("Module '{}' started", m.name());
 
@@ -210,7 +223,7 @@ fn module_handler(m: &mut ModuleEnum, shared_config: Arc<RwLock<AppConfig>>, rx:
         if matches!(event, MondrianMessage::RefreshConfig) {
             config = shared_config.read().unwrap().clone();
         }
-        m.handle(&event, &config);
+        m.handle(&event, &config, &tx);
         if matches!(event, MondrianMessage::Quit) {
             log::info!("Module '{}' stopped", m.name());
             break;

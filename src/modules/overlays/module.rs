@@ -10,6 +10,7 @@ use crate::app::mondrian_message::MondrianMessage;
 use crate::app::mondrian_message::WindowEvent;
 use crate::app::mondrian_message::WindowTileState;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::modules::ConfigurableModule;
 use crate::modules::Module;
 use crate::win32::api::misc::get_current_thread_id;
@@ -114,7 +115,7 @@ impl ModuleImpl for Overlays {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, app_configs: &AppConfig, _tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::Pause(pause) => Module::pause(self, pause.unwrap_or(self.is_running())),
             MondrianMessage::Configure => {
@@ -177,6 +178,7 @@ impl ModuleImpl for Overlays {
                 evt if evt.session_is_inactive() => Module::stop(self),
                 _ => {}
             },
+            MondrianMessage::HealthCheckPing => utils::send_pong(&Module::name(self), &self.bus),
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

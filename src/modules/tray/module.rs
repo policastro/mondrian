@@ -2,6 +2,7 @@ use crate::app::assets::Asset;
 use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::modules::Module;
 use crate::win32::api::misc::get_current_thread_id;
 use crate::win32::api::misc::post_empty_thread_message;
@@ -187,7 +188,7 @@ impl ModuleImpl for Tray {
         self.enabled
     }
 
-    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfig, _tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::Pause(pause) => {
                 let pause = match pause {
@@ -200,6 +201,7 @@ impl ModuleImpl for Tray {
                 self.pause_flag.store(pause, Ordering::Relaxed);
                 self.refresh_tray();
             }
+            MondrianMessage::HealthCheckPing => utils::send_pong(&Module::name(self), &self.bus),
             MondrianMessage::Quit => Module::stop(self),
             _ => {}
         }

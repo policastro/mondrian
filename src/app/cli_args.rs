@@ -31,10 +31,13 @@ pub struct CliArgs {
 
     #[arg(
         long = "dumpstateinfo",
-        help = "Dumps app state info to a file",
+        help = "Dump app state info to a file",
         default_value_t = false
     )]
     pub dump_info: bool,
+
+    #[arg(long = "healthcheck", help = "Enable health check", default_value_t = false)]
+    pub health_check: bool,
 }
 
 impl CliArgs {

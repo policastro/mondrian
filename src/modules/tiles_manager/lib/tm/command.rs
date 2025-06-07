@@ -135,6 +135,8 @@ impl TryFrom<&MondrianMessage> for TMCommand {
             | MondrianMessage::QueryInfoResponse { .. }
             | MondrianMessage::OpenLogFolder
             | MondrianMessage::About
+            | MondrianMessage::HealthCheckPing
+            | MondrianMessage::HealthCheckPong { .. }
             | MondrianMessage::Quit => Err(()),
         }
     }

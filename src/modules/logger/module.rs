@@ -1,7 +1,9 @@
 use crate::app::configs::AppConfig;
 use crate::app::mondrian_message::MondrianMessage;
 use crate::modules::module_impl::ModuleImpl;
+use crate::modules::utils;
 use crate::win32::window::window_obj::WindowObjInfo;
+use crossbeam_channel::Sender;
 use info_response_builder::build_info_response;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -36,7 +38,7 @@ impl ModuleImpl for Logger {
         true
     }
 
-    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfig) {
+    fn handle(&mut self, event: &MondrianMessage, _app_configs: &AppConfig, tx: &Sender<MondrianMessage>) {
         match event {
             MondrianMessage::WindowEvent(e) => {
                 let wref = e.get_window_ref();
@@ -59,6 +61,7 @@ impl ModuleImpl for Logger {
                         .map(|a| format!("({}, {}, {}, {})", a.x, a.y, a.width, a.height))
                         .unwrap_or("()".to_string()),
                 );
+                return;
             }
             MondrianMessage::QueryInfo => {
                 let mut data_file = Self::get_app_state_file();
@@ -83,8 +86,10 @@ impl ModuleImpl for Logger {
                 writeln!(data_file, "{divider}").ok();
                 writeln!(data_file, "{}", build_info_response(infos, 3, "▸")).ok();
             }
-            _ => log::trace!("{:?}", event),
+            MondrianMessage::HealthCheckPing => utils::send_pong(&self.name(), tx),
+            _ => (),
         }
+        log::trace!("{event:?}");
     }
 
     fn name(&self) -> String {
