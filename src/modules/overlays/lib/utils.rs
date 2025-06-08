@@ -4,7 +4,6 @@ pub mod overlay {
     use crate::win32::api::gdiplus::init_gdiplus;
     use crate::win32::api::window::create_window;
     use crate::win32::api::window::show_window;
-    use crate::win32::window::window_obj::WindowObjHandler;
     use crate::win32::window::window_obj::WindowObjInfo;
     use crate::win32::window::window_ref::WindowRef;
     use std::ffi::OsStr;
@@ -64,12 +63,15 @@ pub mod overlay {
     use windows::Win32::Graphics::GdiPlus::UnitPixel;
     use windows::Win32::System::LibraryLoader::GetModuleHandleExW;
     use windows::Win32::UI::WindowsAndMessaging::DefWindowProcW;
+    use windows::Win32::UI::WindowsAndMessaging::GetWindow;
     use windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::SetWindowLongPtrW;
     use windows::Win32::UI::WindowsAndMessaging::SetWindowPos;
     use windows::Win32::UI::WindowsAndMessaging::UpdateLayeredWindow;
     use windows::Win32::UI::WindowsAndMessaging::CREATESTRUCTW;
     use windows::Win32::UI::WindowsAndMessaging::GWLP_USERDATA;
+    use windows::Win32::UI::WindowsAndMessaging::GW_HWNDPREV;
+    use windows::Win32::UI::WindowsAndMessaging::HWND_TOP;
     use windows::Win32::UI::WindowsAndMessaging::SWP_NOACTIVATE;
     use windows::Win32::UI::WindowsAndMessaging::SWP_NOREDRAW;
     use windows::Win32::UI::WindowsAndMessaging::SWP_NOSENDCHANGING;
@@ -81,6 +83,7 @@ pub mod overlay {
     use windows::Win32::UI::WindowsAndMessaging::WM_DESTROY;
     use windows::Win32::UI::WindowsAndMessaging::WM_SIZE;
     use windows::Win32::UI::WindowsAndMessaging::WM_USER;
+    use windows::Win32::UI::WindowsAndMessaging::WS_DISABLED;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_LAYERED;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_NOACTIVATE;
     use windows::Win32::UI::WindowsAndMessaging::WS_EX_TOOLWINDOW;
@@ -161,15 +164,15 @@ pub mod overlay {
                 let width = (lparam.0 & 0xFFFF) as i32;
                 let height = ((lparam.0 >> 16) & 0xFFFF) as i32;
                 let proc_state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut OverlayProcState;
-                let proc_state = &*proc_state_ptr;
+                let proc_state = &mut *proc_state_ptr;
                 update_overlay(hwnd, &proc_state.graphic_ctx, width, height);
 
-                let new_proc_state = Box::new(OverlayProcState::new(proc_state.graphic_ctx.clone(), width, height));
-                SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(new_proc_state) as isize);
+                proc_state.width = width;
+                proc_state.height = height;
 
                 LRESULT(0)
             }
-            msg if msg == WM_USER_CONFIGURE => {
+            WM_USER_CONFIGURE => {
                 let proc_state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut OverlayProcState;
                 let proc_state = &*proc_state_ptr;
                 let (last_width, last_height) = (proc_state.width, proc_state.height);
@@ -193,7 +196,7 @@ pub mod overlay {
         }
     }
 
-    pub fn create(params: OverlayParams, target: Option<HWND>, class_name: &str) -> HWND {
+    pub fn create(params: OverlayParams, target: HWND, class_name: &str) -> Option<HWND> {
         let mut hmod: HMODULE = unsafe { std::mem::zeroed() };
         unsafe { GetModuleHandleExW(0, None, &mut hmod).unwrap() };
 
@@ -201,23 +204,16 @@ pub mod overlay {
         let cs_ptr = PCWSTR(cs_w.as_ptr());
 
         let ex_style = WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
-        let style = WS_POPUP;
+        let style = WS_POPUP | WS_DISABLED;
 
-        let b = get_box_from_target(target.unwrap_or_default(), params.thickness, params.padding);
+        let b = get_box_from_target(target, params.thickness, params.padding);
         let b = b.unwrap_or_default().into();
 
-        // INFO: when the task manager is set to be always on top, is not possible to create the
-        // overlay window as a child. Not sure if other applications have the same behavior.
-        let hwnd = match create_window(ex_style, cs_ptr, style, b, target, hmod, params) {
-            Some(hwnd) => Some(hwnd),
-            None => create_window(ex_style, cs_ptr, style, b, None, hmod, params).inspect(|h| {
-                WindowRef::new(*h).set_topmost(true).ok();
-            }),
-        };
-
-        let hwnd = hwnd.unwrap_or_default();
-
-        show_window(hwnd, SW_SHOWNOACTIVATE);
+        let hwnd = create_window(ex_style, cs_ptr, style, b, None, hmod, params);
+        if let Some(w) = hwnd {
+            show_window(w, SW_SHOWNOACTIVATE);
+            move_to_target(w, target, &params);
+        }
 
         hwnd
     }
@@ -237,8 +233,12 @@ pub mod overlay {
             None => return,
         };
 
-        let flags = SWP_NOREDRAW | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING;
-        let _ = unsafe { SetWindowPos(overlay, target, x, y, cx, cy, flags) };
+        let mut flags = SWP_NOREDRAW | SWP_NOACTIVATE | SWP_NOSENDCHANGING;
+        let above_target = unsafe { GetWindow(target, GW_HWNDPREV).unwrap_or(HWND_TOP) };
+        if above_target == overlay {
+            flags |= SWP_NOZORDER;
+        }
+        let _ = unsafe { SetWindowPos(overlay, above_target, x, y, cx, cy, flags) };
     }
 
     fn update_overlay(hwnd: HWND, ctx: &OverlayGraphicContext, width: i32, height: i32) {

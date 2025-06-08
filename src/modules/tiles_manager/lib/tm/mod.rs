@@ -186,8 +186,10 @@ impl TilesManager {
         let maximized = self.maximized_wins.clone();
         anim_player.play(
             self.config.animation.animation_type.filter(|_| animate),
-            win_in_focus,
             Some(Arc::new(move || {
+                if let Some(w) = win_in_focus {
+                    w.focus()
+                }
                 maximized.iter().for_each(|w| w.to_front());
             })),
         );
@@ -197,16 +199,8 @@ impl TilesManager {
     /// Repositions a window
     pub fn reposition_window(&mut self, window: WindowRef) -> Result<(), Error> {
         let leaf = self.containers.find_leaf(window)?;
-        let maximized = self.maximized_wins.clone();
-
         self.animation_player.queue(window, leaf.viewbox, None);
-        self.animation_player.play(
-            self.config.animation.animation_type,
-            None,
-            Some(Arc::new(move || {
-                maximized.iter().for_each(|w| w.to_front());
-            })),
-        );
+        self.animation_player.play(self.config.animation.animation_type, None);
         Ok(())
     }
 

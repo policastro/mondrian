@@ -27,7 +27,6 @@ pub trait WindowObjHandler {
         force_normal: bool,
         flags: SET_WINDOW_POS_FLAGS,
     ) -> Result<(), ()>;
-    fn redraw(&self) -> Result<(), ()>;
     fn minimize(&self, move_focus: bool) -> bool;
     fn restore(&self, activate: bool) -> bool;
     fn close(&self);

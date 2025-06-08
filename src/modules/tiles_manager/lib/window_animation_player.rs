@@ -1,5 +1,4 @@
 use crate::app::structs::area::Area;
-use crate::win32::api::window::get_foreground_window;
 use crate::win32::window::window_obj::WindowObjHandler;
 use crate::win32::window::window_obj::WindowObjInfo;
 use crate::win32::window::window_ref::WindowRef;
@@ -26,7 +25,6 @@ pub struct WindowAnimationPlayer {
     animation_thread: Option<std::thread::JoinHandle<()>>,
     animation_duration: Duration,
     framerate: u8,
-    previous_foreground: Option<WindowRef>,
     on_start: Arc<dyn Fn(HashSet<WindowRef>) + Send + Sync + 'static>,
     on_error: Arc<dyn Fn() + Send + Sync + 'static>,
     on_complete: Arc<dyn Fn() + Send + Sync + 'static>,
@@ -62,7 +60,6 @@ impl WindowAnimationPlayer {
             animation_thread: None,
             animation_duration,
             framerate,
-            previous_foreground: None,
             on_start: Arc::new(on_start),
             on_error: Arc::new(on_error),
             on_complete: Arc::new(on_complete),
@@ -88,20 +85,10 @@ impl WindowAnimationPlayer {
         if let Some(t) = self.animation_thread.take() {
             t.join().unwrap();
         }
-
-        self.previous_foreground.take().inspect(Self::focus_window);
     }
 
-    pub fn play(
-        &mut self,
-        animation: Option<WindowAnimation>,
-        win_in_focus: Option<WindowRef>,
-        cb_done: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
-    ) {
+    pub fn play(&mut self, animation: Option<WindowAnimation>, cb_done: Option<Arc<dyn Fn() + Send + Sync + 'static>>) {
         self.cancel();
-        self.previous_foreground = win_in_focus
-            .or_else(|| get_foreground_window().map(|fw| fw.into()))
-            .filter(|fw| self.windows.iter().any(|(w, _)| w == fw));
 
         let wins = self.windows.clone();
         let wins_info: Vec<(WindowRef, Area, Area)> = wins
@@ -140,7 +127,6 @@ impl WindowAnimationPlayer {
         let on_error = self.on_error.clone();
         let on_complete = self.on_complete.clone();
         let cb_done = cb_done;
-        let prev_focus = self.previous_foreground;
 
         self.running.store(true, Ordering::Release);
 
@@ -166,7 +152,6 @@ impl WindowAnimationPlayer {
             }
 
             Self::move_windows(&wins);
-            prev_focus.inspect(Self::focus_window);
             Self::set_windows_topmost(&wins);
             running.store(false, Ordering::Release);
             (on_complete)();
@@ -220,23 +205,14 @@ impl WindowAnimationPlayer {
     }
 
     fn move_windows(windows: &HashMap<WindowRef, WindowAnimationQueueInfo>) {
-        let flags = SWP_SHOWWINDOW | SWP_NOSENDCHANGING | SWP_NOACTIVATE;
+        let flags = SWP_SHOWWINDOW | SWP_NOSENDCHANGING | SWP_NOACTIVATE | SWP_NOZORDER;
         windows
             .iter()
             .filter(|(win, info)| win.get_area().is_some_and(|a| a != info.target_area))
             .for_each(|(win, info)| {
                 let (pos, size) = (info.target_area.get_origin(), info.target_area.get_size());
                 win.resize_and_move(pos, size, false, flags).ok();
-                win.redraw().ok();
             });
-    }
-
-    fn focus_window(win: &WindowRef) {
-        win.focus();
-        // INFO: Brings the window to the front
-        if !win.is_topmost() {
-            win.to_front();
-        }
     }
 
     fn set_windows_topmost(windows: &HashMap<WindowRef, WindowAnimationQueueInfo>) {

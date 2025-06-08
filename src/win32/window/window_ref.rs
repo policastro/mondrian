@@ -3,9 +3,9 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use windows::Win32::UI::WindowsAndMessaging::HWND_TOP;
 use windows::Win32::{
     Foundation::HWND,
-    Graphics::Gdi::{RedrawWindow, RDW_ALLCHILDREN, RDW_FRAME, RDW_INTERNALPAINT, RDW_INVALIDATE},
     UI::WindowsAndMessaging::{
         IsIconic, IsWindowVisible, SetWindowPos, HWND_NOTOPMOST, HWND_TOPMOST, SET_WINDOW_POS_FLAGS, SWP_NOMOVE,
         SWP_NOSIZE, SW_MINIMIZE, SW_RESTORE, SW_SHOWMINNOACTIVE, SW_SHOWNOACTIVATE, SW_SHOWNORMAL, WM_CLOSE,
@@ -228,18 +228,6 @@ impl WindowObjHandler for WindowRef {
         show_window(self.hwnd, SW_SHOWNORMAL);
     }
 
-    fn redraw(&self) -> Result<(), ()> {
-        unsafe {
-            let _ = RedrawWindow(
-                self.hwnd,
-                None,
-                None,
-                RDW_INTERNALPAINT | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN,
-            );
-        }
-        Ok(())
-    }
-
     fn minimize(&self, move_focus: bool) -> bool {
         match move_focus {
             true => show_window(self.hwnd, SW_MINIMIZE),
@@ -266,6 +254,6 @@ impl WindowObjHandler for WindowRef {
     }
 
     fn to_front(&self) {
-        self.set_topmost(true).and_then(|_| self.set_topmost(false)).ok();
+        unsafe { SetWindowPos(self.hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE).ok() };
     }
 }

@@ -16,6 +16,7 @@ pub trait OverlaysManagerTrait {
     fn rebuild(&mut self, windows: &HashMap<WindowRef, Option<OverlayParams>>);
     fn focus(&mut self, window: WindowRef);
     fn reposition(&mut self, window: WindowRef);
+    fn reposition_all(&mut self);
     fn suspend(&mut self, window: WindowRef);
     fn resume(&mut self, window: WindowRef);
     fn resume_all(&mut self);
@@ -77,14 +78,9 @@ impl OverlaysManagerTrait for MonoOverlaysManager {
     fn focus(&mut self, window: WindowRef) {
         if let Some(e) = self
             .last_foreground
-            .filter(|lf| *lf == window)
+            .filter(|lf| *lf != window)
             .and_then(|lf| self.overlays.get_mut(&lf))
         {
-            update_overlay(e, Some(*self.params_map.get(&window).unwrap()));
-            return;
-        }
-
-        if let Some(e) = self.last_foreground.and_then(|lf| self.overlays.get_mut(&lf)) {
             e.overlay.hide();
         }
 
@@ -102,6 +98,12 @@ impl OverlaysManagerTrait for MonoOverlaysManager {
     fn reposition(&mut self, window: WindowRef) {
         if let Some(e) = self.overlays.get_mut(&window).filter(|o| !o.suspended) {
             update_overlay(e, None);
+        }
+    }
+
+    fn reposition_all(&mut self) {
+        if let Some(w) = self.last_foreground {
+            self.reposition(w);
         }
     }
 
@@ -186,14 +188,11 @@ impl OverlaysManagerTrait for MultiOverlaysManager {
     }
 
     fn focus(&mut self, window: WindowRef) {
-        if self.last_foreground.is_some_and(|lf| lf == window) {
-            if let Some(e) = self.last_foreground.and_then(|lf| self.overlays.get_mut(&lf)) {
-                update_overlay(e, Some(*self.active_params_map.get(&window).unwrap()));
-            }
-            return;
-        }
-
-        if let Some(e) = self.last_foreground.and_then(|lf| self.overlays.get_mut(&lf)) {
+        if let Some(e) = self
+            .last_foreground
+            .filter(|lf| *lf != window)
+            .and_then(|lf| self.overlays.get_mut(&lf))
+        {
             update_overlay(e, Some(self.inactive_params));
         }
 
@@ -209,6 +208,10 @@ impl OverlaysManagerTrait for MultiOverlaysManager {
         if let Some(e) = self.overlays.get_mut(&window).filter(|o| !o.suspended) {
             update_overlay(e, None);
         };
+    }
+
+    fn reposition_all(&mut self) {
+        self.overlays.values_mut().for_each(|e| update_overlay(e, None));
     }
 
     fn suspend(&mut self, window: WindowRef) {

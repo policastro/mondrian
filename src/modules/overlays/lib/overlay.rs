@@ -61,11 +61,13 @@ impl Overlay {
         Self::set_init_state(&self.current_state, InitState::Creating);
 
         let main_thread = thread::spawn(move || {
-            let hwnd = overlay::create(params, Some(target.into()), class_name.as_str());
-            if hwnd.is_invalid() {
-                Self::set_init_state(&current_state, InitState::Idle);
-                return;
-            }
+            let hwnd = match overlay::create(params, target.into(), class_name.as_str()) {
+                Some(hwnd) => hwnd,
+                None => {
+                    Self::set_init_state(&current_state, InitState::Idle);
+                    return;
+                }
+            };
 
             overlay_handle.store(hwnd.0 as isize, Ordering::Release);
             Self::set_init_state(&current_state, InitState::Created);
