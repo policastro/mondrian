@@ -579,21 +579,25 @@ impl TilesManagerCommands for TilesManager {
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
         if matches!(tile_state, WindowTileState::Floating) {
             let wins = self.get_visible_managed_windows();
-            wins.iter()
+            let win = wins
+                .iter()
                 .filter(|e| *e.0 != curr)
                 .filter_map(|e| e.0.get_area().map(|a| (e.0, a.get_center())))
                 .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
                 .ok_or(Error::NoWindow)?
-                .0
-                .focus();
+                .0;
+
+            self.focus_win(win);
         } else if !matches!(tile_state, WindowTileState::Maximized) {
-            self.floating_wins
+            let win = self
+                .floating_wins
                 .enabled_keys(&self.current_vd)
                 .filter_map(|w| w.get_area().map(|a| (w, a.get_center())))
                 .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
                 .ok_or(Error::NoWindow)?
-                .0
-                .focus();
+                .0;
+
+            self.focus_win(&win);
         };
 
         Ok(())
@@ -703,10 +707,23 @@ impl TilesManager {
         self.cursor_on_leaf(leaf);
     }
 
+    fn focus_win(&mut self, win: &WindowRef) {
+        win.focus();
+        self.cursor_on_win(win);
+    }
+
     fn cursor_on_leaf(&self, leaf: &AreaLeaf<WindowRef>) {
         if self.config.focus_follows_cursor {
             let (x, y) = leaf.viewbox.get_center();
             set_cursor_pos(x, y);
+        }
+    }
+
+    fn cursor_on_win(&self, win: &WindowRef) {
+        if self.config.focus_follows_cursor {
+            if let Some((x, y)) = win.get_area().map(|a| a.get_center()) {
+                set_cursor_pos(x, y);
+            }
         }
     }
 }
