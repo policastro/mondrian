@@ -543,7 +543,7 @@ impl TilesManager {
         let leaves = leaves_limited_by_edge(leaves, direction, edge);
         if self.config.history_based_navigation {
             let leaves: Vec<AreaLeaf<WindowRef>> = leaves.iter().filter(|l| l.id != excluded_window).copied().collect();
-            let leaf = self.focus_history.latest(&leaves).copied();
+            let leaf = self.focus_history.most_recent_leaf(&leaves).copied();
             if leaf.is_some() {
                 return leaf;
             }

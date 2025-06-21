@@ -36,6 +36,12 @@ pub struct WindowRef {
     pub hwnd: HWND,
 }
 
+impl From<&WindowRef> for WindowRef {
+    fn from(val: &WindowRef) -> Self {
+        *val
+    }
+}
+
 // NOTE: makes HWND thread safe
 unsafe impl Send for WindowRef {}
 unsafe impl Sync for WindowRef {}

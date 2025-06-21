@@ -550,7 +550,7 @@ impl TilesManagerCommands for TilesManager {
         let leaves = closest.value.tree().leaves(None);
 
         if self.config.history_based_navigation {
-            if let Some(leaf) = self.focus_history.latest(&leaves) {
+            if let Some(leaf) = self.focus_history.most_recent_leaf(&leaves) {
                 self.focus_leaf(leaf);
                 return Ok(());
             }
@@ -577,28 +577,36 @@ impl TilesManagerCommands for TilesManager {
         let curr = get_foreground().ok_or(Error::NoWindow)?;
         let tile_state = self.get_window_state(curr)?;
         let center = curr.get_area().ok_or(Error::NoWindowsInfo)?.get_center();
-        if matches!(tile_state, WindowTileState::Floating) {
-            let wins = self.get_visible_managed_windows();
-            let win = wins
+
+        let candidates: Vec<WindowRef> = match tile_state.clone() {
+            WindowTileState::Floating => self
+                .get_visible_managed_windows()
                 .iter()
                 .filter(|e| *e.0 != curr && e.1.is_tiled())
-                .filter_map(|e| e.0.get_area().map(|a| (e.0, a.get_center())))
-                .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
-                .ok_or(Error::NoWindow)?
-                .0;
-
-            self.focus_win(win);
-        } else if tile_state.is_tiled() {
-            let win = self
-                .floating_wins
-                .enabled_keys(&self.current_vd)
-                .filter_map(|w| w.get_area().map(|a| (w, a.get_center())))
-                .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
-                .ok_or(Error::NoWindow)?
-                .0;
-
-            self.focus_win(&win);
+                .map(|e| *e.0)
+                .collect(),
+            ts if ts.is_tiled() => self.floating_wins.enabled_keys(&self.current_vd).collect::<Vec<_>>(),
+            _ => return Ok(()),
         };
+
+        // INFO: search for the most recently focused window (if history based navigation is enabled)
+        let win = match self.config.history_based_navigation {
+            true => self.focus_history.most_recent_win(&candidates),
+            false => None,
+        };
+
+        // INFO: if no window was found, focus the closest one
+        let win = win
+            .or_else(|| {
+                candidates
+                    .iter()
+                    .filter_map(|w| w.get_area().map(|a| (w, a.get_center())))
+                    .min_by_key(|w| center.distance(w.1))
+                    .map(|e| e.0)
+            })
+            .ok_or(Error::NoWindow)?;
+
+        self.focus_win(win);
 
         Ok(())
     }
@@ -702,12 +710,12 @@ impl TilesManager {
         }
     }
 
-    fn focus_leaf(&mut self, leaf: &AreaLeaf<WindowRef>) {
+    fn focus_leaf(&self, leaf: &AreaLeaf<WindowRef>) {
         leaf.id.focus();
         self.cursor_on_leaf(leaf);
     }
 
-    fn focus_win(&mut self, win: &WindowRef) {
+    fn focus_win(&self, win: &WindowRef) {
         win.focus();
         self.cursor_on_win(win);
     }

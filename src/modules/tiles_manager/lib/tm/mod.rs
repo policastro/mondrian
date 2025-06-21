@@ -300,7 +300,7 @@ impl TilesManager {
         // INFO: most recently focused window otherwise top left window
         let win_to_focus = self
             .focus_history
-            .latest(&wins_leaves)
+            .most_recent_leaf(&wins_leaves)
             .or(wins_leaves
                 .iter()
                 .min_by(|l1, l2| l1.viewbox.x.cmp(&l2.viewbox.x).then(l1.viewbox.y.cmp(&l2.viewbox.y)))

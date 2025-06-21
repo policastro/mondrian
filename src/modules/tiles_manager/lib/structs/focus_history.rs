@@ -1,3 +1,4 @@
+use crate::app::area_tree::leaf::AreaLeaf;
 use crate::win32::window::window_ref::WindowRef;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -51,13 +52,25 @@ impl FocusHistory {
         }
     }
 
-    pub fn latest<'a, V>(&self, windows: &'a [V]) -> Option<&'a V>
-    where
-        &'a V: Into<WindowRef>,
-    {
+    pub fn most_recent_win<'a>(&self, windows: impl IntoIterator<Item = &'a WindowRef>) -> Option<&'a WindowRef> {
+        self.most_recent_by(windows, |w| w)
+    }
+
+    pub fn most_recent_leaf<'a>(
+        &self,
+        windows: impl IntoIterator<Item = &'a AreaLeaf<WindowRef>>,
+    ) -> Option<&'a AreaLeaf<WindowRef>> {
+        self.most_recent_by(windows, |l| &l.id)
+    }
+
+    pub fn most_recent_by<'a, T>(
+        &self,
+        windows: impl IntoIterator<Item = &'a T>,
+        key: impl Fn(&'a T) -> &'a WindowRef,
+    ) -> Option<&'a T> {
         windows
-            .iter()
-            .filter_map(|w| self.value(&w.into()).map(|v| (w, v)))
+            .into_iter()
+            .filter_map(|w| self.value(key(w)).map(|v| (w, v)))
             .max_by_key(|(_, v)| *v)
             .map(|(w, _)| w)
     }
