@@ -581,14 +581,14 @@ impl TilesManagerCommands for TilesManager {
             let wins = self.get_visible_managed_windows();
             let win = wins
                 .iter()
-                .filter(|e| *e.0 != curr)
+                .filter(|e| *e.0 != curr && e.1.is_tiled())
                 .filter_map(|e| e.0.get_area().map(|a| (e.0, a.get_center())))
                 .min_by(|a, b| center.distance(a.1).cmp(&center.distance(b.1)))
                 .ok_or(Error::NoWindow)?
                 .0;
 
             self.focus_win(win);
-        } else if !matches!(tile_state, WindowTileState::Maximized) {
+        } else if tile_state.is_tiled() {
             let win = self
                 .floating_wins
                 .enabled_keys(&self.current_vd)

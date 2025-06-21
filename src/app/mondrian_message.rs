@@ -162,6 +162,15 @@ pub enum WindowTileState {
     HalfFocalized,
 }
 
+impl WindowTileState {
+    pub fn is_tiled(&self) -> bool {
+        matches!(
+            self,
+            WindowTileState::Normal | WindowTileState::Focalized | WindowTileState::HalfFocalized
+        )
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum MondrianMessage {
     RefreshConfig,
